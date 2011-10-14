@@ -2,7 +2,9 @@
 
 (in-package #:harlie)
 
-(defvar *connection* (connect :nickname "Harlie" :server "irc.srh.org"))
+(defvar *my-nick* "Harlie")
+
+(defvar *connection* (connect :nickname *my-nick* :server "irc.srh.org"))
 
 (defvar *last-message* nil)
 
@@ -20,13 +22,20 @@
 
 (defun msg-hook (message)
   (setf *last-message* message)
-  (let* ((channel (car (arguments message)))
+  (let* ((channel (string-upcase (car (arguments message))))
+	 (connection (connection message))
 	 (text (second (arguments message)))
-	 (botcmd (car (space-split-string text))))
-    (format t "~A ~A ~A~%" channel text botcmd)
-    (cond ((equal botcmd "!sources")
-	   (privmsg (connection message) channel "git@coruscant.deepsky.com:harlie.git"))
-	  (t (privmsg (connection message) channel "Finest kind.")))))
+	 (botcmd (string-upcase (car (space-split-string text))))
+	 (reply-to channel))
+    (progn
+      (format t "Is this shit getting through?~%")
+      (format t "Message: |~A|~%" (raw-message-string message))
+      (format t "   connection=~A channel=~A~%" connection channel)
+      (if (equal channel (string-upcase *my-nick*))
+	  (setf reply-to (user message)))
+      (cond ((equal botcmd "!SOURCES")
+	     (privmsg connection reply-to "git@coruscant.deepsky.com:harlie.git"))
+	    (t (privmsg connection reply-to "Finest kind."))))))
 
 (defun run-bot-instance ()
   (cl-irc:join *connection* "#trinity")

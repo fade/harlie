@@ -9,6 +9,29 @@
 
 (defparameter *last-message* nil)
 
+; There is undoubtedly a better way to extract the text from TITLE tags,
+; but this is what we're stuck with for now.
+
+(defun find-title (tree)
+  "Search recursively for a :title tag in a nested list, and return the text."
+  (if (not (listp tree))
+      nil
+      (if (equal (car tree) :TITLE)
+	  (third tree)
+	  (let ((found nil))
+	    (do* ((foo tree (cdr foo))
+		  (bar (car foo) (car foo)))
+		 ((or found (not foo)) found) 
+	      (if (listp bar) (setf found (find-title bar))))))))
+
+(defun fetch-title (url)
+  "Extract the title from a Web page."
+  (let* ((webtext (http-request url))
+	 (document (chtml:parse webtext (chtml:make-lhtml-builder)))
+	 (title nil))
+    (setf title (find-title document))
+    (if title title "No title found.")))
+
 ; Why do we fork another thread just to run this lambda, you may ask?
 ; Because the thread that the network event loop runs in keeps getting
 ; killed every time there's an error in any of this code, and then
@@ -16,16 +39,8 @@
 ; This way, the thread that gets killed is an ephemeral thing that no-one
 ; (well, hardly anyone) will miss.
 
-(defun fetch-title (url)
-  (let* ((webtext (http-request url))
-	 (document (chtml:parse webtext (cxml-stp:make-builder)))
-	 (title "No title found."))
-    (stp:do-recursively (a document)
-      (when (and (typep a 'stp:element) (equal (stp:local-name a) "title"))
-	(setf title (stp:string-value a))))
-    title))
-
 (defun threaded-msg-hook (message)
+  "Handle an incoming message."
   (make-thread (lambda ()
 		 (setf *last-message* message)
 		 (let* ((channel (string-upcase (car (arguments message))))
@@ -48,15 +63,16 @@
 			 (let ((urls (all-matches-as-strings "((ftp|http|https)://[^\\s]+)|(www[.][^\\s]+)" text)))
 			   (if urls
 			       (progn
-				 (privmsg connection reply-to "I see URL people:")
 				 (format t "~A~%" urls)
-				 (dolist (url urls) (privmsg connection reply-to (format nil "   ~A" url))))))))))))
+				 (dolist (url urls) (privmsg connection reply-to (format nil "[ ~A ] [ ~A ]" url (fetch-title url)))))))))))))
 
 (defun run-bot-instance ()
+  "Run an instance of the bot."
   (cl-irc:join *connection* "#trinity")
   (add-hook *connection* 'irc::irc-privmsg-message 'threaded-msg-hook)
   (read-message-loop *connection*))
 
 (defun run-bot ()
+  "Fork a thread to run an instance of the bot."
   (make-thread #'run-bot-instance)
   )

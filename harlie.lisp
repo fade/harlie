@@ -3,11 +3,15 @@
 (in-package #:harlie)
 
 ;; With respect to David Gerrold's _When HARLIE Was One_
-(defparameter *my-nick* "Harlie")
+(defvar *my-nick* "Harlie")
 
-(defparameter *connection* (connect :nickname *my-nick* :server "irc.srh.org"))
+(defvar *connection* (connect :nickname *my-nick* :server "irc.srh.org"))
 
-(defparameter *last-message* nil)
+(defvar *last-message* nil)
+
+(defvar *urls-by-shortstrings* (make-hash-table :test 'equal))
+
+(defvar *shortstrings-by-urls* (make-hash-table :test 'equal))
 
 ; There is undoubtedly a better way to extract the text from TITLE tags,
 ; but this is what we're stuck with for now.
@@ -54,6 +58,23 @@
 ; This way, the thread that gets killed is an ephemeral thing that no-one
 ; (well, hardly anyone) will miss.
 
+(defparameter *letterz* "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+
+(defparameter *how-short* 5)
+
+(defun make-shortstring ()
+  (apply #'concatenate 'string
+	 (loop for i from 1 to *how-short* collecting
+				 (string (elt *letterz* (random (length *letterz*)))))))
+
+(defun make-unique-shortstring (url)
+  (do ((shortie (make-shortstring) (make-shortstring)))
+      ((not (gethash shortie *urls-by-shortstrings*))
+       (progn
+	 (setf (gethash shortie *urls-by-shortstrings*) url)
+	 (setf (gethash url *shortstrings-by-urls*) shortie)
+	 shortie))))
+
 (defun threaded-msg-hook (message)
   "Handle an incoming message."
   (make-thread (lambda ()
@@ -65,7 +86,7 @@
 			(botcmd (string-upcase (first token-text-list)))
 			(reply-to channel))
 		   (progn
-		     (format t "Message: |~A|~%" (raw-message-string message))
+		     (format t "Message: ~A~%" (raw-message-string message))
 		     (format t "   connection=~A channel=~A~%" connection channel)
 		     (if (equal channel (string-upcase *my-nick*))
 			 (setf reply-to (user message)))
@@ -74,12 +95,20 @@
 				(privmsg connection reply-to "git@coruscant.deepsky.com:harlie.git"))
 			       ((equal botcmd "!STATUS")
 				(privmsg connection reply-to "I know no phrases."))
+			       ((equal botcmd "!URL")
+				(let ((url (gethash (second token-text-list) *urls-by-shortstrings*)))
+				  (if url
+				      (privmsg connection reply-to (format nil "[ ~A ]" url))
+				      (privmsg connection reply-to "Sorry, couldn't find a stored URL for that hash."))))
 			       (t (privmsg connection reply-to (format nil "~A: unknown command." botcmd))))
 			 (let ((urls (all-matches-as-strings "((ftp|http|https)://[^\\s]+)|(www[.][^\\s]+)" text)))
 			   (if urls
 			       (progn
 				 (format t "~A~%" urls)
-				 (dolist (url urls) (privmsg connection reply-to (format nil "[ ~A ] [ ~A ]" url (fetch-title url)))))))))))))
+				 (dolist (url urls)
+				   (let ((short (make-unique-shortstring url)))
+				     (privmsg connection reply-to
+					      (format nil "[ ~A ] [ ~A ]" short (fetch-title url))))))))))))))
 
 (defun run-bot-instance ()
   "Run an instance of the bot."

@@ -9,9 +9,9 @@
 
 (defvar *last-message* nil)
 
-(defvar *urls-by-shortstrings* (make-hash-table :test 'equal))
+(defvar *urls-by-shortstrings* (make-hash-table :test 'equal) :synchronized t)
 
-(defvar *shortstrings-by-urls* (make-hash-table :test 'equal))
+(defvar *shortstrings-by-urls* (make-hash-table :test 'equal) :synchronized t)
 
 ; There is undoubtedly a better way to extract the text from TITLE tags,
 ; but this is what we're stuck with for now.
@@ -68,12 +68,14 @@
 				 (string (elt *letterz* (random (length *letterz*)))))))
 
 (defun make-unique-shortstring (url)
-  (do ((shortie (make-shortstring) (make-shortstring)))
-      ((not (gethash shortie *urls-by-shortstrings*))
-       (progn
-	 (setf (gethash shortie *urls-by-shortstrings*) url)
-	 (setf (gethash url *shortstrings-by-urls*) shortie)
-	 shortie))))
+  (with-locked-hash-table (*shortstrings-by-urls*)
+    (with-locked-hash-table (*urls-by-shortstrings*)
+      (do ((shortie (make-shortstring) (make-shortstring)))
+	  ((not (gethash shortie *urls-by-shortstrings*))
+	   (progn
+	     (setf (gethash shortie *urls-by-shortstrings*) url)
+	     (setf (gethash url *shortstrings-by-urls*) shortie)
+	     shortie))))))
 
 (defun threaded-msg-hook (message)
   "Handle an incoming message."
@@ -96,10 +98,11 @@
 			       ((equal botcmd "!STATUS")
 				(privmsg connection reply-to "I know no phrases."))
 			       ((equal botcmd "!URL")
-				(let ((url (gethash (second token-text-list) *urls-by-shortstrings*)))
-				  (if url
-				      (privmsg connection reply-to (format nil "[ ~A ]" url))
-				      (privmsg connection reply-to "Sorry, couldn't find a stored URL for that hash."))))
+				(with-locked-hash-table (*urls-by-shortstrings*)
+				  (let ((url (gethash (second token-text-list) *urls-by-shortstrings*)))
+				    (if url
+					(privmsg connection reply-to (format nil "[ ~A ]" url))
+					(privmsg connection reply-to "Sorry, couldn't find a stored URL for that hash.")))))
 			       (t (privmsg connection reply-to (format nil "~A: unknown command." botcmd))))
 			 (let ((urls (all-matches-as-strings "((ftp|http|https)://[^\\s]+)|(www[.][^\\s]+)" text)))
 			   (if urls

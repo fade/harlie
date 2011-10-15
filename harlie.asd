@@ -2,10 +2,12 @@
 
 (asdf:defsystem #:harlie
   :serial t
-  :depends-on (#:cl-irc
+  :depends-on (#:bordeaux-threads
+	       #:cl-irc
 	       #:cl-ppcre
 	       #:closure-html
 	       #:cxml-stp
-	       #:drakma)
+	       #:drakma
+	       #:hunchentoot)
   :components ((:file "package")
 	       (:file "harlie")))

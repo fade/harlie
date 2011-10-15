@@ -2,5 +2,6 @@
 
 (defpackage #:harlie
   (:use #:cl
-	#:sb-thread
-	#:irc))
+	#:cl-ppcre
+	#:irc
+	#:sb-thread))

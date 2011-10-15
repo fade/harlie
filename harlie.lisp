@@ -2,44 +2,50 @@
 
 (in-package #:harlie)
 
-(defvar *my-nick* "Harlie")
+;; With respect to David Gerrold's _When HARLIE Was One_
+(defparameter *my-nick* "Harlie")
 
-(defvar *connection* (connect :nickname *my-nick* :server "irc.srh.org"))
+(defparameter *connection* (connect :nickname *my-nick* :server "irc.srh.org"))
 
-(defvar *last-message* nil)
+(defparameter *last-message* nil)
 
-(defun split-2 (str pos)
-  (if pos
-      (list (subseq str 0 pos) (subseq str (1+ pos)))
-      str))
+; Why do we fork another thread just to run this lambda, you may ask?
+; Because the thread that the network event loop runs in keeps getting
+; killed every time there's an error in any of this code, and then
+; I have to restart the bot, and I get cranky.  That's why.
+; This way, the thread that gets killed is an ephemeral thing that no-one
+; (well, hardly anyone) will miss.
 
-(defun space-split-string (str &optional acc)
-  (let* ((splat (string-trim (list #\Space) str))
-	(splotch (split-2 splat (position #\Space splat))))
-    (if (listp splotch)
-	(space-split-string (string-left-trim (list #\Space) (second splotch)) (append acc (list (first splotch))))
-	(append acc (list splat)))))
-
-(defun msg-hook (message)
-  (setf *last-message* message)
-  (let* ((channel (string-upcase (car (arguments message))))
-	 (connection (connection message))
-	 (text (second (arguments message)))
-	 (botcmd (string-upcase (car (space-split-string text))))
-	 (reply-to channel))
-    (progn
-      (format t "Is this shit getting through?~%")
-      (format t "Message: |~A|~%" (raw-message-string message))
-      (format t "   connection=~A channel=~A~%" connection channel)
-      (if (equal channel (string-upcase *my-nick*))
-	  (setf reply-to (user message)))
-      (cond ((equal botcmd "!SOURCES")
-	     (privmsg connection reply-to "git@coruscant.deepsky.com:harlie.git"))
-	    (t (privmsg connection reply-to "Finest kind."))))))
+(defun threaded-msg-hook (message)
+  (make-thread (lambda ()
+		 (setf *last-message* message)
+		 (let* ((channel (string-upcase (car (arguments message))))
+			(connection (connection message))
+			(text (second (arguments message)))
+			(token-text-list (split "\\s+" text))
+			(botcmd (string-upcase (first token-text-list)))
+			(reply-to channel))
+		   (progn
+		     (format t "Message: |~A|~%" (raw-message-string message))
+		     (format t "   connection=~A channel=~A~%" connection channel)
+		     (if (equal channel (string-upcase *my-nick*))
+			 (setf reply-to (user message)))
+		     (if (and (scan "^!" botcmd) (not (equal "!" botcmd))) 
+			 (cond ((equal botcmd "!SOURCES")
+				(privmsg connection reply-to "git@coruscant.deepsky.com:harlie.git"))
+			       ((equal botcmd "!STATUS")
+				(privmsg connection reply-to "I know no phrases."))
+			       (t (privmsg connection reply-to (format nil "~A: unknown command." botcmd))))
+			 (let ((urls (all-matches-as-strings "((ftp|http|https)://[^\\s]+)|(www[.][^\\s]+)" text)))
+			   (if urls
+			       (progn
+				 (privmsg connection reply-to "I see URL people:")
+				 (format t "~A~%" urls)
+				 (dolist (url urls) (privmsg connection reply-to (format nil "   ~A" url))))))))))))
 
 (defun run-bot-instance ()
   (cl-irc:join *connection* "#trinity")
-  (add-hook *connection* 'irc::irc-privmsg-message 'msg-hook)
+  (add-hook *connection* 'irc::irc-privmsg-message 'threaded-msg-hook)
   (read-message-loop *connection*))
 
 (defun run-bot ()

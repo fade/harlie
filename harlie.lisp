@@ -16,13 +16,28 @@
   "Search recursively for a :title tag in a nested list, and return the text."
   (if (not (listp tree))
       nil
+      ;; If the first element of tree matches :TITLE, then its third element
+      ;; ought to be the text we're looking for.
       (if (equal (car tree) :TITLE)
 	  (third tree)
+	  ;; Otherwise, tree is still a nested list which represents some part
+	  ;; of the document we're looking at.
+	  ;; We consider each sublist of tree beginning with all of tree and
+	  ;; taking the cdr of the current sublist on each iteration.
+	  ;; Also on each iteration, we take the first element in the sublist.
+	  ;; If that element is a list, call ourselves recursively with
+	  ;; that list as the whole tree.
+	  ;; If our sublist has become NIL, or if we find a match, exit.
+	  ;; So if some bastard has put two <title> tags in, we'll only find
+	  ;; the first one.  Oh well.
+	  ;; There's undoubtedly some pathological case where somebody creates
+	  ;; an attribute called "title" that'll fuck us up, but we'll fix that
+	  ;; when it comes up.
 	  (let ((found nil))
-	    (do* ((foo tree (cdr foo))
-		  (bar (car foo) (car foo)))
-		 ((or found (not foo)) found) 
-	      (if (listp bar) (setf found (find-title bar))))))))
+	    (do* ((sublist tree (cdr sublist))
+		  (element (car sublist) (car sublist)))
+		 ((or found (not sublist)) found) 
+	      (if (listp element) (setf found (find-title element))))))))
 
 (defun fetch-title (url)
   "Extract the title from a Web page."

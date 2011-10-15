@@ -3,6 +3,9 @@
 (asdf:defsystem #:harlie
   :serial t
   :depends-on (#:cl-irc
-	       #:cl-ppcre)
+	       #:cl-ppcre
+	       #:closure-html
+	       #:cxml-stp
+	       #:drakma)
   :components ((:file "package")
 	       (:file "harlie")))

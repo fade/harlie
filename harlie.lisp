@@ -16,6 +16,15 @@
 ; This way, the thread that gets killed is an ephemeral thing that no-one
 ; (well, hardly anyone) will miss.
 
+(defun fetch-title (url)
+  (let* ((webtext (http-request url))
+	 (document (chtml:parse webtext (cxml-stp:make-builder)))
+	 (title "No title found."))
+    (stp:do-recursively (a document)
+      (when (and (typep a 'stp:element) (equal (stp:local-name a) "title"))
+	(setf title (stp:string-value a))))
+    title))
+
 (defun threaded-msg-hook (message)
   (make-thread (lambda ()
 		 (setf *last-message* message)

@@ -119,12 +119,6 @@
 				(privmsg connection reply-to "git@coruscant.deepsky.com:harlie.git"))
 			       ((equal botcmd "!STATUS")
 				(privmsg connection reply-to "I know no phrases."))
-			       ((equal botcmd "!URL")
-				(sb-ext:with-locked-hash-table (*urls-by-shortstrings*)
-				  (let ((url (gethash (second token-text-list) *urls-by-shortstrings*)))
-				    (if url
-					(privmsg connection reply-to (format nil "[ ~A ]" url))
-					(privmsg connection reply-to "Sorry, couldn't find a stored URL for that hash.")))))
 			       (t (privmsg connection reply-to (format nil "~A: unknown command." botcmd))))
 			 (let ((urls (all-matches-as-strings "((ftp|http|https)://[^\\s]+)|(www[.][^\\s]+)" text)))
 			   (if urls

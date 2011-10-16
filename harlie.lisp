@@ -9,9 +9,11 @@
 
 (defvar *last-message* nil)
 
-(defvar *urls-by-shortstrings* (make-hash-table :test 'equal) :synchronized t)
+(defvar *urls-by-shortstrings* (make-hash-table :test 'equal :synchronized t))
 
-(defvar *shortstrings-by-urls* (make-hash-table :test 'equal) :synchronized t)
+(defvar *shortstrings-by-urls* (make-hash-table :test 'equal :synchronized t))
+
+(defvar *headlines-by-urls* (make-hash-table :test 'equal :synchronized t))
 
 ; There is undoubtedly a better way to extract the text from TITLE tags,
 ; but this is what we're stuck with for now.
@@ -45,11 +47,13 @@
 
 (defun fetch-title (url)
   "Extract the title from a Web page."
-  (let* ((webtext (http-request url))
-	 (document (chtml:parse webtext (chtml:make-lhtml-builder)))
-	 (title nil))
-    (setf title (find-title document))
-    (if title title "No title found.")))
+  (multiple-value-bind (webtext status) (http-request url)
+    (if (< status 400)
+	(let* ((document (chtml:parse webtext (chtml:make-lhtml-builder)))
+	       (title "No title found"))
+	  (setf title (find-title document))
+	  (concatenate 'string (loop for c across title when (not (or (equal c #\Newline) (equal c #\Return)) ) collecting c)))
+	nil)))
 
 ; Why do we fork another thread just to run this lambda, you may ask?
 ; Because the thread that the network event loop runs in keeps getting
@@ -68,14 +72,32 @@
 				 (string (elt *letterz* (random (length *letterz*)))))))
 
 (defun make-unique-shortstring (url)
-  (with-locked-hash-table (*shortstrings-by-urls*)
-    (with-locked-hash-table (*urls-by-shortstrings*)
-      (do ((shortie (make-shortstring) (make-shortstring)))
-	  ((not (gethash shortie *urls-by-shortstrings*))
+  (sb-ext:with-locked-hash-table (*shortstrings-by-urls*)
+    (sb-ext:with-locked-hash-table (*urls-by-shortstrings*)
+      (do ((short (make-shortstring) (make-shortstring)))
+	  ((not (gethash short *urls-by-shortstrings*))
 	   (progn
-	     (setf (gethash shortie *urls-by-shortstrings*) url)
-	     (setf (gethash url *shortstrings-by-urls*) shortie)
-	     shortie))))))
+	     (setf (gethash short *urls-by-shortstrings*) url)
+	     (setf (gethash url *shortstrings-by-urls*) short)
+	     short))))))
+
+(defun lookup-url (url)
+  (let ((short (sb-ext:with-locked-hash-table (*shortstrings-by-urls*)
+		 (gethash url *shortstrings-by-urls*))))
+    (if short
+	(sb-ext:with-locked-hash-table (*shortstrings-by-urls*)
+	  (list short (gethash url *headlines-by-urls*)))
+	(let ((title (fetch-title url)))
+	  (if title
+	      (progn
+		(setf short (make-unique-shortstring url))
+		(sb-ext:with-locked-hash-table (*headlines-by-urls*)
+		  (setf (gethash url *headlines-by-urls*) title))
+		(list short title))
+	      (list nil nil))))))
+
+(defparameter *url-server-port* 5791)
+(defparameter *url-prefix* (format nil "http://127.0.0.1:~A/" *url-server-port*) )
 
 (defun threaded-msg-hook (message)
   "Handle an incoming message."
@@ -98,7 +120,7 @@
 			       ((equal botcmd "!STATUS")
 				(privmsg connection reply-to "I know no phrases."))
 			       ((equal botcmd "!URL")
-				(with-locked-hash-table (*urls-by-shortstrings*)
+				(sb-ext:with-locked-hash-table (*urls-by-shortstrings*)
 				  (let ((url (gethash (second token-text-list) *urls-by-shortstrings*)))
 				    (if url
 					(privmsg connection reply-to (format nil "[ ~A ]" url))
@@ -109,9 +131,37 @@
 			       (progn
 				 (format t "~A~%" urls)
 				 (dolist (url urls)
-				   (let ((short (make-unique-shortstring url)))
-				     (privmsg connection reply-to
-					      (format nil "[ ~A ] [ ~A ]" short (fetch-title url))))))))))))))
+				   (destructuring-bind (short title) (lookup-url url)
+				     (if (and short title)
+					 (privmsg connection reply-to
+						  (format nil "[ ~A~A ] [ ~A ]" *url-prefix* short title))
+					 (privmsg connection reply-to
+						  (format nil "[ ~A ] Couldn't fetch this page." url))))))))))))))
+
+(defun shortener-dispatch ()
+  (let ((short (subseq (request-uri*) 1 (1+ *how-short*))))
+    (format nil "~A" (gethash short *urls-by-shortstrings* "Nothing found."))))
+
+(defun dump-kruft ()
+  (sb-ext:with-locked-hash-table (*shortstrings-by-urls*)
+    (sb-ext:with-locked-hash-table (*headlines-by-urls*)
+      (let ((foolery
+	      (loop for k being the hash-keys in *shortstrings-by-urls* collecting
+		     (format nil "<li><a href=\"~A\">~A</A></li>" k (gethash k *headlines-by-urls* "Click here for a random link.")))))
+	(concatenate 'string "<html><head><title>Bot Spew</title></head><body><ul>"
+		     (apply 'concatenate 'string foolery) "</ul></body></html>")))))
+
+(defun redirect-shortener-dispatch ()
+  (let ((uri (request-uri*)))
+    (if (> (length uri) *how-short*)
+	(let* ((short (subseq (request-uri*) 1 (1+ *how-short*)))
+	       (url (gethash short *urls-by-shortstrings*)))
+	  (if url
+	      (redirect (gethash short *urls-by-shortstrings*))
+	      (format nil "<html><head><title>You are in a maze of twisty little redirects, all alike</title></head><body><center><p>With apologies<br>I don't have that URL<br>Perhaps you mistyped?<br></p></center></body></html>")
+	      )
+	  )
+	(dump-kruft))))
 
 (defun run-bot-instance ()
   "Run an instance of the bot."
@@ -121,5 +171,8 @@
 
 (defun run-bot ()
   "Fork a thread to run an instance of the bot."
+  (setf *random-state* (make-random-state t))
   (make-thread #'run-bot-instance)
+  (hunchentoot:start (make-instance 'hunchentoot:acceptor :port *url-server-port*))
+  (push (create-prefix-dispatcher "/" 'redirect-shortener-dispatch) *dispatch-table*)
   )

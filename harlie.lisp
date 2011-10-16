@@ -18,6 +18,18 @@
 ; There is undoubtedly a better way to extract the text from TITLE tags,
 ; but this is what we're stuck with for now.
 
+(defun string-strip-surrounding-whitespace (str)
+  "Strip whitespace characters from beginning and end of a string."
+  (string-trim '(#\Space #\Newline #\Return #\Tab) str))
+
+(defun string-remove-embedded-newlines (str)
+  "Remove newline or carriage return characters from a string."
+  (concatenate 'string (loop for c across str when (not (or (eq c #\Newline) (eq c #\Return))) collecting c)))
+
+(defun cleanup-title (title)
+  "Remove extraneous whitespace characters from within and around a string."
+  (string-strip-surrounding-whitespace (string-remove-embedded-newlines title)))
+
 (defun find-title (tree)
   "Search recursively for a :title tag in a nested list, and return the text."
   (if (not (listp tree))
@@ -50,9 +62,10 @@
   (multiple-value-bind (webtext status) (http-request url)
     (if (< status 400)
 	(let* ((document (chtml:parse webtext (chtml:make-lhtml-builder)))
-	       (title "No title found"))
-	  (setf title (find-title document))
-	  (concatenate 'string (loop for c across title when (not (or (equal c #\Newline) (equal c #\Return)) ) collecting c)))
+	       (title (find-title document)))
+	  (if title
+	      (cleanup-title title)
+	      "No title found."))
 	nil)))
 
 ; Why do we fork another thread just to run this lambda, you may ask?
@@ -67,11 +80,13 @@
 (defparameter *how-short* 5)
 
 (defun make-shortstring ()
+  "Generate a single random short-URL string."
   (apply #'concatenate 'string
 	 (loop for i from 1 to *how-short* collecting
-				 (string (elt *letterz* (random (length *letterz*)))))))
+					   (string (elt *letterz* (random (length *letterz*)))))))
 
 (defun make-unique-shortstring (url)
+  "Generate a new short-URL string for a given URL and register it with the internal hashes."
   (sb-ext:with-locked-hash-table (*shortstrings-by-urls*)
     (sb-ext:with-locked-hash-table (*urls-by-shortstrings*)
       (do ((short (make-shortstring) (make-shortstring)))
@@ -82,6 +97,8 @@
 	     short))))))
 
 (defun lookup-url (url)
+  "Check whether the given URL has been registered, and see to it that it is.
+Returns a list consisting of a short URL and a title string."
   (let ((short (sb-ext:with-locked-hash-table (*shortstrings-by-urls*)
 		 (gethash url *shortstrings-by-urls*))))
     (if short
@@ -132,20 +149,20 @@
 					 (privmsg connection reply-to
 						  (format nil "[ ~A ] Couldn't fetch this page." url))))))))))))))
 
-(defun shortener-dispatch ()
-  (let ((short (subseq (request-uri*) 1 (1+ *how-short*))))
-    (format nil "~A" (gethash short *urls-by-shortstrings* "Nothing found."))))
-
 (defun dump-kruft ()
+  "Return the contents of a Web page listing all the shortened URLs as links."
   (sb-ext:with-locked-hash-table (*shortstrings-by-urls*)
     (sb-ext:with-locked-hash-table (*headlines-by-urls*)
       (let ((foolery
 	      (loop for k being the hash-keys in *shortstrings-by-urls* collecting
-		     (format nil "<li><a href=\"~A\">~A</A></li>" k (gethash k *headlines-by-urls* "Click here for a random link.")))))
+									(format nil "<li><a href=\"~A\">~A</A></li>" k (gethash k *headlines-by-urls* "Click here for a random link.")))))
 	(concatenate 'string "<html><head><title>Bot Spew</title></head><body><ul>"
 		     (apply 'concatenate 'string foolery) "</ul></body></html>")))))
 
 (defun redirect-shortener-dispatch ()
+  "Dispatcher for the Web pages served by the bot.
+Serve up a redirect page, a list of shortened URL links,
+or an error message, as appropriate."
   (let ((uri (request-uri*)))
     (if (> (length uri) *how-short*)
 	(let* ((short (subseq (request-uri*) 1 (1+ *how-short*)))

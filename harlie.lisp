@@ -50,10 +50,10 @@
   "Search recursively for a :title tag in a nested list, and return the text."
   (if (not (listp tree))
       nil
-      ;; If the first element of tree matches :TITLE, then its third element
-      ;; ought to be the text we're looking for.
+      ;; If the first element of tree matches :TITLE, then its third and
+      ;; subsequent elements ought to be the text we're looking for.
       (if (equal (car tree) :TITLE)
-	  (third tree)
+	  (apply 'concatenate 'string (cddr tree))
 	  ;; Otherwise, tree is still a nested list which represents some part
 	  ;; of the document we're looking at.
 	  ;; We consider each sublist of tree beginning with all of tree and

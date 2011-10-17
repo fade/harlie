@@ -76,6 +76,37 @@
 		 ((or found (not sublist)) found) 
 	      (if (listp element) (setf found (find-title element))))))))
 
+(defun find-forex (tree)
+  "Plunder a nested list for XE.com's forex information."
+  (if (not (listp tree))
+      nil
+      ;; If the first element of tree matches :TITLE, then its third and
+      ;; subsequent elements ought to be the text we're looking for.
+      (if (and (equal (car tree) :TR)
+	       (listp (second tree))
+	       (listp (car (second tree)))
+	       (eq (car (car (second tree))) :CLASS)
+	       (equal (cadar (second tree)) "CnvrsnTxt"))
+	  (list (third (third tree)) (third (fifth tree)))
+	  ;; Otherwise, tree is still a nested list which represents some part
+	  ;; of the document we're looking at.
+	  ;; We consider each sublist of tree beginning with all of tree and
+	  ;; taking the cdr of the current sublist on each iteration.
+	  ;; Also on each iteration, we take the first element in the sublist.
+	  ;; If that element is a list, call ourselves recursively with
+	  ;; that list as the whole tree.
+	  ;; If our sublist has become NIL, or if we find a match, exit.
+	  ;; So if some bastard has put two <title> tags in, we'll only find
+	  ;; the first one.  Oh well.
+	  ;; There's undoubtedly some pathological case where somebody creates
+	  ;; an attribute called "title" that'll fuck us up, but we'll fix that
+	  ;; when it comes up.
+	  (let ((found nil))
+	    (do* ((sublist tree (cdr sublist))
+		  (element (car sublist) (car sublist)))
+		 ((or found (not sublist)) found) 
+	      (if (listp element) (setf found (find-forex element))))))))
+
 (defun fetch-title (url)
   "Extract the title from a Web page."
   (multiple-value-bind (webtext status) (http-request url)
@@ -152,6 +183,16 @@
 				(privmsg connection reply-to "git@coruscant.deepsky.com:harlie.git"))
 			       ((equal botcmd "!STATUS")
 				(privmsg connection reply-to "I know no phrases."))
+			       ((equal botcmd "!CONV")
+				(let* ((amount (second token-text-list))
+				       (from (third token-text-list))
+				       (to (fourth token-text-list))
+				       (forex (find-forex (chtml:parse
+							   (http-request
+							    (format nil "http://www.xe.com/ucc/convert/?Amount=~A&From=~A&To=~A" amount from to))
+							   (chtml:make-lhtml-builder)))))
+				  (privmsg connection reply-to (format nil "~A = ~A" (first forex) (second forex)))))
+			       
 			       (t (privmsg connection reply-to (format nil "~A: unknown command." botcmd))))
 			 (let ((urls (all-matches-as-strings "((ftp|http|https)://[^\\s]+)|(www[.][^\\s]+)" text)))
 			   (if urls

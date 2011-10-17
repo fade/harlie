@@ -55,7 +55,7 @@
       nil
       ;; If the first element of tree matches :TITLE, then its third and
       ;; subsequent elements ought to be the text we're looking for.
-      (if (equal (car tree) :TITLE)
+      (if (and  (equal (car tree) :TITLE) (> (length tree) 2))
 	  (apply 'concatenate 'string (cddr tree))
 	  ;; Otherwise, tree is still a nested list which represents some part
 	  ;; of the document we're looking at.

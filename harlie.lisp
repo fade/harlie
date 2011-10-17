@@ -9,6 +9,22 @@
 
 (defvar *last-message* nil)
 
+(defclass hash-url-store ()
+  ((url->short :initform (make-hash-table :test 'equal :synchronized t) :accessor url->short)
+   (short->url :initform (make-hash-table :test 'equal :synchronized t) :accessor short->url)
+   (url->headline :initform (make-hash-table :test 'equal :synchronized t) :accessor url->headline)))
+
+(defvar *the-url-store* (make-instance 'hash-url-store))
+
+(defgeneric make-unique-shortstring (url-store url)
+  (:documentation "Assign a new short URL string to URL."))
+
+(defgeneric lookup-url (url-store url)
+  (:documentation "Return present or new short URL and title for specified URL."))
+
+(defgeneric make-webpage-listing-urls (url-store)
+  (:documentation "Generate and return the HTML for a page listing all the URLS in the store."))
+
 (defvar *urls-by-shortstrings* (make-hash-table :test 'equal :synchronized t))
 
 (defvar *shortstrings-by-urls* (make-hash-table :test 'equal :synchronized t))
@@ -85,31 +101,28 @@
 	 (loop for i from 1 to *how-short* collecting
 					   (string (elt *letterz* (random (length *letterz*)))))))
 
-(defun make-unique-shortstring (url)
-  "Generate a new short-URL string for a given URL and register it with the internal hashes."
-  (sb-ext:with-locked-hash-table (*shortstrings-by-urls*)
-    (sb-ext:with-locked-hash-table (*urls-by-shortstrings*)
+(defmethod make-unique-shortstring ((url-store hash-url-store) url)
+  (sb-ext:with-locked-hash-table ((short->url url-store))
+    (sb-ext:with-locked-hash-table ((url->short url-store))
       (do ((short (make-shortstring) (make-shortstring)))
-	  ((not (gethash short *urls-by-shortstrings*))
+	  ((not (gethash short (short->url url-store)))
 	   (progn
-	     (setf (gethash short *urls-by-shortstrings*) url)
-	     (setf (gethash url *shortstrings-by-urls*) short)
+	     (setf (gethash short (short->url url-store)) url)
+	     (setf (gethash url (url->short url-store)) short)
 	     short))))))
 
-(defun lookup-url (url)
-  "Check whether the given URL has been registered, and see to it that it is.
-Returns a list consisting of a short URL and a title string."
-  (let ((short (sb-ext:with-locked-hash-table (*shortstrings-by-urls*)
-		 (gethash url *shortstrings-by-urls*))))
+(defmethod lookup-url ((url-store hash-url-store) url)
+  (let ((short (sb-ext:with-locked-hash-table ((url->short url-store))
+		 (gethash url (url->short url-store)))))
     (if short
-	(sb-ext:with-locked-hash-table (*shortstrings-by-urls*)
-	  (list short (gethash url *headlines-by-urls*)))
+	(sb-ext:with-locked-hash-table ((url->headline url-store))
+	  (list short (gethash url (url->headline url-store))))
 	(let ((title (fetch-title url)))
 	  (if title
 	      (progn
-		(setf short (make-unique-shortstring url))
-		(sb-ext:with-locked-hash-table (*headlines-by-urls*)
-		  (setf (gethash url *headlines-by-urls*) title))
+		(setf short (make-unique-shortstring url-store url))
+		(sb-ext:with-locked-hash-table ((url->headline url-store))
+		  (setf (gethash url (url->headline url-store)) title))
 		(list short title))
 	      (list nil nil))))))
 
@@ -142,22 +155,37 @@ Returns a list consisting of a short URL and a title string."
 			       (progn
 				 (format t "~A~%" urls)
 				 (dolist (url urls)
-				   (destructuring-bind (short title) (lookup-url url)
+				   (destructuring-bind (short title) (lookup-url *the-url-store* url)
 				     (if (and short title)
 					 (privmsg connection reply-to
 						  (format nil "[ ~A~A ] [ ~A ]" *url-prefix* short title))
 					 (privmsg connection reply-to
 						  (format nil "[ ~A ] Couldn't fetch this page." url))))))))))))))
 
-(defun dump-kruft ()
-  "Return the contents of a Web page listing all the shortened URLs as links."
-  (sb-ext:with-locked-hash-table (*shortstrings-by-urls*)
-    (sb-ext:with-locked-hash-table (*headlines-by-urls*)
+(defmethod make-webpage-listing-urls ((url-store hash-url-store))
+  (sb-ext:with-locked-hash-table ((url->short url-store))
+    (sb-ext:with-locked-hash-table ((url->headline url-store))
       (let ((foolery
-	      (loop for k being the hash-keys in *shortstrings-by-urls* collecting
-									(format nil "<li><a href=\"~A\">~A</A></li>" k (gethash k *headlines-by-urls* "Click here for a random link.")))))
+	      (loop for k being the hash-keys in (url->short url-store) collecting
+									(format nil "<li><a href=\"~A\">~A</A></li>" k (gethash k (url->headline url-store) "Click here for a random link.")))))
 	(concatenate 'string "<html><head><title>Bot Spew</title></head><body><ul>"
 		     (apply 'concatenate 'string foolery) "</ul></body></html>")))))
+
+(defun html-apology ()
+  (format nil "
+<html>
+<head>
+<title>You are in a maze of twisty little redirects, all alike</title>
+</head>
+<body>
+<center>
+<p>With apologies<br>
+I don't have that URL<br>
+Perhaps you mistyped?<br>
+</p>
+</center>
+</body>
+</html>"))
 
 (defun redirect-shortener-dispatch ()
   "Dispatcher for the Web pages served by the bot.
@@ -166,13 +194,12 @@ or an error message, as appropriate."
   (let ((uri (request-uri*)))
     (if (> (length uri) *how-short*)
 	(let* ((short (subseq (request-uri*) 1 (1+ *how-short*)))
-	       (url (gethash short *urls-by-shortstrings*)))
+	       (url (sb-ext:with-locked-hash-table ((short->url *the-url-store*))
+		      (gethash short (short->url *the-url-store*)))))
 	  (if url
-	      (redirect (gethash short *urls-by-shortstrings*))
-	      (format nil "<html><head><title>You are in a maze of twisty little redirects, all alike</title></head><body><center><p>With apologies<br>I don't have that URL<br>Perhaps you mistyped?<br></p></center></body></html>")
-	      )
-	  )
-	(dump-kruft))))
+	      (redirect url)
+	      (html-apology)))
+	(make-webpage-listing-urls *the-url-store*))))
 
 (defun run-bot-instance ()
   "Run an instance of the bot."

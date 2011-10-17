@@ -25,11 +25,12 @@
 (defgeneric make-webpage-listing-urls (url-store)
   (:documentation "Generate and return the HTML for a page listing all the URLS in the store."))
 
-(defvar *urls-by-shortstrings* (make-hash-table :test 'equal :synchronized t))
+(defgeneric get-url-from-shortstring (url-store short)
+  (:documentation "Return the full URL associated with a given short string."))
 
-(defvar *shortstrings-by-urls* (make-hash-table :test 'equal :synchronized t))
-
-(defvar *headlines-by-urls* (make-hash-table :test 'equal :synchronized t))
+(defmethod get-url-from-shortstring ((url-store hash-url-store) short)
+  (sb-ext:with-locked-hash-table ((short->url url-store))
+    (gethash short (short->url url-store))))
 
 ; There is undoubtedly a better way to extract the text from TITLE tags,
 ; but this is what we're stuck with for now.
@@ -194,8 +195,7 @@ or an error message, as appropriate."
   (let ((uri (request-uri*)))
     (if (> (length uri) *how-short*)
 	(let* ((short (subseq (request-uri*) 1 (1+ *how-short*)))
-	       (url (sb-ext:with-locked-hash-table ((short->url *the-url-store*))
-		      (gethash short (short->url *the-url-store*)))))
+	       (url (get-url-from-shortstring *the-url-store* short)))
 	  (if url
 	      (redirect url)
 	      (html-apology)))

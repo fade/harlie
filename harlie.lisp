@@ -9,28 +9,30 @@
 
 (defvar *last-message* nil)
 
-(defclass hash-url-store ()
+(defclass url-store () ())
+
+(defclass hash-url-store (url-store)
   ((url->short :initform (make-hash-table :test 'equal :synchronized t) :accessor url->short)
    (short->url :initform (make-hash-table :test 'equal :synchronized t) :accessor short->url)
    (url->headline :initform (make-hash-table :test 'equal :synchronized t) :accessor url->headline)))
 
 (defvar *the-url-store* (make-instance 'hash-url-store))
 
-(defgeneric make-unique-shortstring (url-store url)
+(defgeneric make-unique-shortstring (store url)
   (:documentation "Assign a new short URL string to URL."))
 
-(defgeneric lookup-url (url-store url)
+(defgeneric lookup-url (store url)
   (:documentation "Return present or new short URL and title for specified URL."))
 
-(defgeneric make-webpage-listing-urls (url-store)
+(defgeneric make-webpage-listing-urls (store)
   (:documentation "Generate and return the HTML for a page listing all the URLS in the store."))
 
-(defgeneric get-url-from-shortstring (url-store short)
+(defgeneric get-url-from-shortstring (store short)
   (:documentation "Return the full URL associated with a given short string."))
 
-(defmethod get-url-from-shortstring ((url-store hash-url-store) short)
-  (sb-ext:with-locked-hash-table ((short->url url-store))
-    (gethash short (short->url url-store))))
+(defmethod get-url-from-shortstring ((store hash-url-store) short)
+  (sb-ext:with-locked-hash-table ((short->url store))
+    (gethash short (short->url store))))
 
 ; There is undoubtedly a better way to extract the text from TITLE tags,
 ; but this is what we're stuck with for now.
@@ -102,28 +104,28 @@
 	 (loop for i from 1 to *how-short* collecting
 					   (string (elt *letterz* (random (length *letterz*)))))))
 
-(defmethod make-unique-shortstring ((url-store hash-url-store) url)
-  (sb-ext:with-locked-hash-table ((short->url url-store))
-    (sb-ext:with-locked-hash-table ((url->short url-store))
+(defmethod make-unique-shortstring ((store hash-url-store) url)
+  (sb-ext:with-locked-hash-table ((short->url store))
+    (sb-ext:with-locked-hash-table ((url->short store))
       (do ((short (make-shortstring) (make-shortstring)))
-	  ((not (gethash short (short->url url-store)))
+	  ((not (gethash short (short->url store)))
 	   (progn
-	     (setf (gethash short (short->url url-store)) url)
-	     (setf (gethash url (url->short url-store)) short)
+	     (setf (gethash short (short->url store)) url)
+	     (setf (gethash url (url->short store)) short)
 	     short))))))
 
-(defmethod lookup-url ((url-store hash-url-store) url)
-  (let ((short (sb-ext:with-locked-hash-table ((url->short url-store))
-		 (gethash url (url->short url-store)))))
+(defmethod lookup-url ((store hash-url-store) url)
+  (let ((short (sb-ext:with-locked-hash-table ((url->short store))
+		 (gethash url (url->short store)))))
     (if short
-	(sb-ext:with-locked-hash-table ((url->headline url-store))
-	  (list short (gethash url (url->headline url-store))))
+	(sb-ext:with-locked-hash-table ((url->headline store))
+	  (list short (gethash url (url->headline store))))
 	(let ((title (fetch-title url)))
 	  (if title
 	      (progn
-		(setf short (make-unique-shortstring url-store url))
-		(sb-ext:with-locked-hash-table ((url->headline url-store))
-		  (setf (gethash url (url->headline url-store)) title))
+		(setf short (make-unique-shortstring store url))
+		(sb-ext:with-locked-hash-table ((url->headline store))
+		  (setf (gethash url (url->headline store)) title))
 		(list short title))
 	      (list nil nil))))))
 
@@ -163,12 +165,12 @@
 					 (privmsg connection reply-to
 						  (format nil "[ ~A ] Couldn't fetch this page." url))))))))))))))
 
-(defmethod make-webpage-listing-urls ((url-store hash-url-store))
-  (sb-ext:with-locked-hash-table ((url->short url-store))
-    (sb-ext:with-locked-hash-table ((url->headline url-store))
+(defmethod make-webpage-listing-urls ((store hash-url-store))
+  (sb-ext:with-locked-hash-table ((url->short store))
+    (sb-ext:with-locked-hash-table ((url->headline store))
       (let ((foolery
-	      (loop for k being the hash-keys in (url->short url-store) collecting
-									(format nil "<li><a href=\"~A\">~A</A></li>" k (gethash k (url->headline url-store) "Click here for a random link.")))))
+	      (loop for k being the hash-keys in (url->short store) collecting
+									(format nil "<li><a href=\"~A\">~A</A></li>" k (gethash k (url->headline store) "Click here for a random link.")))))
 	(concatenate 'string "<html><head><title>Bot Spew</title></head><body><ul>"
 		     (apply 'concatenate 'string foolery) "</ul></body></html>")))))
 

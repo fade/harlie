@@ -192,6 +192,7 @@
 							   (http-request
 							    (format nil "http://www.xe.com/ucc/convert/?Amount=~A&From=~A&To=~A" amount from to))
 							   (chtml:make-lhtml-builder)))))
+				  ;; also, we should define a (talk...) macro that takes a format string and a list of tokens.
 				  (privmsg connection reply-to (format nil "~A = ~A" (first forex) (second forex)))))
 			       
 			       (t (privmsg connection reply-to (format nil "~A: unknown command." botcmd))))

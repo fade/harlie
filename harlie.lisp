@@ -150,6 +150,14 @@ Only the first match is returned."
   (sb-ext:with-locked-hash-table ((short->url store))
     (gethash short (short->url store))))
 
+(defun fetch-formatted-url (url-string &rest args)
+  "Retrieve the lhtml contents of the page at a specified URL.
+Does format-style string interpolation on the url string."
+  (chtml:parse
+   (http-request
+    (apply 'format nil url-string args))
+   (chtml:make-lhtml-builder)))
+
 ; Why do we fork another thread just to run this lambda, you may ask?
 ; Because the thread that the network event loop runs in keeps getting
 ; killed every time there's an error in any of this code, and then
@@ -180,10 +188,9 @@ Only the first match is returned."
 			      (let* ((amount (second token-text-list))
 				     (from (third token-text-list))
 				     (to (fourth token-text-list))
-				     (forex (find-forex (chtml:parse
-							 (http-request
-							  (format nil "http://www.xe.com/ucc/convert/?Amount=~A&From=~A&To=~A" amount from to))
-							 (chtml:make-lhtml-builder)))))
+				     (forex (find-forex (fetch-formatted-url
+							 "http://www.xe.com/ucc/convert/?Amount=~A&From=~A&To=~A"
+							 amount from to))))
 				(privmsg connection reply-to (format nil "~A = ~A" (first forex) (second forex)))))
 			     
 			     (t (privmsg connection reply-to (format nil "~A: unknown command." botcmd))))

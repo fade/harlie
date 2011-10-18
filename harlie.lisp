@@ -18,22 +18,6 @@
 
 (defvar *the-url-store* (make-instance 'hash-url-store))
 
-(defgeneric make-unique-shortstring (store url)
-  (:documentation "Assign a new short URL string to URL."))
-
-(defgeneric lookup-url (store url)
-  (:documentation "Return present or new short URL and title for specified URL."))
-
-(defgeneric make-webpage-listing-urls (store)
-  (:documentation "Generate and return the HTML for a page listing all the URLS in the store."))
-
-(defgeneric get-url-from-shortstring (store short)
-  (:documentation "Return the full URL associated with a given short string."))
-
-(defmethod get-url-from-shortstring ((store hash-url-store) short)
-  (sb-ext:with-locked-hash-table ((short->url store))
-    (gethash short (short->url store))))
-
 ; There is undoubtedly a better way to extract the text from TITLE tags,
 ; but this is what we're stuck with for now.
 
@@ -138,6 +122,9 @@ Only the first match is returned."
 	 (loop for i from 1 to *how-short* collecting
 					   (string (elt *letterz* (random (length *letterz*)))))))
 
+(defgeneric make-unique-shortstring (store url)
+  (:documentation "Assign a new short URL string to URL."))
+
 (defmethod make-unique-shortstring ((store hash-url-store) url)
   (sb-ext:with-locked-hash-table ((short->url store))
     (sb-ext:with-locked-hash-table ((url->short store))
@@ -147,6 +134,9 @@ Only the first match is returned."
 	     (setf (gethash short (short->url store)) url)
 	     (setf (gethash url (url->short store)) short)
 	     short))))))
+
+(defgeneric lookup-url (store url)
+  (:documentation "Return present or new short URL and title for specified URL."))
 
 (defmethod lookup-url ((store hash-url-store) url)
   (let ((short (sb-ext:with-locked-hash-table ((url->short store))
@@ -162,6 +152,13 @@ Only the first match is returned."
 		  (setf (gethash url (url->headline store)) title))
 		(list short title))
 	      (list nil nil))))))
+
+(defgeneric get-url-from-shortstring (store short)
+  (:documentation "Return the full URL associated with a given short string."))
+
+(defmethod get-url-from-shortstring ((store hash-url-store) short)
+  (sb-ext:with-locked-hash-table ((short->url store))
+    (gethash short (short->url store))))
 
 (defparameter *url-server-port* 5791)
 (defparameter *url-prefix* (format nil "http://127.0.0.1:~A/" *url-server-port*) )
@@ -215,6 +212,9 @@ Only the first match is returned."
 						  (format nil "[ ~A~A ] [ ~A ]" *url-prefix* short title))
 					 (privmsg connection reply-to
 						  (format nil "[ ~A ] Couldn't fetch this page." url))))))))))))))
+
+(defgeneric make-webpage-listing-urls (store)
+  (:documentation "Generate and return the HTML for a page listing all the URLS in the store."))
 
 (defmethod make-webpage-listing-urls ((store hash-url-store))
   (sb-ext:with-locked-hash-table ((url->short store))

@@ -10,4 +10,5 @@
 	       #:drakma
 	       #:hunchentoot)
   :components ((:file "package")
+	       (:file "url-store")
 	       (:file "harlie")))

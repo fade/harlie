@@ -49,14 +49,18 @@
   "Remove extraneous whitespace characters from within and around a string."
   (string-strip-surrounding-whitespace (string-remove-embedded-newlines title)))
 
-(defun find-title (tree)
-  "Search recursively for a :title tag in a nested list, and return the text."
+(defun extract-from-html (tree anchor-p extractor)
+  "Recursive traversal of the nested list representation of an HTML tree.
+anchor-p is a predicate which will match when we find what we're looking for.
+extractor is a function which returns whatever you want from that site.
+Only the first match is returned."
+  ;; If what we've been handed isn't even a list, then we aren't finding anything here.
   (if (not (listp tree))
       nil
-      ;; If the first element of tree matches :TITLE, then its third and
-      ;; subsequent elements ought to be the text we're looking for.
-      (if (and  (equal (car tree) :TITLE) (> (length tree) 2))
-	  (apply 'concatenate 'string (cddr tree))
+      ;; Failing that, see if we find what we're looking for right here, and if so,
+      ;; extract and return a result.
+      (if (apply anchor-p (list tree))
+	  (apply extractor (list tree))
 	  ;; Otherwise, tree is still a nested list which represents some part
 	  ;; of the document we're looking at.
 	  ;; We consider each sublist of tree beginning with all of tree and
@@ -65,47 +69,48 @@
 	  ;; If that element is a list, call ourselves recursively with
 	  ;; that list as the whole tree.
 	  ;; If our sublist has become NIL, or if we find a match, exit.
-	  ;; So if some bastard has put two <title> tags in, we'll only find
-	  ;; the first one.  Oh well.
-	  ;; There's undoubtedly some pathological case where somebody creates
-	  ;; an attribute called "title" that'll fuck us up, but we'll fix that
-	  ;; when it comes up.
 	  (let ((found nil))
 	    (do* ((sublist tree (cdr sublist))
 		  (element (car sublist) (car sublist)))
 		 ((or found (not sublist)) found) 
-	      (if (listp element) (setf found (find-title element))))))))
+	      (if (listp element) (setf found (extract-from-html element anchor-p extractor))))))))
+
+(defun title-anchor (tree)
+  "Predicate which detects a :TITLE tag."
+  (and (equal (car tree) :TITLE)
+       (> (length tree) 2)))
+
+(defun title-extractor (tree)
+  "Extract the text for a :TITLE tag."
+  (apply 'concatenate 'string (cddr tree)))
+
+(defun find-title (tree)
+  "Search recursively for a :title tag in a nested list, and return the text."
+  (extract-from-html tree 'title-anchor 'title-extractor))
+
+(defun forex-anchor (tree)
+  "Predicate which detects the meat of an XE.com forex query."
+  ;; This the substructure that we're looking for:
+  ;;
+  ;;        (:TR ((:CLASS "CnvrsnTxt"))
+  ;;         (:TD ((:WIDTH "46%") (:ALIGN "right")) "1.00 CAD" "")
+  ;;               (:TD ((:WIDTH "8%") (:ALIGN "center") (:CLASS "CnvrsnEq")) "=")
+  ;;         (:TD ((:WIDTH "46%") (:ALIGN "left")) "0.980610 USD" ""))
+ (and (equal (car tree) :TR)
+      (listp (second tree))
+      (some #'identity
+	    (mapcar (lambda (proplist)
+		      (getf proplist :CLASS))
+		    (second tree)))))
+
+(defun forex-extractor (tree)
+  "Extract the data from an XE.com forex query."
+  (list (third (third tree))
+	(third (fifth tree))))
 
 (defun find-forex (tree)
   "Plunder a nested list for XE.com's forex information."
-  (if (not (listp tree))
-      nil
-      ;; If the first element of tree matches :TITLE, then its third and
-      ;; subsequent elements ought to be the text we're looking for.
-      (if (and (equal (car tree) :TR)
-	       (listp (second tree))
-	       (listp (car (second tree)))
-	       (eq (car (car (second tree))) :CLASS)
-	       (equal (cadar (second tree)) "CnvrsnTxt"))
-	  (list (third (third tree)) (third (fifth tree)))
-	  ;; Otherwise, tree is still a nested list which represents some part
-	  ;; of the document we're looking at.
-	  ;; We consider each sublist of tree beginning with all of tree and
-	  ;; taking the cdr of the current sublist on each iteration.
-	  ;; Also on each iteration, we take the first element in the sublist.
-	  ;; If that element is a list, call ourselves recursively with
-	  ;; that list as the whole tree.
-	  ;; If our sublist has become NIL, or if we find a match, exit.
-	  ;; So if some bastard has put two <title> tags in, we'll only find
-	  ;; the first one.  Oh well.
-	  ;; There's undoubtedly some pathological case where somebody creates
-	  ;; an attribute called "title" that'll fuck us up, but we'll fix that
-	  ;; when it comes up.
-	  (let ((found nil))
-	    (do* ((sublist tree (cdr sublist))
-		  (element (car sublist) (car sublist)))
-		 ((or found (not sublist)) found) 
-	      (if (listp element) (setf found (find-forex element))))))))
+  (extract-from-html tree 'forex-anchor 'forex-extractor))
 
 (defun fetch-title (url)
   "Extract the title from a Web page."
@@ -117,13 +122,6 @@
 	      (cleanup-title title)
 	      "No title found."))
 	nil)))
-
-; Why do we fork another thread just to run this lambda, you may ask?
-; Because the thread that the network event loop runs in keeps getting
-; killed every time there's an error in any of this code, and then
-; I have to restart the bot, and I get cranky.  That's why.
-; This way, the thread that gets killed is an ephemeral thing that no-one
-; (well, hardly anyone) will miss.
 
 (defparameter *letterz* "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 
@@ -162,6 +160,13 @@
 
 (defparameter *url-server-port* 5791)
 (defparameter *url-prefix* (format nil "http://127.0.0.1:~A/" *url-server-port*) )
+
+; Why do we fork another thread just to run this lambda, you may ask?
+; Because the thread that the network event loop runs in keeps getting
+; killed every time there's an error in any of this code, and then
+; I have to restart the bot, and I get cranky.  That's why.
+; This way, the thread that gets killed is an ephemeral thing that no-one
+; (well, hardly anyone) will miss.
 
 (defun threaded-msg-hook (message)
   "Handle an incoming message."

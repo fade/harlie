@@ -96,12 +96,13 @@ Only the first match is returned."
   ;;         (:TD ((:WIDTH "46%") (:ALIGN "right")) "1.00 CAD" "")
   ;;               (:TD ((:WIDTH "8%") (:ALIGN "center") (:CLASS "CnvrsnEq")) "=")
   ;;         (:TD ((:WIDTH "46%") (:ALIGN "left")) "0.980610 USD" ""))
- (and (equal (car tree) :TR)
-      (listp (second tree))
-      (some #'identity
-	    (mapcar (lambda (proplist)
-		      (getf proplist :CLASS))
-		    (second tree)))))
+  (and (equal (car tree) :TR)
+       (listp (second tree))
+       (equal "CnvrsnTxt"
+	      (some #'identity
+		    (mapcar (lambda (proplist)
+			      (getf proplist :CLASS))
+			    (second tree))))))
 
 (defun forex-extractor (tree)
   "Extract the data from an XE.com forex query."

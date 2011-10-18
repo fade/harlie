@@ -187,6 +187,7 @@
 				(let* ((amount (second token-text-list))
 				       (from (third token-text-list))
 				       (to (fourth token-text-list))
+				       ;; the (chtml:parse ...) rigmarole should be split into a utility function. we'll be using it quite a lot.
 				       (forex (find-forex (chtml:parse
 							   (http-request
 							    (format nil "http://www.xe.com/ucc/convert/?Amount=~A&From=~A&To=~A" amount from to))

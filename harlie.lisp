@@ -167,38 +167,37 @@ Only the first match is returned."
 			(token-text-list (split "\\s+" text))
 			(botcmd (string-upcase (first token-text-list)))
 			(reply-to channel))
-		   (progn
-		     (format t "Message: ~A~%" (raw-message-string message))
-		     (format t "   connection=~A channel=~A~%" connection channel)
-		     (if (equal channel (string-upcase *my-irc-nick*))
-			 (setf reply-to (user message)))
-		     (if (and (scan "^!" botcmd) (not (equal "!" botcmd))) 
-			 (cond ((equal botcmd "!SOURCES")
-				(privmsg connection reply-to "git@coruscant.deepsky.com:harlie.git"))
-			       ((equal botcmd "!STATUS")
-				(privmsg connection reply-to "I know no phrases."))
-			       ((equal botcmd "!CONV")
-				(let* ((amount (second token-text-list))
-				       (from (third token-text-list))
-				       (to (fourth token-text-list))
-				       (forex (find-forex (chtml:parse
-							   (http-request
-							    (format nil "http://www.xe.com/ucc/convert/?Amount=~A&From=~A&To=~A" amount from to))
-							   (chtml:make-lhtml-builder)))))
-				  (privmsg connection reply-to (format nil "~A = ~A" (first forex) (second forex)))))
-			       
-			       (t (privmsg connection reply-to (format nil "~A: unknown command." botcmd))))
-			 (let ((urls (all-matches-as-strings "((ftp|http|https)://[^\\s]+)|(www[.][^\\s]+)" text)))
-			   (if urls
-			       (progn
-				 (format t "~A~%" urls)
-				 (dolist (url urls)
-				   (destructuring-bind (short title) (lookup-url *the-url-store* url)
-				     (if (and short title)
-					 (privmsg connection reply-to
-						  (format nil "[ ~A~A ] [ ~A ]" *url-prefix* short title))
-					 (privmsg connection reply-to
-						  (format nil "[ ~A ] Couldn't fetch this page." url))))))))))))))
+		   (format t "Message: ~A~%" (raw-message-string message))
+		   (format t "   connection=~A channel=~A~%" connection channel)
+		   (if (equal channel (string-upcase *my-irc-nick*))
+		       (setf reply-to (user message)))
+		   (if (and (scan "^!" botcmd) (not (equal "!" botcmd))) 
+		       (cond ((equal botcmd "!SOURCES")
+			      (privmsg connection reply-to "git@coruscant.deepsky.com:harlie.git"))
+			     ((equal botcmd "!STATUS")
+			      (privmsg connection reply-to "I know no phrases."))
+			     ((equal botcmd "!CONV")
+			      (let* ((amount (second token-text-list))
+				     (from (third token-text-list))
+				     (to (fourth token-text-list))
+				     (forex (find-forex (chtml:parse
+							 (http-request
+							  (format nil "http://www.xe.com/ucc/convert/?Amount=~A&From=~A&To=~A" amount from to))
+							 (chtml:make-lhtml-builder)))))
+				(privmsg connection reply-to (format nil "~A = ~A" (first forex) (second forex)))))
+			     
+			     (t (privmsg connection reply-to (format nil "~A: unknown command." botcmd))))
+		       (let ((urls (all-matches-as-strings "((ftp|http|https)://[^\\s]+)|(www[.][^\\s]+)" text)))
+			 (if urls
+			     (progn
+			       (format t "~A~%" urls)
+			       (dolist (url urls)
+				 (destructuring-bind (short title) (lookup-url *the-url-store* url)
+				   (if (and short title)
+				       (privmsg connection reply-to
+						(format nil "[ ~A~A ] [ ~A ]" *url-prefix* short title))
+				       (privmsg connection reply-to
+						(format nil "[ ~A ] Couldn't fetch this page." url)))))))))))))
 
 (defgeneric make-webpage-listing-urls (store)
   (:documentation "Generate and return the HTML for a page listing all the URLS in the store."))

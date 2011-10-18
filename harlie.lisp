@@ -2,10 +2,7 @@
 
 (in-package #:harlie)
 
-;; With respect to David Gerrold's _When HARLIE Was One_
-(defvar *my-nick* "Harlie")
-
-(defvar *connection* (connect :nickname *my-nick* :server "irc.srh.org"))
+(defvar *connection* nil)
 
 (defvar *last-message* nil)
 
@@ -153,9 +150,6 @@ Only the first match is returned."
   (sb-ext:with-locked-hash-table ((short->url store))
     (gethash short (short->url store))))
 
-(defparameter *url-server-port* 5791)
-(defparameter *url-prefix* (format nil "http://127.0.0.1:~A/" *url-server-port*) )
-
 ; Why do we fork another thread just to run this lambda, you may ask?
 ; Because the thread that the network event loop runs in keeps getting
 ; killed every time there's an error in any of this code, and then
@@ -176,7 +170,7 @@ Only the first match is returned."
 		   (progn
 		     (format t "Message: ~A~%" (raw-message-string message))
 		     (format t "   connection=~A channel=~A~%" connection channel)
-		     (if (equal channel (string-upcase *my-nick*))
+		     (if (equal channel (string-upcase *my-irc-nick*))
 			 (setf reply-to (user message)))
 		     (if (and (scan "^!" botcmd) (not (equal "!" botcmd))) 
 			 (cond ((equal botcmd "!SOURCES")
@@ -249,6 +243,7 @@ or an error message, as appropriate."
 
 (defun run-bot-instance ()
   "Run an instance of the bot."
+  (setf *connection* (connect :nickname *my-irc-nick* :server *irc-server-name*))
   (cl-irc:join *connection* "#trinity")
   (add-hook *connection* 'irc::irc-privmsg-message 'threaded-msg-hook)
   (read-message-loop *connection*))
@@ -257,6 +252,6 @@ or an error message, as appropriate."
   "Fork a thread to run an instance of the bot."
   (setf *random-state* (make-random-state t))
   (make-thread #'run-bot-instance)
-  (hunchentoot:start (make-instance 'hunchentoot:acceptor :port *url-server-port*))
+  (hunchentoot:start (make-instance 'hunchentoot:acceptor :port *web-server-port*))
   (push (create-prefix-dispatcher "/" 'redirect-shortener-dispatch) *dispatch-table*)
   )

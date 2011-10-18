@@ -55,25 +55,29 @@ anchor-p is a predicate which will match when we find what we're looking for.
 extractor is a function which returns whatever you want from that site.
 Only the first match is returned."
   ;; If what we've been handed isn't even a list, then we aren't finding anything here.
-  (if (not (listp tree))
-      nil
-      ;; Failing that, see if we find what we're looking for right here, and if so,
-      ;; extract and return a result.
-      (if (apply anchor-p (list tree))
-	  (apply extractor (list tree))
-	  ;; Otherwise, tree is still a nested list which represents some part
-	  ;; of the document we're looking at.
-	  ;; We consider each sublist of tree beginning with all of tree and
-	  ;; taking the cdr of the current sublist on each iteration.
-	  ;; Also on each iteration, we take the first element in the sublist.
-	  ;; If that element is a list, call ourselves recursively with
-	  ;; that list as the whole tree.
-	  ;; If our sublist has become NIL, or if we find a match, exit.
-	  (let ((found nil))
-	    (do* ((sublist tree (cdr sublist))
-		  (element (car sublist) (car sublist)))
-		 ((or found (not sublist)) found) 
-	      (if (listp element) (setf found (extract-from-html element anchor-p extractor))))))))
+  (cond ((not listp tree) nil)
+
+	;; Failing that, see if we find what we're looking for right here, and if so,
+	;; extract and return a result.
+
+	((apply anchor-p (list tree)) (apply extractor (list tree)))
+
+	;; Otherwise, tree is still a nested list which represents some part
+	;; of the document we're looking at.
+	;; We consider each sublist of tree beginning with all of tree and
+	;; taking the cdr of the current sublist on each iteration.
+	;; Also on each iteration, we take the first element in the sublist.
+	;; If that element is a list, call ourselves recursively with
+	;; that list as the whole tree.
+	;; If our sublist has become NIL, or if we find a match, exit.
+
+	(t (let ((found nil))
+	     (do* ((sublist tree (cdr sublist))
+		   (element (car sublist) (car sublist)))
+		  ((or found (not sublist)) found) 
+	       (if (listp element)
+		   (setf found
+			 (extract-from-html element anchor-p extractor))))))))
 
 (defun title-anchor (tree)
   "Predicate which detects a :TITLE tag."

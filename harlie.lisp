@@ -240,7 +240,7 @@ Serve up a redirect page, a list of shortened URL links,
 or an error message, as appropriate."
   (let ((uri (request-uri*)))
     (if (> (length uri) *how-short*)
-	(let* ((short (subseq (request-uri*) 1 (1+ *how-short*)))
+	(let* ((short (subseq (request-uri*) 1))
 	       (url (get-url-from-shortstring *the-url-store* short)))
 	  (if url
 	      (redirect url)

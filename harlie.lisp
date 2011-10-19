@@ -254,10 +254,16 @@ or an error message, as appropriate."
   (add-hook *connection* 'irc::irc-privmsg-message 'threaded-msg-hook)
   (read-message-loop *connection*))
 
+(defparameter *bot-thread* nil)
+
 (defun run-bot ()
   "Fork a thread to run an instance of the bot."
   (setf *random-state* (make-random-state t))
-  (make-thread #'run-bot-instance)
+  (setf *bot-thread* (make-thread #'run-bot-instance))
   (hunchentoot:start (make-instance 'hunchentoot:acceptor :port *web-server-port*))
-  (push (create-prefix-dispatcher "/" 'redirect-shortener-dispatch) *dispatch-table*)
-  )
+  (push (create-prefix-dispatcher "/" 'redirect-shortener-dispatch) *dispatch-table*))
+
+(defun kill-bot ()
+  (cl-irc:quit *connection*  "I'm tired. I'm going home.")
+  (bt:destroy-thread *bot-thread*)
+  (setf *bot-thread* nil))

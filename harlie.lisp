@@ -2,52 +2,14 @@
 
 (in-package #:harlie)
 
-;; With respect to David Gerrold's _When HARLIE Was One_
-(defvar *my-nick* "Harlie")
-
-(defvar *connection* (connect :nickname *my-nick* :server "irc.srh.org"))
+(defvar *connection* nil)
 
 (defvar *last-message* nil)
 
-(defclass url-store () ())
-
-(defclass hash-url-store (url-store)
-  ((url->short :initform (make-hash-table :test 'equal :synchronized t) :accessor url->short)
-   (short->url :initform (make-hash-table :test 'equal :synchronized t) :accessor short->url)
-   (url->headline :initform (make-hash-table :test 'equal :synchronized t) :accessor url->headline)))
-
 (defvar *the-url-store* (make-instance 'hash-url-store))
-
-(defgeneric make-unique-shortstring (store url)
-  (:documentation "Assign a new short URL string to URL."))
-
-(defgeneric lookup-url (store url)
-  (:documentation "Return present or new short URL and title for specified URL."))
-
-(defgeneric make-webpage-listing-urls (store)
-  (:documentation "Generate and return the HTML for a page listing all the URLS in the store."))
-
-(defgeneric get-url-from-shortstring (store short)
-  (:documentation "Return the full URL associated with a given short string."))
-
-(defmethod get-url-from-shortstring ((store hash-url-store) short)
-  (sb-ext:with-locked-hash-table ((short->url store))
-    (gethash short (short->url store))))
 
 ; There is undoubtedly a better way to extract the text from TITLE tags,
 ; but this is what we're stuck with for now.
-
-(defun string-strip-surrounding-whitespace (str)
-  "Strip whitespace characters from beginning and end of a string."
-  (string-trim '(#\Space #\Newline #\Return #\Tab) str))
-
-(defun string-remove-embedded-newlines (str)
-  "Remove newline or carriage return characters from a string."
-  (concatenate 'string (loop for c across str when (not (or (eq c #\Newline) (eq c #\Return))) collecting c)))
-
-(defun cleanup-title (title)
-  "Remove extraneous whitespace characters from within and around a string."
-  (string-strip-surrounding-whitespace (string-remove-embedded-newlines title)))
 
 (defun extract-from-html (tree anchor-p extractor)
   "Recursive traversal of the nested list representation of an HTML tree.
@@ -55,25 +17,29 @@ anchor-p is a predicate which will match when we find what we're looking for.
 extractor is a function which returns whatever you want from that site.
 Only the first match is returned."
   ;; If what we've been handed isn't even a list, then we aren't finding anything here.
-  (if (not (listp tree))
-      nil
-      ;; Failing that, see if we find what we're looking for right here, and if so,
-      ;; extract and return a result.
-      (if (apply anchor-p (list tree))
-	  (apply extractor (list tree))
-	  ;; Otherwise, tree is still a nested list which represents some part
-	  ;; of the document we're looking at.
-	  ;; We consider each sublist of tree beginning with all of tree and
-	  ;; taking the cdr of the current sublist on each iteration.
-	  ;; Also on each iteration, we take the first element in the sublist.
-	  ;; If that element is a list, call ourselves recursively with
-	  ;; that list as the whole tree.
-	  ;; If our sublist has become NIL, or if we find a match, exit.
-	  (let ((found nil))
-	    (do* ((sublist tree (cdr sublist))
-		  (element (car sublist) (car sublist)))
-		 ((or found (not sublist)) found) 
-	      (if (listp element) (setf found (extract-from-html element anchor-p extractor))))))))
+  (cond ((not (listp tree)) nil)
+
+	;; Failing that, see if we find what we're looking for right here, and if so,
+	;; extract and return a result.
+
+	((apply anchor-p (list tree)) (apply extractor (list tree)))
+
+	;; Otherwise, tree is still a nested list which represents some part
+	;; of the document we're looking at.
+	;; We consider each sublist of tree beginning with all of tree and
+	;; taking the cdr of the current sublist on each iteration.
+	;; Also on each iteration, we take the first element in the sublist.
+	;; If that element is a list, call ourselves recursively with
+	;; that list as the whole tree.
+	;; If our sublist has become NIL, or if we find a match, exit.
+
+	(t (let ((found nil))
+	     (do* ((sublist tree (cdr sublist))
+		   (element (car sublist) (car sublist)))
+		  ((or found (not sublist)) found) 
+	       (if (listp element)
+		   (setf found
+			 (extract-from-html element anchor-p extractor))))))))
 
 (defun title-anchor (tree)
   "Predicate which detects a :TITLE tag."
@@ -96,12 +62,13 @@ Only the first match is returned."
   ;;         (:TD ((:WIDTH "46%") (:ALIGN "right")) "1.00 CAD" "")
   ;;               (:TD ((:WIDTH "8%") (:ALIGN "center") (:CLASS "CnvrsnEq")) "=")
   ;;         (:TD ((:WIDTH "46%") (:ALIGN "left")) "0.980610 USD" ""))
- (and (equal (car tree) :TR)
-      (listp (second tree))
-      (some #'identity
-	    (mapcar (lambda (proplist)
-		      (getf proplist :CLASS))
-		    (second tree)))))
+  (and (equal (car tree) :TR)
+       (listp (second tree))
+       (equal "CnvrsnTxt"
+	      (some #'identity
+		    (mapcar (lambda (proplist)
+			      (getf proplist :CLASS))
+			    (second tree))))))
 
 (defun forex-extractor (tree)
   "Extract the data from an XE.com forex query."
@@ -133,6 +100,9 @@ Only the first match is returned."
 	 (loop for i from 1 to *how-short* collecting
 					   (string (elt *letterz* (random (length *letterz*)))))))
 
+(defgeneric make-unique-shortstring (store url)
+  (:documentation "Assign a new short URL string to URL."))
+
 (defmethod make-unique-shortstring ((store hash-url-store) url)
   (sb-ext:with-locked-hash-table ((short->url store))
     (sb-ext:with-locked-hash-table ((url->short store))
@@ -142,6 +112,9 @@ Only the first match is returned."
 	     (setf (gethash short (short->url store)) url)
 	     (setf (gethash url (url->short store)) short)
 	     short))))))
+
+(defgeneric lookup-url (store url)
+  (:documentation "Return present or new short URL and title for specified URL."))
 
 (defmethod lookup-url ((store hash-url-store) url)
   (let ((short (sb-ext:with-locked-hash-table ((url->short store))
@@ -158,8 +131,20 @@ Only the first match is returned."
 		(list short title))
 	      (list nil nil))))))
 
-(defparameter *url-server-port* 5791)
-(defparameter *url-prefix* (format nil "http://127.0.0.1:~A/" *url-server-port*) )
+(defgeneric get-url-from-shortstring (store short)
+  (:documentation "Return the full URL associated with a given short string."))
+
+(defmethod get-url-from-shortstring ((store hash-url-store) short)
+  (sb-ext:with-locked-hash-table ((short->url store))
+    (gethash short (short->url store))))
+
+(defun fetch-formatted-url (url-string &rest args)
+  "Retrieve the lhtml contents of the page at a specified URL.
+Does format-style string interpolation on the url string."
+  (chtml:parse
+   (http-request
+    (apply 'format nil url-string args))
+   (chtml:make-lhtml-builder)))
 
 ; Why do we fork another thread just to run this lambda, you may ask?
 ; Because the thread that the network event loop runs in keeps getting
@@ -178,40 +163,24 @@ Only the first match is returned."
 			(token-text-list (split "\\s+" text))
 			(botcmd (string-upcase (first token-text-list)))
 			(reply-to channel))
-		   (progn
-		     (format t "Message: ~A~%" (raw-message-string message))
-		     (format t "   connection=~A channel=~A~%" connection channel)
-		     (if (equal channel (string-upcase *my-nick*))
-			 (setf reply-to (user message)))
-		     (if (and (scan "^!" botcmd) (not (equal "!" botcmd))) 
-			 (cond ((equal botcmd "!SOURCES")
-				(privmsg connection reply-to "git@coruscant.deepsky.com:harlie.git"))
-			       ((equal botcmd "!STATUS")
-				(privmsg connection reply-to "I know no phrases."))
-			       ((equal botcmd "!CONV")
-				(let* ((amount (second token-text-list))
-				       (from (third token-text-list))
-				       (to (fourth token-text-list))
-				       ;; the (chtml:parse ...) rigmarole should be split into a utility function. we'll be using it quite a lot.
-				       (forex (find-forex (chtml:parse
-							   (http-request
-							    (format nil "http://www.xe.com/ucc/convert/?Amount=~A&From=~A&To=~A" amount from to))
-							   (chtml:make-lhtml-builder)))))
-				  ;; also, we should define a (talk...) macro that takes a format string and a list of tokens.
-				  (privmsg connection reply-to (format nil "~A = ~A" (first forex) (second forex)))))
-			       
-			       (t (privmsg connection reply-to (format nil "~A: unknown command." botcmd))))
-			 (let ((urls (all-matches-as-strings "((ftp|http|https)://[^\\s]+)|(www[.][^\\s]+)" text)))
-			   (if urls
-			       (progn
-				 (format t "~A~%" urls)
-				 (dolist (url urls)
-				   (destructuring-bind (short title) (lookup-url *the-url-store* url)
-				     (if (and short title)
-					 (privmsg connection reply-to
-						  (format nil "[ ~A~A ] [ ~A ]" *url-prefix* short title))
-					 (privmsg connection reply-to
-						  (format nil "[ ~A ] Couldn't fetch this page." url))))))))))))))
+		   (format t "Message: ~A~%" (raw-message-string message))
+		   (format t "   connection=~A channel=~A~%" connection channel)
+		   (if (equal channel (string-upcase *my-irc-nick*))
+		       (setf reply-to (user message)))
+		   (if (scan "^![^!]" botcmd)
+		       (run-plugin botcmd connection reply-to token-text-list)
+		       (let ((urls (all-matches-as-strings "((ftp|http|https)://[^\\s]+)|(www[.][^\\s]+)" text)))
+			 (if urls
+			     (dolist (url urls)
+			       (destructuring-bind (short title) (lookup-url *the-url-store* url)
+				 (if (and short title)
+				     (privmsg connection reply-to
+					      (format nil "[ ~A~A ] [ ~A ]" *url-prefix* short title))
+				     (privmsg connection reply-to
+					      (format nil "[ ~A ] Couldn't fetch this page." url))))))))))))
+
+(defgeneric make-webpage-listing-urls (store)
+  (:documentation "Generate and return the HTML for a page listing all the URLS in the store."))
 
 (defmethod make-webpage-listing-urls ((store hash-url-store))
   (sb-ext:with-locked-hash-table ((url->short store))
@@ -244,7 +213,7 @@ Serve up a redirect page, a list of shortened URL links,
 or an error message, as appropriate."
   (let ((uri (request-uri*)))
     (if (> (length uri) *how-short*)
-	(let* ((short (subseq (request-uri*) 1 (1+ *how-short*)))
+	(let* ((short (subseq (request-uri*) 1))
 	       (url (get-url-from-shortstring *the-url-store* short)))
 	  (if url
 	      (redirect url)
@@ -253,14 +222,21 @@ or an error message, as appropriate."
 
 (defun run-bot-instance ()
   "Run an instance of the bot."
+  (setf *connection* (connect :nickname *my-irc-nick* :server *irc-server-name*))
   (cl-irc:join *connection* "#trinity")
   (add-hook *connection* 'irc::irc-privmsg-message 'threaded-msg-hook)
   (read-message-loop *connection*))
 
+(defparameter *bot-thread* nil)
+
 (defun run-bot ()
   "Fork a thread to run an instance of the bot."
   (setf *random-state* (make-random-state t))
-  (make-thread #'run-bot-instance)
-  (hunchentoot:start (make-instance 'hunchentoot:acceptor :port *url-server-port*))
-  (push (create-prefix-dispatcher "/" 'redirect-shortener-dispatch) *dispatch-table*)
-  )
+  (setf *bot-thread* (make-thread #'run-bot-instance))
+  (hunchentoot:start (make-instance 'hunchentoot:acceptor :port *web-server-port*))
+  (push (create-prefix-dispatcher "/" 'redirect-shortener-dispatch) *dispatch-table*))
+
+(defun kill-bot ()
+  (cl-irc:quit *connection*  "I'm tired. I'm going home.")
+  (bt:destroy-thread *bot-thread*)
+  (setf *bot-thread* nil))

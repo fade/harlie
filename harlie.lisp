@@ -173,6 +173,7 @@ Does format-style string interpolation on the url string."
 			 ((scan "^![^!]" botcmd)
 			  (run-plugin botcmd connection reply-to token-text-list))
 			 ((scan "^NOTIFY::Help, I'm a bot!" text)
+			  (privmsg connection reply-to (format nil "NOTIFY:: Help, I'm a bot!"))
 			  (push (user message) *ignorelist*))
 			 (t (let ((urls (all-matches-as-strings "((ftp|http|https)://[^\\s]+)|(www[.][^\\s]+)" text)))
 			      (when urls

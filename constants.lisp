@@ -5,7 +5,7 @@
 							   (pathname-directory
 							    (user-homedir-pathname)))))
 
-;;; country codes
+;;; constants in the form of airport and country codes, areacodes, etc.
 
 (defun constant-file (fname)
   "take the filename of a file in the constants directory and return
@@ -33,12 +33,15 @@
 				 ccode-hashtable) (cadr ccode)))
 	    :finally (return ccode-hashtable)))))
 
+(defparameter *country-codes* (constant-table "country_codes")
+  "a hash-table of the ITU specified country codes.")
+
+(defparameter *airport-codes* (constant-table "airport")
+  "a hash-table of the IATA airport codes for most world airports.")
+
 (defun dump-constant-table (table)
   (maphash (lambda (k v)
 	     (format t "~&[~A][~A]" k v)) table))
-
-(defparameter *country-codes* (constant-table "country_codes")
-  "an alist of the ITU specified country codes.")
 
 (defun by-code (key base)
   (let ((place (gethash key base)))
@@ -65,4 +68,10 @@
       ((every #'alphanumericp key) (by-code key *country-codes*))
       (t "No country for code or term: ~A" key)))
 
-;;; /country codes
+
+(defun airport-lookup (key)
+  (cond
+    ((= (length key) 3) (by-code key *airport-codes*))
+    ((every #'alphanumericp key) (by-word key *airport-codes*))
+    (t "No airport found for your puny string: ~A" key)))
+

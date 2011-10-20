@@ -158,6 +158,38 @@ Does format-style string interpolation on the url string."
     (apply 'format nil url-string args))
    (chtml:make-lhtml-builder)))
 
+(defvar *plugins* nil)
+
+(defmacro defplugin (funame args &rest body)
+  `(push (cons (symbol-name (quote ,funame)) (lambda (,@args) ,@body)) *plugins*))
+
+(defplugin sources (connection reply-to token-list)
+  (declare (ignore token-list))
+  (privmsg connection reply-to "git@coruscant.deepsky.com:harlie.git"))
+
+(defplugin status (connection reply-to token-list)
+  (declare (ignore token-list))
+  (privmsg connection reply-to "I know no phrases."))
+
+(defplugin conv (connection reply-to token-list)
+  (let* ((amount (second token-list))
+	 (from (third token-list))
+	 (to (fourth token-list))
+	 (forex (find-forex (fetch-formatted-url
+			     "http://www.xe.com/ucc/convert/?Amount=~A&From=~A&To=~A"
+			     amount from to))))
+    (privmsg connection reply-to (format nil "~A = ~A" (first forex) (second forex)))))
+
+(defun run-plugin (botcmd connection reply-to token-list)
+  (let* ((plugname (string-upcase (subseq botcmd 1)))
+	 (plugf (assoc plugname *plugins* :test #'string=)))
+    (format t "~A~%" plugname)
+    (format t "~A~%" plugf)
+    (format t "~A~%" *plugins*)
+    (if plugf
+	(funcall (cdr plugf) connection reply-to token-list)
+	(privmsg connection reply-to (format nil "~A: unknown command." plugname)))))
+
 ; Why do we fork another thread just to run this lambda, you may ask?
 ; Because the thread that the network event loop runs in keeps getting
 ; killed every time there's an error in any of this code, and then
@@ -179,32 +211,17 @@ Does format-style string interpolation on the url string."
 		   (format t "   connection=~A channel=~A~%" connection channel)
 		   (if (equal channel (string-upcase *my-irc-nick*))
 		       (setf reply-to (user message)))
-		   (if (and (scan "^!" botcmd) (not (equal "!" botcmd))) 
-		       (cond ((equal botcmd "!SOURCES")
-			      (privmsg connection reply-to "git@coruscant.deepsky.com:harlie.git"))
-			     ((equal botcmd "!STATUS")
-			      (privmsg connection reply-to "I know no phrases."))
-			     ((equal botcmd "!CONV")
-			      (let* ((amount (second token-text-list))
-				     (from (third token-text-list))
-				     (to (fourth token-text-list))
-				     (forex (find-forex (fetch-formatted-url
-							 "http://www.xe.com/ucc/convert/?Amount=~A&From=~A&To=~A"
-							 amount from to))))
-				(privmsg connection reply-to (format nil "~A = ~A" (first forex) (second forex)))))
-			     
-			     (t (privmsg connection reply-to (format nil "~A: unknown command." botcmd))))
+		   (if (scan "^![^!]" botcmd)
+		       (run-plugin botcmd connection reply-to token-text-list)
 		       (let ((urls (all-matches-as-strings "((ftp|http|https)://[^\\s]+)|(www[.][^\\s]+)" text)))
 			 (if urls
-			     (progn
-			       (format t "~A~%" urls)
-			       (dolist (url urls)
-				 (destructuring-bind (short title) (lookup-url *the-url-store* url)
-				   (if (and short title)
-				       (privmsg connection reply-to
-						(format nil "[ ~A~A ] [ ~A ]" *url-prefix* short title))
-				       (privmsg connection reply-to
-						(format nil "[ ~A ] Couldn't fetch this page." url)))))))))))))
+			     (dolist (url urls)
+			       (destructuring-bind (short title) (lookup-url *the-url-store* url)
+				 (if (and short title)
+				     (privmsg connection reply-to
+					      (format nil "[ ~A~A ] [ ~A ]" *url-prefix* short title))
+				     (privmsg connection reply-to
+					      (format nil "[ ~A ] Couldn't fetch this page." url))))))))))))
 
 (defgeneric make-webpage-listing-urls (store)
   (:documentation "Generate and return the HTML for a page listing all the URLS in the store."))

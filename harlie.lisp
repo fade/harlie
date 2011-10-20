@@ -240,14 +240,20 @@ or an error message, as appropriate."
 
 (defparameter *bot-thread* nil)
 
+(defparameter *acceptors* nil)
+
 (defun run-bot ()
   "Fork a thread to run an instance of the bot."
   (setf *random-state* (make-random-state t))
   (setf *bot-thread* (make-thread #'run-bot-instance))
-  (hunchentoot:start (make-instance 'hunchentoot:acceptor :port *web-server-port*))
+  (push (make-instance 'hunchentoot:acceptor :port *web-server-port*) *acceptors*)
+  (hunchentoot:start (car *acceptors*))
   (push (create-prefix-dispatcher "/" 'redirect-shortener-dispatch) *dispatch-table*))
 
 (defun kill-bot ()
   (cl-irc:quit *connection*  "I'm tired. I'm going home.")
+  (dolist (acceptor *acceptors*) (hunchentoot:stop acceptor))
+  (setf *acceptors* nil)
+  (setf *dispatch-table* (list 'dispatch-easy-handlers 'default-dispatcher))
   (bt:destroy-thread *bot-thread*)
   (setf *bot-thread* nil))

@@ -5,7 +5,7 @@
 							   (pathname-directory
 							    (user-homedir-pathname)))))
 
-;;; country codes
+;;; constants in the form of airport and country codes, areacodes, etc.
 
 (defun constant-file (fname)
   "take the filename of a file in the constants directory and return
@@ -15,12 +15,13 @@
 	fname
 	nil)))
 
-(defun country-codes ()
-  "return a hash-table keyed by the country codes established by the
-   international telecomunications union."
-  (let ((ccode-hashtable (make-hash-table :test #'equal :synchronized t)))
-    ;; ITU encodes this file as latin-1, which cacks in a utf-8 decode.
-    (with-open-file (s (constant-file "country_codes")
+(defun constant-table (file)
+  "return a hash-table built from a file of key/value pairs, one per
+   line, separated by a colon.."
+  (let ((ccode-hashtable (make-hash-table :test #'equalp :synchronized t)))
+    ;; if external format of file is latin-1 utf8 will puke. pass
+    ;; 8859-1 as a safety measure.
+    (with-open-file (s (constant-file file)
 		       :direction :input
 		       :external-format :ISO-8859-1)
       (loop for cline = (read-line s nil nil)
@@ -28,22 +29,49 @@
 	    ;; :do (format t "~&|~A" cline)
 	    :do (let ((ccode (strip-spaces (split-sequence #\: cline))))
 		  ;; (format t "~&~A" ccode)
-		  (setf (gethash (parse-integer (car ccode) :junk-allowed t)
+		  (setf (gethash (car ccode)
 				 ccode-hashtable) (cadr ccode)))
 	    :finally (return ccode-hashtable)))))
 
-(defparameter *country-codes* (country-codes)
-  "an alist of the ITU specified country codes.")
+(defparameter *country-codes* (constant-table "country_codes")
+  "a hash-table of the ITU specified country codes.")
+
+(defparameter *airport-codes* (constant-table "airport")
+  "a hash-table of the IATA airport codes for most world airports.")
+
+(defun dump-constant-table (table)
+  (maphash (lambda (k v)
+	     (format t "~&[~A][~A]" k v)) table))
 
 (defun by-code (key base)
-  (assoc key base :test :equalp))
+  (let ((place (gethash key base)))
+    (if place
+	(acons key place nil)
+	nil)))
 
-(defun by-word (word)
-  (let ((results nil))
-    ))
+(defun by-word-helper (word base)
+  (let ((scanner (create-scanner word :case-insensitive-mode t)))
+    (if (scan scanner base)
+	t
+	nil)))
+
+(defun by-word (word source)
+  (declare (ignorable word))
+  (loop for key being the hash-keys of source
+	for val being the hash-values of source
+	:if (by-word-helper word val)
+	:collect (cons key val)))
 
 (defun country-lookup (key)
-  (let ((acode (parse-integer key :junk-allowed t)))
-    ))
+  (cond
+      ((every #'alpha-char-p key) (by-word key *country-codes*))
+      ((every #'alphanumericp key) (by-code key *country-codes*))
+      (t "No country for code or term: ~A" key)))
 
-;;; /country codes
+
+(defun airport-lookup (key)
+  (cond
+    ((= (length key) 3) (by-code key *airport-codes*))
+    ((every #'alphanumericp key) (by-word key *airport-codes*))
+    (t "No airport found for your puny string: ~A" key)))
+

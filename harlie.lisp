@@ -37,9 +37,9 @@ Only the first match is returned."
 	     (do* ((sublist tree (cdr sublist))
 		   (element (car sublist) (car sublist)))
 		  ((or found (not sublist)) found) 
-	       (if (listp element)
-		   (setf found
-			 (extract-from-html element anchor-p extractor))))))))
+	       (when (listp element)
+		 (setf found
+		       (extract-from-html element anchor-p extractor))))))))
 
 (defun title-anchor (tree)
   "Predicate which detects a :TITLE tag."
@@ -165,19 +165,22 @@ Does format-style string interpolation on the url string."
 			(reply-to channel))
 		   (format t "Message: ~A~%" (raw-message-string message))
 		   (format t "   connection=~A channel=~A~%" connection channel)
-		   (if (equal channel (string-upcase *my-irc-nick*))
-		       (setf reply-to (user message)))
+		   (when (equal channel (string-upcase *my-irc-nick*))
+		     (setf reply-to (user message)))
 		   (if (scan "^![^!]" botcmd)
 		       (run-plugin botcmd connection reply-to token-text-list)
 		       (let ((urls (all-matches-as-strings "((ftp|http|https)://[^\\s]+)|(www[.][^\\s]+)" text)))
-			 (if urls
-			     (dolist (url urls)
+			 (when urls
+			   (dolist (url urls)
+			     (unless (scan "127.0.0.1" url)
+			       (when (scan "^www" url)
+				 (setf url (format nil "http://~A" url)))
 			       (destructuring-bind (short title) (lookup-url *the-url-store* url)
 				 (if (and short title)
 				     (privmsg connection reply-to
 					      (format nil "[ ~A~A ] [ ~A ]" *url-prefix* short title))
 				     (privmsg connection reply-to
-					      (format nil "[ ~A ] Couldn't fetch this page." url))))))))))))
+					      (format nil "[ ~A ] Couldn't fetch this page." url)))))))))))))
 
 (defgeneric make-webpage-listing-urls (store)
   (:documentation "Generate and return the HTML for a page listing all the URLS in the store."))

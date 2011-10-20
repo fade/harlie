@@ -37,9 +37,21 @@
   (declare (ignore reply-to token-list))
   (format nil "FUCK YOU, SCHUMACHER!"))
 
+(defplugin spew (reply-to token-list)
+  (declare (ignore reply-to token-list))
+  (list "I'm a mouthy bastard" "Who can't get everything" "He wants to say" "In one line."))
+
 (defun run-plugin (botcmd connection reply-to token-list)
   (let* ((plugname (string-upcase (subseq botcmd 1)))
 	 (plugf (assoc plugname *plugins* :test #'string=)))
     (if plugf
-	(privmsg connection reply-to (format nil "~A:: ~A" (string-downcase plugname) (funcall (cdr plugf) reply-to token-list)))
-	(privmsg connection reply-to (format nil "~A: unknown command." (string-downcase plugname))))))
+	(let ((reply (funcall (cdr plugf) reply-to token-list)))
+	  (cond ((stringp reply)
+		 (privmsg connection reply-to
+			  (format nil "~A:: ~A" (string-downcase plugname) reply)))
+		((listp reply)
+		 (dolist (line reply)
+		   (privmsg connection reply-to
+			    (format nil "~A:: ~A" (string-downcase plugname) line))))
+		(t (privmsg connection reply-to
+			    (format nil "~A:: I'm a tragic victim of duck typing gone wrong." (string-downcase plugname)))))))))

@@ -160,7 +160,7 @@ Does format-style string interpolation on the url string."
   (make-thread (lambda ()
 		 (setf *last-message* message)
 		 (let* ((channel (string-upcase (car (arguments message))))
-			(sender (user message))
+			(sender (source message))
 			(connection (connection message))
 			(text (second (arguments message)))
 			(token-text-list (split "\\s+" text))

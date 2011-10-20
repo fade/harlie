@@ -11,18 +11,6 @@
 ; There is undoubtedly a better way to extract the text from TITLE tags,
 ; but this is what we're stuck with for now.
 
-(defun string-strip-surrounding-whitespace (str)
-  "Strip whitespace characters from beginning and end of a string."
-  (string-trim '(#\Space #\Newline #\Return #\Tab) str))
-
-(defun string-remove-embedded-newlines (str)
-  "Remove newline or carriage return characters from a string."
-  (concatenate 'string (loop for c across str when (not (or (eq c #\Newline) (eq c #\Return))) collecting c)))
-
-(defun cleanup-title (title)
-  "Remove extraneous whitespace characters from within and around a string."
-  (string-strip-surrounding-whitespace (string-remove-embedded-newlines title)))
-
 (defun extract-from-html (tree anchor-p extractor)
   "Recursive traversal of the nested list representation of an HTML tree.
 anchor-p is a predicate which will match when we find what we're looking for.
@@ -157,50 +145,6 @@ Does format-style string interpolation on the url string."
    (http-request
     (apply 'format nil url-string args))
    (chtml:make-lhtml-builder)))
-
-(defvar *plugins* nil)
-
-(defmacro defplugin (funame args &rest body)
-  `(push (cons (symbol-name (quote ,funame)) (lambda (,@args) ,@body)) *plugins*))
-
-(defplugin sources (connection reply-to token-list)
-  (declare (ignore token-list))
-  (privmsg connection reply-to "git@coruscant.deepsky.com:harlie.git"))
-
-(defplugin status (connection reply-to token-list)
-  (declare (ignore token-list))
-  (privmsg connection reply-to "I know no phrases."))
-
-(defplugin conv (connection reply-to token-list)
-  (let* ((amount (second token-list))
-	 (from (third token-list))
-	 (to (fourth token-list))
-	 (forex (find-forex (fetch-formatted-url
-			     "http://www.xe.com/ucc/convert/?Amount=~A&From=~A&To=~A"
-			     amount from to))))
-    (privmsg connection reply-to (format nil "~A = ~A" (first forex) (second forex)))))
-
-(defplugin jcw (connection reply-to token-list)
-  (declare (ignore token-list))
-  (privmsg connection reply-to (format nil "FUCK YOU, JACKHOLE!")))
-
-(defplugin rally (connection reply-to token-list)
-  (declare (ignore token-list))
-  (privmsg connection reply-to (format nil "FUCK YOU, HANS!")))
-
-(defplugin f1 (connection reply-to token-list)
-  (declare (ignore token-list))
-  (privmsg connection reply-to (format nil "FUCK YOU, SCHUMACHER!")))
-
-(defun run-plugin (botcmd connection reply-to token-list)
-  (let* ((plugname (string-upcase (subseq botcmd 1)))
-	 (plugf (assoc plugname *plugins* :test #'string=)))
-    (format t "~A~%" plugname)
-    (format t "~A~%" plugf)
-    (format t "~A~%" *plugins*)
-    (if plugf
-	(funcall (cdr plugf) connection reply-to token-list)
-	(privmsg connection reply-to (format nil "~A: unknown command." plugname)))))
 
 ; Why do we fork another thread just to run this lambda, you may ask?
 ; Because the thread that the network event loop runs in keeps getting

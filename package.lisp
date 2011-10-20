@@ -8,8 +8,11 @@
 	#:cxml-stp
 	#:drakma
 	#:hunchentoot
-	#:irc)
+	#:irc
+	#:postmodern
+	#:local-time)
   (:shadowing-import-from :closure-html :attribute :text :comment)
   (:shadowing-import-from :hunchentoot
    :host :*header-stream* :cookie-path :cookie-expires :cookie-name
-   :cookie-domain :parameter-error :cookie-value))
+   :cookie-domain :parameter-error :cookie-value)
+  (:shadowing-import-from :cl-irc :connect))

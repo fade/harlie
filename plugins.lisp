@@ -70,5 +70,6 @@
 		   (privmsg connection reply-to
 			    (format nil "~A:: ~A" (string-downcase plugname) line))))
 		(t (privmsg connection reply-to
-			    (format nil "~A:: I'm a tragic victim of duck typing gone wrong." (string-downcase plugname)))))))))
-	(privmsg connection reply-to (format nil "~A: unknown command." (string-downcase plugname))))))
+			    (format nil "~A:: I'm a tragic victim of duck typing gone wrong." (string-downcase plugname)))))))
+    (privmsg connection reply-to (format nil "~A: unknown command." (string-downcase plugname)))))
+

@@ -10,7 +10,8 @@
 	#:hunchentoot
 	#:irc
 	#:postmodern
-	#:local-time)
+	#:local-time
+	#:split-sequence)
   (:shadowing-import-from :closure-html :attribute :text :comment)
   (:shadowing-import-from :hunchentoot
    :host :*header-stream* :cookie-path :cookie-expires :cookie-name

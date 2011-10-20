@@ -19,6 +19,7 @@
   "return an alist of the country codes established by the
    international telecomunications union."
   (let ((ccode-alist nil))
+    ;; ITU encodes this file as latin-1, which cacks in a utf-8 decode.
     (with-open-file (s (constant-file "country_codes")
 		       :direction :input
 		       :external-format :ISO-8859-1)

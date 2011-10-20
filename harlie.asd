@@ -10,7 +10,9 @@
 	       #:drakma
 	       #:hunchentoot
 	       #:postmodern
-	       #:local-time)
+	       #:local-time
+	       #:split-sequence
+	       #:cl-fad)
   :components ((:file "package")
 	       (:file "config")
 	       (:file "url-store")

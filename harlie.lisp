@@ -172,12 +172,15 @@ Does format-style string interpolation on the url string."
 		       (let ((urls (all-matches-as-strings "((ftp|http|https)://[^\\s]+)|(www[.][^\\s]+)" text)))
 			 (when urls
 			   (dolist (url urls)
-			     (destructuring-bind (short title) (lookup-url *the-url-store* url)
-			       (if (and short title)
-				   (privmsg connection reply-to
-					    (format nil "[ ~A~A ] [ ~A ]" *url-prefix* short title))
-				   (privmsg connection reply-to
-					    (format nil "[ ~A ] Couldn't fetch this page." url))))))))))))
+			     (unless (scan "127.0.0.1" url)
+			       (when (scan "^www" url)
+				 (setf url (format nil "http://~A" url)))
+			       (destructuring-bind (short title) (lookup-url *the-url-store* url)
+				 (if (and short title)
+				     (privmsg connection reply-to
+					      (format nil "[ ~A~A ] [ ~A ]" *url-prefix* short title))
+				     (privmsg connection reply-to
+					      (format nil "[ ~A ] Couldn't fetch this page." url)))))))))))))
 
 (defgeneric make-webpage-listing-urls (store)
   (:documentation "Generate and return the HTML for a page listing all the URLS in the store."))

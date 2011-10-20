@@ -12,4 +12,6 @@
   :components ((:file "package")
 	       (:file "config")
 	       (:file "url-store")
+	       (:file "plugins")
+	       (:file "util")
 	       (:file "harlie")))

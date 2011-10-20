@@ -42,7 +42,7 @@
   (let* ((countries (country-lookup (second token-list))))
     (if (and countries (listp countries))
 	(loop for (a . b) in countries
-	      :collect (format nil "[~a][~a]" a b))
+	      :collect (format nil "[ ~a ][ ~a ]" a b))
 	(format nil "No match for search term: ~A" (second token-list)))))
 
 (defplugin iata (reply-to token-list)

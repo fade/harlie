@@ -5,7 +5,7 @@
 							   (pathname-directory
 							    (user-homedir-pathname)))))
 
-;;; area codes
+;;; country codes
 
 (defun constant-file (fname)
   "take the filename of a file in the constants directory and return
@@ -15,10 +15,10 @@
 	fname
 	nil)))
 
-(defun area-codes ()
-  "return an alist of the country codes established by the
+(defun country-codes ()
+  "return a hash-table keyed by the country codes established by the
    international telecomunications union."
-  (let ((ccode-alist nil))
+  (let ((ccode-hashtable (make-hash-table :test #'equal :synchronized t)))
     ;; ITU encodes this file as latin-1, which cacks in a utf-8 decode.
     (with-open-file (s (constant-file "country_codes")
 		       :direction :input
@@ -28,11 +28,22 @@
 	    ;; :do (format t "~&|~A" cline)
 	    :do (let ((ccode (strip-spaces (split-sequence #\: cline))))
 		  ;; (format t "~&~A" ccode)
-		  (push (cons (parse-integer
-			       (car ccode) :junk-allowed t) (cadr ccode)) ccode-alist))
-	    :finally (return ccode-alist)))))
+		  (setf (gethash (parse-integer (car ccode) :junk-allowed t)
+				 ccode-hashtable) (cadr ccode)))
+	    :finally (return ccode-hashtable)))))
 
-(defparameter *area-codes* (area-codes)
-  "an alist of the ITU specified area codes.")
+(defparameter *country-codes* (country-codes)
+  "an alist of the ITU specified country codes.")
 
-;;; /area codes
+(defun by-code (key base)
+  (assoc key base :test :equalp))
+
+(defun by-word (word)
+  (let ((results nil))
+    ))
+
+(defun country-lookup (key)
+  (let ((acode (parse-integer key :junk-allowed t)))
+    ))
+
+;;; /country codes

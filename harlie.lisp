@@ -180,6 +180,18 @@ Does format-style string interpolation on the url string."
 			     amount from to))))
     (privmsg connection reply-to (format nil "~A = ~A" (first forex) (second forex)))))
 
+(defplugin jcw (connection reply-to token-list)
+  (declare (ignore token-list))
+  (privmsg connection reply-to (format nil "FUCK YOU, JACKHOLE!")))
+
+(defplugin rally (connection reply-to token-list)
+  (declare (ignore token-list))
+  (privmsg connection reply-to (format nil "FUCK YOU, HANS!")))
+
+(defplugin f1 (connection reply-to token-list)
+  (declare (ignore token-list))
+  (privmsg connection reply-to (format nil "FUCK YOU, SCHUMACHER!")))
+
 (defun run-plugin (botcmd connection reply-to token-list)
   (let* ((plugname (string-upcase (subseq botcmd 1)))
 	 (plugf (assoc plugname *plugins* :test #'string=)))

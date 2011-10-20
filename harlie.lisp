@@ -8,6 +8,8 @@
 
 (defvar *the-url-store* (make-instance 'hash-url-store))
 
+(defvar *ignorelist* nil)
+
 ; There is undoubtedly a better way to extract the text from TITLE tags,
 ; but this is what we're stuck with for now.
 
@@ -167,20 +169,24 @@ Does format-style string interpolation on the url string."
 		   (format t "   connection=~A channel=~A~%" connection channel)
 		   (when (equal channel (string-upcase *my-irc-nick*))
 		     (setf reply-to (user message)))
-		   (if (scan "^![^!]" botcmd)
-		       (run-plugin botcmd connection reply-to token-text-list)
-		       (let ((urls (all-matches-as-strings "((ftp|http|https)://[^\\s]+)|(www[.][^\\s]+)" text)))
-			 (when urls
-			   (dolist (url urls)
-			     (unless (scan "127.0.0.1" url)
-			       (when (scan "^www" url)
-				 (setf url (format nil "http://~A" url)))
-			       (destructuring-bind (short title) (lookup-url *the-url-store* url)
-				 (if (and short title)
-				     (privmsg connection reply-to
-					      (format nil "[ ~A~A ] [ ~A ]" *url-prefix* short title))
-				     (privmsg connection reply-to
-					      (format nil "[ ~A ] Couldn't fetch this page." url)))))))))))))
+		   (cond ((find (user message) *ignorelist* :test #'equal) nil)
+			 ((scan "^![^!]" botcmd)
+			  (run-plugin botcmd connection reply-to token-text-list))
+			 ((scan "^NOTIFY:: Help, I'm a bot!" text)
+			  (privmsg connection reply-to (format nil "NOTIFY:: Help, I'm a bot!"))
+			  (push (user message) *ignorelist*))
+			 (t (let ((urls (all-matches-as-strings "((ftp|http|https)://[^\\s]+)|(www[.][^\\s]+)" text)))
+			      (when urls
+				(dolist (url urls)
+				  (unless (scan "127.0.0.1" url)
+				    (when (scan "^www" url)
+				      (setf url (format nil "http://~A" url)))
+				    (destructuring-bind (short title) (lookup-url *the-url-store* url)
+				      (if (and short title)
+					  (privmsg connection reply-to
+						   (format nil "[ ~A~A ] [ ~A ]" *url-prefix* short title))
+					  (privmsg connection reply-to
+						   (format nil "[ ~A ] Couldn't fetch this page." url))))))))))))))
 
 (defgeneric make-webpage-listing-urls (store)
   (:documentation "Generate and return the HTML for a page listing all the URLS in the store."))
@@ -227,6 +233,7 @@ or an error message, as appropriate."
   "Run an instance of the bot."
   (setf *connection* (connect :nickname *my-irc-nick* :server *irc-server-name*))
   (cl-irc:join *connection* "#trinity")
+  (privmsg *connection* "#trinity" (format nil "NOTIFY:: Help, I'm a bot!"))
   (add-hook *connection* 'irc::irc-privmsg-message 'threaded-msg-hook)
   (read-message-loop *connection*))
 

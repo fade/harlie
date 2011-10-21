@@ -17,6 +17,8 @@
 	       (:file "config")
 	       (:file "util")
 	       (:file "url-store")
+	       (:file "web-client")
+	       (:file "web-server")
 	       (:file "constants")
 	       (:file "plugins")
 	       (:file "harlie")))

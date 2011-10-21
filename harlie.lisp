@@ -266,4 +266,5 @@ or an error message, as appropriate."
   (setf *acceptors* nil)
   (setf *dispatch-table* (list 'dispatch-easy-handlers 'default-dispatcher))
   (bt:destroy-thread *bot-thread*)
-  (setf *bot-thread* nil))
+  (setf *bot-thread* nil)
+  (setf *ignorelist* nil))

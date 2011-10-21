@@ -67,6 +67,17 @@
 
 ;; rate
 
+(defplugin rate (reply-to token-list)
+  (declare (ignorable reply-to))
+  (let* ((amount 1)
+	 (from (second token-list))
+	 (to (third token-list))
+	 (fx (find-forex (fetch-formatted-url
+			     "http://www.xe.com/ucc/convert/?Amount=~A&From=~A&To=~A"
+			     amount from to)))
+	 (forex (split-sequence #\Space fx)))
+    (format nil "[ ~A ~A ] = [ ~A ~A ]" (first forex) (second forex) (third forex) (fourth forex))))
+
 ;; ftoc
 
 ;; ctof

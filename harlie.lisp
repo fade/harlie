@@ -10,6 +10,19 @@
 
 (defvar *ignorelist* nil)
 
+(defparameter *url-dbs*                                                                             
+  '(("botdb" "semaphor" nil :unix)                                                                  
+    ("bootsydb" "semaphor" nil :unix)                                                               
+    ("shogundb" "semaphor" nil :unix)                                                               
+    ("thugdb" "semaphor" nil :unix)))                                                               
+                                                                                                    
+(defun get-url-from-old-shortstring (short)                                                         
+  (dolist (db *url-dbs*)                                                                            
+    (with-connection db                                                                             
+      (let ((long                                                                                   
+              (query (format nil "select url from urls where shorturl = '~A'" short))))             
+        (when long (return (caar long)))))))
+
 ; There is undoubtedly a better way to extract the text from TITLE tags,
 ; but this is what we're stuck with for now.
 
@@ -235,7 +248,11 @@ or an error message, as appropriate."
 	       (url (get-url-from-shortstring *the-url-store* short)))
 	  (if url
 	      (redirect url)
-	      (html-apology)))
+	      (let* ((short (subseq (request-uri*) 4))
+		     (url (get-url-from-old-shortstring short)))
+		(if url
+		    (redirect url)
+		    (html-apology)))))
 	(make-webpage-listing-urls *the-url-store*))))
 
 (defun run-bot-instance ()

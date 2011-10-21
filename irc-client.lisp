@@ -68,9 +68,9 @@
   (read-message-loop *irc-connection*))
 
 (defun stop-irc-client-instance ()
-  (cl-irc:quit *connection*  "I'm tired. I'm going home.")
+  (cl-irc:quit *irc-connection*  "I'm tired. I'm going home.")
   (setf *ignorelist* nil)
-  (setf *connection* nil))
+  (setf *irc-connection* nil))
 
 (defparameter *irc-client-thread* nil)
 

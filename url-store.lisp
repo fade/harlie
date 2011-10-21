@@ -81,6 +81,15 @@
   (sb-ext:with-locked-hash-table ((short->url store))
     (gethash short (short->url store))))
 
+(defgeneric get-urls-and-headlines (store)
+  (:documentation "Get a list of URLs and headlines from an URL store."))
+
+(defmethod get-urls-and-headlines ((store hash-url-store))
+  (sb-ext:with-locked-hash-table ((url->headline store))
+    (loop for k being the hash-keys in (url->headline store)
+	  collecting
+	  (list k (gethash k (url->headline store) "Click here for a random link.")))))
+
 (defun fetch-formatted-url (url-string &rest args)
   "Retrieve the lhtml contents of the page at a specified URL.
 Does format-style string interpolation on the url string."

@@ -4,17 +4,13 @@
 
 (defparameter *acceptors* nil)
 
-(defgeneric make-webpage-listing-urls (store)
-  (:documentation "Generate and return the HTML for a page listing all the URLS in the store."))
-
-(defmethod make-webpage-listing-urls ((store hash-url-store))
-  (sb-ext:with-locked-hash-table ((url->short store))
-    (sb-ext:with-locked-hash-table ((url->headline store))
-      (let ((foolery
-	      (loop for k being the hash-keys in (url->short store) collecting
-									(format nil "<li><a href=\"~A\">~A</A></li>" k (gethash k (url->headline store) "Click here for a random link.")))))
-	(concatenate 'string "<html><head><title>Bot Spew</title></head><body><ul>"
-		     (apply 'concatenate 'string foolery) "</ul></body></html>")))))
+(defun make-webpage-listing-urls (store)
+  "Generate and return the HTML for a page listing all the URLS in the store."
+  (concatenate 'string "<html><head><title>Bot Spew</title></head><body><ul>"
+	       (apply 'concatenate 'string
+		      (mapcar (lambda (x) (format nil "<li><a href=\"~A\">~A</A></li>" (car x) (cadr x)))
+			      (get-urls-and-headlines store)))
+	       "</ul></body></html>"))
 
 (defun html-apology ()
   "Return HTML for a page explaining that a browser has struck out."

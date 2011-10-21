@@ -9,17 +9,25 @@
    (short->url :initform (make-hash-table :test 'equal :synchronized t) :accessor short->url)
    (url->headline :initform (make-hash-table :test 'equal :synchronized t) :accessor url->headline)))
 
+(defclass postmodern-url-store (url-store)
+  ((readonly-url-dbs
+    :initform
+    '(("botdb" "semaphor" nil :unix)
+      ("bootsydb" "semaphor" nil :unix)
+      ("shogundb" "semaphor" nil :unix)
+      ("thugdb" "semaphor" nil :unix))
+    :accessor readonly-url-dbs)
+   (readwrite-url-db :initform '("harliedb" "semaphor" nil :unix) :accessor readwrite-url-db)))
+
 (defvar *the-url-store* (make-instance 'hash-url-store))
 
-(defparameter *url-dbs*
-  '(("botdb" "semaphor" nil :unix)
-    ("bootsydb" "semaphor" nil :unix)
-    ("shogundb" "semaphor" nil :unix)
-    ("thugdb" "semaphor" nil :unix)))
+(defvar *pomo-url-store* (make-instance 'postmodern-url-store))
 
-(defun get-url-from-old-shortstring (short)
-  "Check the existing databases for entries corresponding to a given shortstring."
-  (dolist (db *url-dbs*)
+(defgeneric get-url-from-old-shortstring (store url)
+  (:documentation "Check the existing databases for entries corresponding to a given shortstring."))
+
+(defmethod get-url-from-old-shortstring ((store postmodern-url-store) short)
+  (dolist (db (readonly-url-dbs store))
     (with-connection db
       (let ((long
 	      (query (sql (:select 'url :from 'urls :where (:= 'shorturl short))))))

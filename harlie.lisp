@@ -170,7 +170,7 @@ Does format-style string interpolation on the url string."
 		   (format t "   connection=~A channel=~A~%" connection channel)
 		   (when (equal channel (string-upcase *my-irc-nick*))
 		     (setf reply-to sender))
-		   (cond ((find sender *ignorelist* :test #'equal) nil)
+		   (cond ((member sender *ignorelist* :test #'equal) nil)
 			 ((scan "^![^!]" botcmd)
 			  (run-plugin botcmd connection reply-to token-text-list))
 			 ((scan "^NOTIFY:: Help, I'm a bot!" text)
@@ -188,6 +188,13 @@ Does format-style string interpolation on the url string."
 						   (format nil "[ ~A~A ] [ ~A ]" *url-prefix* short title))
 					  (privmsg connection reply-to
 						   (format nil "[ ~A ] Couldn't fetch this page." url))))))))))))))
+
+(defun threaded-byebye-hook (message)
+  "Handle a quit or part message."
+  (make-thread (lambda ()
+		 (setf *last-message* message)
+		 (let* ((sender (source message)))
+		   (setf *ignorelist* (remove sender *ignorelist*))))))
 
 (defgeneric make-webpage-listing-urls (store)
   (:documentation "Generate and return the HTML for a page listing all the URLS in the store."))
@@ -236,6 +243,8 @@ or an error message, as appropriate."
   (cl-irc:join *connection* "#trinity")
   (privmsg *connection* "#trinity" (format nil "NOTIFY:: Help, I'm a bot!"))
   (add-hook *connection* 'irc::irc-privmsg-message 'threaded-msg-hook)
+  (add-hook *connection* 'irc::irc-quit-message 'threaded-byebye-hook)
+  (add-hook *connection* 'irc::irc-part-message 'threaded-byebye-hook)
   (read-message-loop *connection*))
 
 (defparameter *bot-thread* nil)

@@ -194,7 +194,8 @@ Does format-style string interpolation on the url string."
   (make-thread (lambda ()
 		 (setf *last-message* message)
 		 (let* ((sender (source message)))
-		   (setf *ignorelist* (remove sender *ignorelist*))))))
+		   (format t "In threaded-byebye-hook, sender = ~A~%" sender)
+		   (setf *ignorelist* (remove sender *ignorelist* :test #'equal))))))
 
 (defgeneric make-webpage-listing-urls (store)
   (:documentation "Generate and return the HTML for a page listing all the URLS in the store."))

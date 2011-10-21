@@ -57,6 +57,16 @@
 	      :collect (format nil "[ ~A ][ ~A ]" a b))
 	(format nil "No match for your airport: ~A" (second token-list)))))
 
+(defplugin ciso (reply-to token-list)
+  (declare (ignorable reply-to))
+  (let ((curr (currency-lookup (second token-list))))
+    (if (and curr (listp curr))
+	(loop for (a . b) in curr
+	      :collect (format nil "[ ~A ][ ~A ]" a b))
+	(format nil "~A" curr))))
+
+;; ===[ hyperspace motivator follows. ]===
+
 (defun run-plugin (botcmd connection reply-to token-list)
   (let* ((plugname (string-upcase (subseq botcmd 1)))
 	 (plugf (assoc plugname *plugins* :test #'string=)))

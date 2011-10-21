@@ -39,6 +39,9 @@
 (defparameter *airport-codes* (constant-table "airport")
   "a hash-table of the IATA airport codes for most world airports.")
 
+(defparameter *currency-codes* (constant-table "newisocurr")
+  "A hash-talbe containing most ISO currency codes on earth.")
+
 (defun dump-constant-table (table)
   (maphash (lambda (k v)
 	     (format t "~&[~A][~A]" k v)) table))
@@ -74,4 +77,10 @@
     ((= (length key) 3) (by-code key *airport-codes*))
     ((every #'alphanumericp key) (by-word key *airport-codes*))
     (t "No airport found for your puny string: ~A" key)))
+
+(defun currency-lookup (key)
+  (cond
+    ((= (length key) 3) (by-code key *currency-codes*))
+    ((every #'alpha-char-p key) (by-word key *currency-codes*))
+    (t (format nil "No currency ISO code found for key: ~A" key))))
 

@@ -39,7 +39,7 @@
 (defparameter *airport-codes* (constant-table "airport")
   "a hash-table of the IATA airport codes for most world airports.")
 
-(defparameter *currency-codes* (constant-table "newisocurr")
+(defparameter *currency-codes* (constant-table "currency-codes")
   "A hash-talbe containing most ISO currency codes on earth.")
 
 (defun dump-constant-table (table)

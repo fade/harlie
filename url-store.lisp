@@ -22,7 +22,7 @@
   (dolist (db *url-dbs*)
     (with-connection db
       (let ((long
-              (query (format nil "select url from urls where shorturl = '~A'" short))))
+	      (query (sql (:select 'url :from 'urls :where (:= 'shorturl short))))))
         (when long (return (caar long)))))))
 
 (defparameter *letterz* "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")

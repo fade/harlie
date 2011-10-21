@@ -65,6 +65,18 @@
 	      :collect (format nil "[ ~A ][ ~A ]" a b))
 	(format nil "~A" curr))))
 
+;; rate
+
+;; ftoc
+
+;; ctof
+
+;; 8ball
+
+;; area
+
+;; calc
+
 ;; ===[ hyperspace motivator follows. ]===
 
 (defun run-plugin (botcmd connection reply-to token-list)

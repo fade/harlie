@@ -19,6 +19,7 @@
 	       (:file "url-store")
 	       (:file "web-client")
 	       (:file "web-server")
+	       (:file "irc-client")
 	       (:file "constants")
 	       (:file "plugins")
 	       (:file "harlie")))

@@ -49,3 +49,13 @@ or an error message, as appropriate."
 		    (redirect url)
 		    (html-apology)))))
 	(make-webpage-listing-urls *the-url-store*))))
+
+(defun start-web-servers ()
+  (push (make-instance 'hunchentoot:acceptor :port *web-server-port*) *acceptors*)
+  (hunchentoot:start (car *acceptors*))
+  (push (create-prefix-dispatcher "/" 'redirect-shortener-dispatch) *dispatch-table*))
+
+(defun stop-web-servers ()
+  (dolist (acceptor *acceptors*) (hunchentoot:stop acceptor))
+  (setf *acceptors* nil)
+  (setf *dispatch-table* (list 'dispatch-easy-handlers 'default-dispatcher)))

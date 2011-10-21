@@ -83,3 +83,13 @@ Only the first match is returned."
 	      (cleanup-title title)
 	      "No title found."))
 	nil)))
+
+(defvar *old-bogus-eols* nil)
+
+(defun start-web-client ()
+  (setf *old-bogus-eols* chunga:*accept-bogus-eols*)
+  (setf chunga:*accept-bogus-eols* t))
+
+(defun stop-web-client ()
+  (setf chunga:*accept-bogus-eols* *old-bogus-eols*)
+  (defvar *old-bogus-eols* nil))

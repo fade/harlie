@@ -7,6 +7,8 @@
 
 (defparameter *irc-server-name* "irc.srh.org")
 
+(defparameter *irc-channel-names* '("#trinity"))
+
 (defparameter *web-server-port* 5791)
 
 (defparameter *web-server-name* "127.0.0.1")

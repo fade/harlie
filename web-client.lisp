@@ -92,4 +92,4 @@ Only the first match is returned."
 
 (defun stop-web-client ()
   (setf chunga:*accept-bogus-eols* *old-bogus-eols*)
-  (defvar *old-bogus-eols* nil))
+  (setf *old-bogus-eols* nil))

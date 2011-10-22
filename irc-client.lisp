@@ -85,8 +85,9 @@
 (defun start-irc-client-instance ()
   "Run an instance of the bot's IRC client."
   (setf *irc-connection* (connect :nickname *my-irc-nick* :server *irc-server-name*))
-  (cl-irc:join *irc-connection* "#trinity")
-  (privmsg *irc-connection* "#trinity" (format nil "NOTIFY:: Help, I'm a bot!"))
+  (dolist (channel *irc-channel-names*)
+    (cl-irc:join *irc-connection* channel)
+    (privmsg *irc-connection* channel (format nil "NOTIFY:: Help, I'm a bot!")))
   (sb-ext:schedule-timer *message-timer* 5)  
   (add-hook *irc-connection* 'irc::irc-privmsg-message 'threaded-msg-hook)
   (add-hook *irc-connection* 'irc::irc-quit-message 'threaded-byebye-hook)

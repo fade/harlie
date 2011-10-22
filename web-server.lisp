@@ -48,7 +48,7 @@ or an error message, as appropriate."
 		    (html-apology)))))
 	(let (( page (make-webpage-listing-urls *the-url-store*)))
 	  (format t "~&passed.. prepare to get a page!~&~A" page)
-	  (values (format nil "<html><head><title>I am a constant webpage</title></head></html>"))))))
+	  (values (cl-who:escape-string (format nil "~A" page))))))) ;;(format nil "<html><head><title>I am a constant webpage</title></head></html>")
 
 (defun start-web-servers ()
   (push (make-instance 'hunchentoot:acceptor :port *web-server-port*) *acceptors*)

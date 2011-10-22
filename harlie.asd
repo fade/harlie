@@ -10,6 +10,7 @@
 	       #:cxml-stp
 	       #:drakma
 	       #:hunchentoot
+	       #:cl-who
 	       #:postmodern
 	       #:local-time
 	       #:split-sequence

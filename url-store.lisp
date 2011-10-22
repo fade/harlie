@@ -29,8 +29,7 @@
   (dolist (db (readonly-url-dbs store))
     (with-connection db
       (let ((long
-	      (with-connection (readwrite-url-db store)
-		(query (sql (:select 'url :from 'urls :where (:= 'shorturl short)))))))
+	      (query (sql (:select 'url :from 'urls :where (:= 'shorturl short))))))
         (when long (return (caar long)))))))
 
 (defclass urls ()

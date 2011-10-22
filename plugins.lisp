@@ -49,6 +49,14 @@
 	      :collect (format nil "[ ~a ][ ~a ]" a b))
 	(format nil "No match for search term: ~A" (second token-list)))))
 
+(defplugin area (reply-to token-list)
+  (declare (ignorable reply-to))
+  (let* ((area (areacode-lookup (second token-list))))
+    (if (and area (listp area))
+	(loop for (a . b) in area
+	      :collect (format nil "[ ~A ][ ~A ]" a b))
+	(format nil "No area code found for your search term: ~A" (second token-list)))))
+
 (defplugin iata (reply-to token-list)
   (declare (ignorable reply-to))
   (let ((airports (airport-lookup (second token-list))))
@@ -56,6 +64,39 @@
 	(loop for (a . b) in airports
 	      :collect (format nil "[ ~A ][ ~A ]" a b))
 	(format nil "No match for your airport: ~A" (second token-list)))))
+
+(defplugin ciso (reply-to token-list)
+  (declare (ignorable reply-to))
+  (let ((curr (currency-lookup (second token-list))))
+    (if (and curr (listp curr))
+	(loop for (a . b) in curr
+	      :collect (format nil "[ ~A ][ ~A ]" a b))
+	(format nil "~A" curr))))
+
+;; rate
+
+(defplugin rate (reply-to token-list)
+  (declare (ignorable reply-to))
+  (let* ((amount 1)
+	 (from (second token-list))
+	 (to (third token-list))
+	 (fx (find-forex (fetch-formatted-url
+			     "http://www.xe.com/ucc/convert/?Amount=~A&From=~A&To=~A"
+			     amount from to)))
+	 (forex (split-sequence #\Space fx)))
+    (format nil "[ ~A ~A ] = [ ~A ~A ]" (first forex) (second forex) (third forex) (fourth forex))))
+
+;; ftoc
+
+;; ctof
+
+;; 8ball
+
+;; area
+
+;; calc
+
+;; ===[ hyperspace motivator follows. ]===
 
 (defun run-plugin (botcmd connection reply-to token-list)
   (let* ((plugname (string-upcase (subseq botcmd 1)))

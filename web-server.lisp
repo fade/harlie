@@ -21,8 +21,15 @@
        (<:ul
 	(dolist (link (get-urls-and-headlines store))
 	  (<:li
-	   (<:a :href (car link) :name (format nil "~A"
-					       (cl-who:escape-string (cadr link))))))))))))
+	   (<:a :href (car link) (<:as-html (cl-who:escape-string (cadr link))))))
+	))))))
+
+
+
+(defun bug (store)
+  (dolist (link (get-urls-and-headlines store))
+    ;(format t "~&~A: ~A~&~A: ~A" (type-of (car link)) (car link) (type-of (cadr link)) (cadr link))
+    (format t "~%~%~A" (<:as-html (cadr link)))))
 
 (defun html-apology ()
   "Return HTML for a page explaining that a browser has struck out."

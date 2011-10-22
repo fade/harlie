@@ -16,8 +16,11 @@
   (with-yaclml-output-to-string
     (<:html
      (<:head
-      (<:title "Bot Spew")
+      ;;; this title will have to change if/when we support multiple server connections.
+      (<:title (<:as-html (format nil "Short URL index for server: ~A" *irc-server-name*)))
       (<:body
+       (<:h2 "URL Index")
+       (<:br)
        (<:ul
 	(dolist (link (get-urls-and-headlines store))
 	  (<:li

@@ -39,7 +39,7 @@
 			 (t (let ((urls (all-matches-as-strings "((ftp|http|https)://[^\\s]+)|(www[.][^\\s]+)" text)))
 			      (when urls
 				(dolist (url urls)
-				  (unless (or (scan (format nil "http://~A:~A" *web-server-name* *web-server-port*))
+				  (unless (or (scan (format nil "http://~A:~A" *web-server-name* *web-server-port*) url)
 					      (scan "127.0.0.1" url))
 				    (when (scan "^www" url)
 				      (setf url (format nil "http://~A" url)))

@@ -3,6 +3,7 @@
 (defpackage #:harlie
   (:use #:cl
 	#:bordeaux-threads
+	#:sb-concurrency
 	#:cl-ppcre
 	#:closure-html
 	#:cxml-stp

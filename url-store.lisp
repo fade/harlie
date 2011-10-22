@@ -73,10 +73,11 @@
 	((not (query (:select '* :from 'urls :where (:= 'short-url short))))
 	 short))))
 
-(defgeneric lookup-url (store url)
+(defgeneric lookup-url (store url nick)
   (:documentation "Return present or new short URL and title for specified URL."))
 
-(defmethod lookup-url ((store hash-url-store) url)
+(defmethod lookup-url ((store hash-url-store) url nick)
+  (declare (ignore nick))
   (let ((short (sb-ext:with-locked-hash-table ((url->short store))
 		 (gethash url (url->short store)))))
     (if short
@@ -91,7 +92,7 @@
 		(list short title))
 	      (list nil nil))))))
 
-(defmethod lookup-url ((store postmodern-url-store) url)
+(defmethod lookup-url ((store postmodern-url-store) url nick)
   (let ((result (with-connection (readwrite-url-db store)
 		  (query (:select 'short-url 'title :from 'urls :where (:= 'input-url url))))))
     (if result
@@ -100,7 +101,7 @@
 	  (if title
 	      (let ((short (make-unique-shortstring store url)))
 		(with-connection (readwrite-url-db store)
-		  (insert-dao (make-instance 'urls :input-url url :short-url short :title title))
+		  (insert-dao (make-instance 'urls :input-url url :redirected-url url :short-url short :title title :from-nick nick))
 		  (list short title)))
 	      (list nil nil))))))
 

@@ -42,7 +42,7 @@
 				  (unless (scan "127.0.0.1" url)
 				    (when (scan "^www" url)
 				      (setf url (format nil "http://~A" url)))
-				    (destructuring-bind (short title) (lookup-url *the-url-store* url)
+				    (destructuring-bind (short title) (lookup-url *the-url-store* url sender)
 				      (if (and short title)
 					  (privmsg connection reply-to
 						   (format nil "[ ~A~A ] [ ~A ]" *url-prefix* short title))

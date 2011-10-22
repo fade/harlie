@@ -39,10 +39,11 @@
 			 (t (let ((urls (all-matches-as-strings "((ftp|http|https)://[^\\s]+)|(www[.][^\\s]+)" text)))
 			      (when urls
 				(dolist (url urls)
-				  (unless (scan "127.0.0.1" url)
+				  (unless (or (scan (format nil "http://~A:~A" *web-server-name* *web-server-port*) url)
+					      (scan "127.0.0.1" url))
 				    (when (scan "^www" url)
 				      (setf url (format nil "http://~A" url)))
-				    (destructuring-bind (short title) (lookup-url *the-url-store* url)
+				    (destructuring-bind (short title) (lookup-url *the-url-store* url sender)
 				      (if (and short title)
 					  (privmsg connection reply-to
 						   (format nil "[ ~A~A ] [ ~A ]" *url-prefix* short title))
@@ -60,8 +61,8 @@
 (defun start-irc-client-instance ()
   "Run an instance of the bot's IRC client."
   (setf *irc-connection* (connect :nickname *my-irc-nick* :server *irc-server-name*))
-  (cl-irc:join *irc-connection* "#trinity")
-  (privmsg *irc-connection* "#trinity" (format nil "NOTIFY:: Help, I'm a bot!"))
+  (cl-irc:join *irc-connection* "#triscuit")
+  (privmsg *irc-connection* "#triscuit" (format nil "NOTIFY:: Help, I'm a bot!"))
   (add-hook *irc-connection* 'irc::irc-privmsg-message 'threaded-msg-hook)
   (add-hook *irc-connection* 'irc::irc-quit-message 'threaded-byebye-hook)
   (add-hook *irc-connection* 'irc::irc-part-message 'threaded-byebye-hook)

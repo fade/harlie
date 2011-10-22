@@ -46,9 +46,9 @@ or an error message, as appropriate."
 		(if url
 		    (redirect url)
 		    (html-apology)))))
-	(progn
-	  (format t "~&passed.. prepare to get a page!")
-	  (make-webpage-listing-urls *the-url-store*)))))
+	(let (( page (make-webpage-listing-urls *the-url-store*)))
+	  (format t "~&passed.. prepare to get a page!~&~A" page)
+	  (values (format nil "<html><head><title>I am a constant webpage</title></head></html>"))))))
 
 (defun start-web-servers ()
   (push (make-instance 'hunchentoot:acceptor :port *web-server-port*) *acceptors*)

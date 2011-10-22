@@ -33,10 +33,12 @@ Perhaps you mistyped?<br>
   "Dispatcher for the Web pages served by the bot.
 Serve up a redirect page, a list of shortened URL links,
 or an error message, as appropriate."
+  (format t "~&In redirect-shortener-dispatch")
   (let ((uri (request-uri*)))
     (if (> (length uri) *how-short*)
 	(let* ((short (subseq (request-uri*) 1))
 	       (url (get-url-from-shortstring *the-url-store* short)))
+	  
 	  (if url
 	      (redirect url)
 	      (let* ((short (subseq (request-uri*) 4))
@@ -44,7 +46,9 @@ or an error message, as appropriate."
 		(if url
 		    (redirect url)
 		    (html-apology)))))
-	(make-webpage-listing-urls *the-url-store*))))
+	(progn
+	  (format t "~&passed.. prepare to get a page!")
+	  (make-webpage-listing-urls *the-url-store*)))))
 
 (defun start-web-servers ()
   (push (make-instance 'hunchentoot:acceptor :port *web-server-port*) *acceptors*)

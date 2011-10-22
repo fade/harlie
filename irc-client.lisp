@@ -28,7 +28,7 @@
   "if the queue isn't empty, dequeue and send a message, FIFO style."
   (when (not (queue-empty-p *message-q*))
     (dqmess))
-  (sb-ext:schedule-timer *message-timer* (random 1.5)))
+  (sb-ext:schedule-timer *message-timer* (max 1.2 (random 2.0))))
 
 (defparameter *message-timer* (sb-ext:make-timer #'q-runner :name "queue runner."))
 

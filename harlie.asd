@@ -8,6 +8,7 @@
 	       #:cl-ppcre
 	       #:closure-html
 	       #:cxml-stp
+	       #:yaclml
 	       #:drakma
 	       #:hunchentoot
 	       #:cl-who

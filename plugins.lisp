@@ -104,12 +104,12 @@
     (if plugf
 	(let ((reply (funcall (cdr plugf) reply-to token-list)))
 	  (cond ((stringp reply)
-		 (privmsg connection reply-to
+		 (qmess connection reply-to
 			  (format nil "~A:: ~A" (string-downcase plugname) reply)))
 		((listp reply)
 		 (dolist (line reply)
-		   (privmsg connection reply-to
+		   (qmess connection reply-to
 			    (format nil "~A:: ~A" (string-downcase plugname) line))))
-		(t (privmsg connection reply-to
+		(t (qmess connection reply-to
 			    (format nil "~A:: I'm a tragic victim of duck typing gone wrong." (string-downcase plugname))))))
-	(privmsg connection reply-to (format nil "~A: unknown command." (string-downcase plugname))))))
+	(qmess connection reply-to (format nil "~A: unknown command." (string-downcase plugname))))))

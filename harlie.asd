@@ -2,7 +2,8 @@
 
 (asdf:defsystem #:harlie
   :serial t
-  :depends-on (#:bordeaux-threads
+  :depends-on (#:sb-concurrency
+	       #:bordeaux-threads
 	       #:cl-irc
 	       #:cl-ppcre
 	       #:closure-html

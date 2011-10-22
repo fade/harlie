@@ -10,18 +10,17 @@
    (url->headline :initform (make-hash-table :test 'equal :synchronized t) :accessor url->headline)))
 
 (defclass postmodern-url-store (url-store)
-  ((readonly-url-dbs
-    :initform
-    '(("botdb" "semaphor" nil :unix)
-      ("bootsydb" "semaphor" nil :unix)
-      ("shogundb" "semaphor" nil :unix)
-      ("thugdb" "semaphor" nil :unix))
-    :accessor readonly-url-dbs)
-   (readwrite-url-db :initform '("harliedb" "semaphor" nil :unix) :accessor readwrite-url-db)))
+  ((readonly-url-dbs :initform (if (boundp '*psql-old-credentials*) *psql-old-credentials* nil) :accessor readonly-url-dbs)
+   (readwrite-url-db :initform (if (boundp '*psql-new-credentials*) *psql-new-credentials* nil) :accessor readwrite-url-db)))
 
-(defvar *the-url-store* (make-instance 'hash-url-store))
+(defvar *hash-url-store* (make-instance 'hash-url-store))
 
 (defvar *pomo-url-store* (make-instance 'postmodern-url-store))
+
+(defvar *the-url-store*
+  (cond ((and (boundp '*url-store-type*)  (eq *url-store-type* :psql)) *pomo-url-store*)
+	((and (boundp '*url-store-type*)  (eq *url-store-type* :hash)) *hash-url-store*)
+	(t *hash-url-store*)))
 
 (defgeneric get-url-from-old-shortstring (store url)
   (:documentation "Check the existing databases for entries corresponding to a given shortstring."))
@@ -30,8 +29,21 @@
   (dolist (db (readonly-url-dbs store))
     (with-connection db
       (let ((long
-	      (query (sql (:select 'url :from 'urls :where (:= 'shorturl short))))))
+	      (with-connection (readwrite-url-db store)
+		(query (sql (:select 'url :from 'urls :where (:= 'shorturl short)))))))
         (when long (return (caar long)))))))
+
+(defclass urls ()
+  ((url-id :col-type integer :accessor url-id)
+   (input-url :col-type string :initarg :input-url :accessor input-url)
+   (redirected-url :col-type string :initarg :redirected-url :accessor redirected-url)
+   (short-url :col-type string :initarg :short-url :accessor short-url)
+   (title :col-type string :initarg :title :accessor title)
+   (from-nick :col-type string :initarg :from-nick :accessor from-nick)
+   (tstamp :col-type integer :initform (timestamp-to-unix (now)) :accessor tstamp)
+   (instance-id :col-type integer :initform 5 :accessor instance-id))
+  (:metaclass dao-class)
+  (:keys url-id))
 
 (defparameter *letterz* "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 
@@ -56,6 +68,12 @@
 	     (setf (gethash url (url->short store)) short)
 	     short))))))
 
+(defmethod make-unique-shortstring ((store postmodern-url-store) url)
+  (with-connection (readwrite-url-db store)
+    (do ((short (make-shortstring) (make-shortstring)))
+	((not (query (:select '* :from 'urls :where (:= 'short-url short))))
+	 short))))
+
 (defgeneric lookup-url (store url)
   (:documentation "Return present or new short URL and title for specified URL."))
 
@@ -74,12 +92,29 @@
 		(list short title))
 	      (list nil nil))))))
 
+(defmethod lookup-url ((store postmodern-url-store) url)
+  (let ((result (with-connection (readwrite-url-db store)
+		  (query (:select 'short-url 'title :from 'urls :where (:= 'input-url url))))))
+    (if result
+	(first result)
+	(let ((title (fetch-title url)))
+	  (if title
+	      (let ((short (make-unique-shortstring store url)))
+		(with-connection (readwrite-url-db store)
+		  (insert-dao (make-instance 'urls :input-url url :short-url short :title title))
+		  (list short title)))
+	      (list nil nil))))))
+
 (defgeneric get-url-from-shortstring (store short)
   (:documentation "Return the full URL associated with a given short string."))
 
 (defmethod get-url-from-shortstring ((store hash-url-store) short)
   (sb-ext:with-locked-hash-table ((short->url store))
     (gethash short (short->url store))))
+
+(defmethod get-url-from-shortstring ((store postmodern-url-store) short)
+  (with-connection (readwrite-url-db store)
+    (caar (query (:select 'input-url :from 'urls :where (:= 'short-url short))))))
 
 (defgeneric get-urls-and-headlines (store)
   (:documentation "Get a list of URLs and headlines from an URL store."))
@@ -89,6 +124,10 @@
     (loop for k being the hash-keys in (url->headline store)
 	  collecting
 	  (list k (gethash k (url->headline store) "Click here for a random link.")))))
+
+(defmethod get-urls-and-headlines ((store postmodern-url-store))
+  (with-connection (readwrite-url-db store)
+    (query (:select 'input-url 'title :from 'urls))))
 
 (defun fetch-formatted-url (url-string &rest args)
   "Retrieve the lhtml contents of the page at a specified URL.

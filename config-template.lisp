@@ -19,4 +19,12 @@
 	      *web-server-name*
 	      *web-server-port*)))
 
+(defparameter *url-store-type* :hash)
 
+(defparameter *psql-old-credentials*
+  '(("botdb" "semaphor" nil :unix)
+    ("bootsydb" "semaphor" nil :unix)
+    ("shogundb" "semaphor" nil :unix)
+    ("thugdb" "semaphor" nil :unix)))
+
+(defparameter *psql-new-credentials* '("harliedb" "semaphor" nil :unix))

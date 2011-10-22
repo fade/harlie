@@ -49,6 +49,14 @@
 	      :collect (format nil "[ ~a ][ ~a ]" a b))
 	(format nil "No match for search term: ~A" (second token-list)))))
 
+(defplugin area (reply-to token-list)
+  (declare (ignorable reply-to))
+  (let* ((area (areacode-lookup (second token-list))))
+    (if (and area (listp area))
+	(loop for (a . b) in area
+	      :collect (format nil "[ ~A ][ ~A ]" a b))
+	(format nil "No area code found for your search term: ~A" (second token-list)))))
+
 (defplugin iata (reply-to token-list)
   (declare (ignorable reply-to))
   (let ((airports (airport-lookup (second token-list))))

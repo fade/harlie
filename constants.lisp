@@ -26,15 +26,22 @@
 		       :external-format :ISO-8859-1)
       (loop for cline = (read-line s nil nil)
 	    :while cline
-	    ;; :do (format t "~&|~A" cline)
-	    :do (let ((ccode (strip-spaces (split-sequence #\: cline))))
-		  ;; (format t "~&~A" ccode)
-		  (setf (gethash (car ccode)
-				 ccode-hashtable) (cadr ccode)))
+	    ;; :do 
+	    :do (let* ((ccode (strip-spaces (split-sequence #\: cline)))
+		       (clen (length ccode)))
+		  ;; (format t "~&|~A ~A ~A" (type-of ccode) (length ccode) (cdr ccode))
+		  (setf (gethash (car ccode) ccode-hashtable)
+			(if (= clen 2)
+			    (cadr ccode)
+			    (format nil "~{~A~^ ~}" (cdr ccode)))))
 	    :finally (return ccode-hashtable)))))
 
 (defparameter *country-codes* (constant-table "country_codes")
   "a hash-table of the ITU specified country codes.")
+
+(defparameter *area-codes* (constant-table "area-codes")
+  "A fairly complete hash-table containing the telephone areacodes of
+  the world.")
 
 (defparameter *airport-codes* (constant-table "airport")
   "a hash-table of the IATA airport codes for most world airports.")
@@ -71,6 +78,11 @@
       ((every #'alphanumericp key) (by-code key *country-codes*))
       (t "No country for code or term: ~A" key)))
 
+(defun areacode-lookup (key)
+  (cond
+    ((= (length key) 3) (by-code key *area-codes*))
+    ((every #'alpha-char-p key) (by-word key *area-codes*))
+    (t (format nil "No landing zone found for your crate-like term: ~A" key))))
 
 (defun airport-lookup (key)
   (cond

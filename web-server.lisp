@@ -13,37 +13,40 @@
 ;; 	       "</ul></body></html>"))
 
 (defun make-webpage-listing-urls (store)
-  (with-yaclml-output-to-string
-    (<:html
-     (<:head
+  (with-html-output-to-string (s)
+    (:html
+     (:head
       ;;; this title will have to change if/when we support multiple server connections.
-      (<:title (<:as-html (format nil "Short URL index for server: ~A" *irc-server-name*)))
-      (<:body
-       (<:h2 "URL Index")
-       (<:br)
-       (<:ul
+      (:title (htm (escape-string (format nil "Short URL index for server: ~A" *irc-server-name*))))
+      (:body
+       (:h2 "URL Index")
+       (:br)
+       (:ul
 	(dolist (link (get-urls-and-headlines store))
-	  (<:li
-	   (<:a :href (car link) (<:as-html (cl-who:escape-string (cadr link))))))
-	))))))
+	  (htm
+	   (:li
+	    (:a :href (car link) (:b (escape-string (cadr link)))))))))))
+    s))
 
+(defun make-webpage-listing-urls (store)
+  ())
 
 
 (defun bug (store)
   (dolist (link (get-urls-and-headlines store))
     ;(format t "~&~A: ~A~&~A: ~A" (type-of (car link)) (car link) (type-of (cadr link)) (cadr link))
-    (format t "~%~%~A" (<:as-html (cadr link)))))
+    (format t "~%** ~A~%=> ~A~%" (car link) (escape-string (cadr link)))))
 
 (defun html-apology ()
   "Return HTML for a page explaining that a browser has struck out."
   (with-yaclml-output-to-string
-    (<:html
-     (<:head
-      (<:title (<:as-html (format nil "You are in a maze of twisty little redirects, all alike.")))
-      (<:body
-       (<:p (<:as-html  "With apologies" (<:br)
-			"I don't have that URL" (<:br)
-			"Perhaps you mistyped?" (<:br))))))))
+    (:html
+     (:head
+      (:title (escape-string (format nil "You are in a maze of twisty little redirects, all alike.")))
+      (:body
+       (:p (escape-string  "With apologies" (:br)
+			"I don't have that URL" (:br)
+			"Perhaps you mistyped?" (:br))))))))
 
 (defun redirect-shortener-dispatch ()
   "Dispatcher for the Web pages served by the bot.

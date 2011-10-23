@@ -8,7 +8,7 @@
 	#:closure-html
 	#:cxml-stp
 	#:drakma
-	#:yaclml
+	#:cl-who
 	#:hunchentoot
 	#:irc
 	#:postmodern

@@ -12,25 +12,28 @@
 ;; 			      (get-urls-and-headlines store)))
 ;; 	       "</ul></body></html>"))
 
+;; (defun make-webpage-listing-urls (store)
+;;   (with-html-output-to-string (s)
+;;     (:html
+;;      (:head
+;;       ;;; this title will have to change if/when we support multiple server connections.
+;; ))
+;;     s))
+
 (defun make-webpage-listing-urls (store)
   (with-html-output-to-string (s)
     (:html
      (:head
-      ;;; this title will have to change if/when we support multiple server connections.
-      (:title (htm (escape-string (format nil "Short URL index for server: ~A" *irc-server-name*))))
-      (:body
-       (:h2 "URL Index")
-       (:br)
-       (:ul
-	(dolist (link (get-urls-and-headlines store))
+      (:title (htm (escape-string (format nil "Short URL index for server: ~A" *irc-server-name*)))))
+     (:body
+      (:h2 "URL Index")
+      (:br)
+      (:ul
+       (dolist (link (get-urls-and-headlines store))
 	  (htm
 	   (:li
-	    (:a :href (car link) (:b (escape-string (cadr link)))))))))))
+	    (:a :href (car link) (:b (escape-string (cadr link))))))))))
     s))
-
-(defun make-webpage-listing-urls (store)
-  ())
-
 
 (defun bug (store)
   (dolist (link (get-urls-and-headlines store))

@@ -36,20 +36,14 @@
 
 (defun html-apology ()
   "Return HTML for a page explaining that a browser has struck out."
-  (format nil "
-<html>
-<head>
-<title>You are in a maze of twisty little redirects, all alike</title>
-</head>
-<body>
-<center>
-<p>With apologies<br>
-I don't have that URL<br>
-Perhaps you mistyped?<br>
-</p>
-</center>
-</body>
-</html>"))
+  (with-yaclml-output-to-string
+    (<:html
+     (<:head
+      (<:title (<:as-html (format nil "You are in a maze of twisty little redirects, all alike.")))
+      (<:body
+       (<:p (<:as-html  "With apologies" (<:br)
+			"I don't have that URL" (<:br)
+			"Perhaps you mistyped?" (<:br))))))))
 
 (defun redirect-shortener-dispatch ()
   "Dispatcher for the Web pages served by the bot.

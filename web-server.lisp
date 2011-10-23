@@ -24,7 +24,7 @@
   (with-html-output-to-string (s)
     (:html
      (:head
-      (:title (escape-string (format nil "Short URL index for server: ~A" *irc-server-name*))))
+      (:title (str (escape-string (format nil "Short URL index for server: ~A" *irc-server-name*)))))
      (:body
       (:h2 "URL Index")
       (:br)

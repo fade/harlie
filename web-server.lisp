@@ -47,14 +47,14 @@
   (with-html-output-to-string (s)
     (:html
      (:head
-      (:title (escape-string (format nil "You are in a maze of twisty little redirects, all alike."))))
+      (:title (str
+	       (escape-string (format nil "You are in a maze of twisty little redirects, all alike.")))))
      (:body
-      (htm
-       (:p (str
-	    "With apologies" :br
-	    "I don't have that URL..." :br
-	    "Perhaps you mistyped?" :br
-	    )))))
+      (:h1
+       (htm
+       (:p "With apologies")
+       (:p "I don't have that URL...")
+       (:p "Perhaps you mistyped?")))))
     s))
 
 (defun redirect-shortener-dispatch ()

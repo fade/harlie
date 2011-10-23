@@ -32,6 +32,15 @@
 
 (defparameter *message-timer* (sb-ext:make-timer #'q-runner :name "queue runner."))
 
+(defun print-some-random-dots ()
+  "An anti-function function."
+  (loop
+    for i from 1
+    :until (= (random 200) 111)
+    :when (= (mod i 3) 0)
+    :do (format t ".")
+    :finally (return i)))
+
 ; Why do we fork another thread just to run this lambda, you may ask?
 ; Because the thread that the network event loop runs in keeps getting
 ; killed every time there's an error in any of this code, and then

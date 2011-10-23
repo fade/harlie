@@ -31,10 +31,10 @@
       (:ul
        (dolist (link (get-urls-and-headlines store))
 	 (let ((target (car link))
-	       (link-description (str (escape-string (cadr link)))))
+	       (link-description (cadr link)))
 	    (htm
 	     (:li
-	      (:a :href target link-description))))))))
+	      (:a :href target (str (escape-string link-description))))))))))
     s))
 
 (defun bug (store)

@@ -24,15 +24,17 @@
   (with-html-output-to-string (s)
     (:html
      (:head
-      (:title (htm (escape-string (format nil "Short URL index for server: ~A" *irc-server-name*)))))
+      (:title (escape-string (format nil "Short URL index for server: ~A" *irc-server-name*))))
      (:body
       (:h2 "URL Index")
       (:br)
       (:ul
        (dolist (link (get-urls-and-headlines store))
-	  (htm
-	   (:li
-	    (:a :href (car link) (:b (escape-string (cadr link))))))))))
+	 (let ((target (car link))
+	       (link-description (str (escape-string (cadr link)))))
+	    (htm
+	     (:li
+	      (:a :href target link-description))))))))
     s))
 
 (defun bug (store)

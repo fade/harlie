@@ -62,3 +62,50 @@ word or two of the chain.  Returns a list of strings."
 			 utterance
 			 (append utterance (list word3)))))
 	 ((or (not word3) (equal word3 (string #\Newline))) utterance))))
+
+(defun accept-n (l n)
+  "Test to see whether an n-syllable sequence appears at the start of l.
+l is a list of conses from make-syllable-sums.  Return the n-syllable
+sequence, or nil if not found."
+  (when (equal l nil) (return-from accept-n nil))
+  (do* ((verse (list (caar l)) (append verse (list (car (second l)))))
+	(l l (cdr l))
+	(sum (cdar l) (incf sum (cdar l))))
+       ((or (>= sum n) (= (length l) 1)) (if (= sum n) verse nil))
+					;    (format t "~A ~A ~A~%" verse sum l)
+    ))
+
+(defun find-haiku (l)
+  "Scan through a list of conses from make-syllable-sums to see whether there's
+a haiku at the beginning of the list.  If not, recursively call ourselves on
+the cdr of the list to see if any haikus lurk further along.  Return the
+haiku (if found) or nil (if not)."
+  (when (equal l nil) (return-from find-haiku nil))
+  (let ((line1 (accept-n l 5)))
+    (when line1
+      (let ((line2 (accept-n (subseq l (length line1)) 7)))
+	(when line2
+	  (let ((line3 (accept-n (subseq l (+ (length line1) (length line2))) 5)))
+	    (when line3
+;	      (format t "Bingo! ~A ~A ~A~%" line1 line2 line3)
+	      (return-from find-haiku (concatenate 'list line1 '("/") line2 '("/") line3))))))))
+  (find-haiku (cdr l)))
+
+(defun make-syllable-sums (l)
+  "Given a list of words, generate a list of conses of the form (word . syllable-count).
+The magic value of 18 is used for any words we didn't find in the CMU dict, because
+an 18-syllable word can't be in any part of any haiku."
+  (mapcar (lambda (w) (cons w (gethash (string-upcase w) *syllable-counts* 18))) l))
+
+(defun make-haiku ()
+  "Generate chains and test them for haikus until you give up.  Returns a list of
+strings for the haiku and also a count for the number of attempts made."
+  (do* ((n 0 (1+ n))
+	(candidate (chain) (chain))
+	(haiku (find-haiku (make-syllable-sums candidate)) (find-haiku (make-syllable-sums candidate))))
+       ((or haiku (> n 20))
+	(if haiku
+	    (values haiku n) 
+	    (values '("With" "apologies" "/"
+		      "the" "Muse" "is" "not" "with" "me" "now" "/"
+		      "Try" "again" "later.") 20)))))

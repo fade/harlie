@@ -93,6 +93,9 @@
   (if (not *syllable-counts*) (setf *syllable-counts* (count-syllables)))
   (format nil "~{~A~^ ~}" (make-haiku)))
 
+(defplugin ftw (reply-to token-list)
+  (format nil "VICTORY!  FLAWLESS!"))
+
 ;; ftoc
 
 ;; ctof

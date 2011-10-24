@@ -8,7 +8,7 @@
     (query (:select (:raw "count(*)") :from 'words) :single)))
 
 (defun fetch-start (rownum)
-  "Select an entry from the words table by row number, and return word3."
+  "Select a chain-starting entry from the words table by row number, and return word3."
   (query (:select 'word3
 	  :from 'words
 	  :where (:and (:= 'row-num rownum)
@@ -18,11 +18,34 @@
 (defun random-start ()
   "Find a random starting point for a chain.  Return the word which starts
 the chain, and also the number of trials before finding it."
-  (let* ((numrows (query (:select (:raw "max(row_num)") :from 'words) :single)))
+  (let ((numrows (query (:select (:raw "max(row_num)") :from 'words) :single)))
     (do* ((rownum (random (1+ numrows)) (random (1+ numrows)))
 	  (r (fetch-start rownum) (fetch-start rownum))
 	  (n 1 (1+ n)))
 	 (r (values r n)))))
+
+(defun fetch-row (rownum)
+  "Select an entry from the words table by row number, and return word2."
+  (query (:select 'word2
+	  :from 'words
+	  :where (:and (:= 'row-num rownum)
+		       (:!= 'word2 (string #\Newline)))) :single))
+
+(defun random-word ()
+  "Find a random word in the chaining database."
+  (let ((numrows (query (:select (:raw "max(row_num)") :from 'words) :single)))
+    (do* ((rownum (random (1+ numrows)) (random (1+ numrows)))
+	  (r (fetch-row rownum) (fetch-row rownum))
+	  (n 1 (1+ n)))
+	 (r (values r n)))))
+
+(defun random-words (n)
+  (with-connection *chain-db*
+    (do ((words nil))
+	((= (length words) n) words)
+      (let ((word (random-word)))
+	(when (scan "^['A-Za-z]+$" word)
+	  (push word words))))))
 
 (defun chain-next (word1 word2)
   "Retrieve a random word to go next in the chain."

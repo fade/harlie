@@ -24,5 +24,6 @@
 	       (:file "web-server")
 	       (:file "irc-client")
 	       (:file "constants")
+	       (:file "chainer")
 	       (:file "plugins")
 	       (:file "harlie")))

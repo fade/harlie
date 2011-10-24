@@ -56,7 +56,7 @@
     (cond ((remove-if-not recognizer token-list)
 	   (mapcar (lambda (s)
 		     (if (funcall recognizer s)
-			 (regex-replace *my-irc-nick* s sender)
+			 (regex-replace (string-upcase *my-irc-nick*) (string-upcase s) sender)
 			 s))
 		   token-list))
 	  (trigger-word (progn

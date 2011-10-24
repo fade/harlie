@@ -84,8 +84,7 @@ word or two of the chain.  Returns a list of strings."
 		   (chain-next word1 word2))
 	    (utterance (list word1 word2 word3) 
 		       (append utterance (list word3))))
-	   ((or (not word3) (equal word3 *sentinel*)) (remove *sentinel* utterance :test 'equal)))      )
-    ))
+	   ((or (not word3) (equal word3 *sentinel*)) (remove *sentinel* utterance :test 'equal))))))
 
 (defun accept-n (l n)
   "Test to see whether an n-syllable sequence appears at the start of l.
@@ -95,9 +94,7 @@ sequence, or nil if not found."
   (do* ((verse (list (caar l)) (append verse (list (car (second l)))))
 	(l l (cdr l))
 	(sum (cdar l) (incf sum (cdar l))))
-       ((or (>= sum n) (= (length l) 1)) (if (= sum n) verse nil))
-					;    (format t "~A ~A ~A~%" verse sum l)
-    ))
+       ((or (>= sum n) (= (length l) 1)) (if (= sum n) verse nil))))
 
 (defun find-haiku (l)
   "Scan through a list of conses from make-syllable-sums to see whether there's
@@ -111,7 +108,6 @@ haiku (if found) or nil (if not)."
 	(when line2
 	  (let ((line3 (accept-n (subseq l (+ (length line1) (length line2))) 5)))
 	    (when line3
-;	      (format t "Bingo! ~A ~A ~A~%" line1 line2 line3)
 	      (return-from find-haiku (concatenate 'list line1 '("/") line2 '("/") line3))))))))
   (find-haiku (cdr l)))
 

@@ -96,6 +96,10 @@
 (defplugin ftw (reply-to token-list)
   (format nil "VICTORY!  FLAWLESS!"))
 
+(defplugin trigger (reply-to token-list)
+  (format nil "~{~A~^, ~}" *trigger-list*)
+  )
+
 ;; ftoc
 
 ;; ctof

@@ -41,6 +41,29 @@
     :do (format t ".")
     :finally (return i)))
 
+(defun make-name-detector (name)
+  (lambda (s)
+    (scan
+     (create-scanner
+      (format nil
+	      "^[^0-9a-z]*~A[^0-9a-z]*$"
+	      name)
+      :case-insensitive-mode t) s)))
+
+(defun triggered (token-list sender)
+  (let ((recognizer (make-name-detector *my-irc-nick*))
+	(trigger-word (find-if (lambda (s) (member s *trigger-list* :test 'equal)) token-list)))
+    (cond ((remove-if-not recognizer token-list)
+	   (mapcar (lambda (s)
+		     (if (funcall recognizer s)
+			 (regex-replace *my-irc-nick* s sender)
+			 s))
+		   token-list))
+	  (trigger-word (progn
+			  (setf *trigger-list* (substitute (car (random-words 1)) trigger-word *trigger-list* :test 'equal)) 
+			  token-list))
+	  (t nil))))
+
 ; Why do we fork another thread just to run this lambda, you may ask?
 ; Because the thread that the network event loop runs in keeps getting
 ; killed every time there's an error in any of this code, and then
@@ -58,7 +81,9 @@
 			(text (second (arguments message)))
 			(token-text-list (split "\\s+" text))
 			(botcmd (string-upcase (first token-text-list)))
-			(reply-to channel))
+			(reply-to channel)
+			(urls (all-matches-as-strings "((ftp|http|https)://[^\\s]+)|(www[.][^\\s]+)" text))
+			(trigger-tokens (triggered token-text-list sender)))
 		   (format t "Message: ~A~%" (raw-message-string message))
 		   (format t "   connection=~A channel=~A~%" connection channel)
 		   (when (equal channel (string-upcase *my-irc-nick*))
@@ -69,19 +94,21 @@
 			 ((scan "^NOTIFY:: Help, I'm a bot!" text)
 			  (qmess connection sender (format nil "NOTIFY:: Help, I'm a bot!"))
 			  (push sender *ignorelist*))
-			 (t (let ((urls (all-matches-as-strings "((ftp|http|https)://[^\\s]+)|(www[.][^\\s]+)" text)))
-			      (when urls
-				(dolist (url urls)
-				  (unless (or (scan (format nil "http://~A:~A" *web-server-name* *web-server-port*) url)
-					      (scan "127.0.0.1" url))
-				    (when (scan "^www" url)
-				      (setf url (format nil "http://~A" url)))
-				    (destructuring-bind (short title) (lookup-url *the-url-store* url sender)
-				      (if (and short title)
-					  (qmess connection reply-to
-						   (format nil "[ ~A~A ] [ ~A ]" *url-prefix* short title))
-					  (qmess connection reply-to
-						   (format nil "[ ~A ] Couldn't fetch this page." url))))))))))))))
+			 (urls
+			  (dolist (url urls)
+			    (unless (or (scan (format nil "http://~A:~A" *web-server-name* *web-server-port*) url)
+					(scan "127.0.0.1" url))
+			      (when (scan "^www" url)
+				(setf url (format nil "http://~A" url)))
+			      (destructuring-bind (short title) (lookup-url *the-url-store* url sender)
+				(if (and short title)
+				    (qmess connection reply-to
+					   (format nil "[ ~A~A ] [ ~A ]" *url-prefix* short title))
+				    (qmess connection reply-to
+					   (format nil "[ ~A ] Couldn't fetch this page." url)))))))
+			 (trigger-tokens
+			  (qmess connection reply-to (format nil "~{~A~^ ~}" (chain (first trigger-tokens) (second trigger-tokens)))))
+			 (t nil))))))
 
 (defun threaded-byebye-hook (message)
   "Handle a quit or part message."
@@ -91,9 +118,12 @@
 		   (format t "In threaded-byebye-hook, sender = ~A~%" sender)
 		   (setf *ignorelist* (remove sender *ignorelist* :test #'equal))))))
 
+(defvar *trigger-list* nil)
+
 (defun start-irc-client-instance ()
   "Run an instance of the bot's IRC client."
   (setf *irc-connection* (connect :nickname *my-irc-nick* :server *irc-server-name*))
+  (setf *trigger-list* (random-words 10))
   (dolist (channel *irc-channel-names*)
     (cl-irc:join *irc-connection* channel)
     (privmsg *irc-connection* channel (format nil "NOTIFY:: Help, I'm a bot!")))
@@ -106,6 +136,7 @@
 (defun stop-irc-client-instance ()
   (cl-irc:quit *irc-connection*  "I'm tired. I'm going home.")
   (setf *ignorelist* nil)
+  (setf *trigger-list* nil)
   (setf *irc-connection* nil))
 
 (defparameter *irc-client-thread* nil)
@@ -116,4 +147,5 @@
 (defun stop-threaded-irc-client-instance ()
   (stop-irc-client-instance)
   (bt:destroy-thread *irc-client-thread*)
-  (setf *irc-client-thread* nil))
+  (setf *irc-client-thread* nil)
+  (setf *trigger-list* nil))

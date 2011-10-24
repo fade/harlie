@@ -94,7 +94,7 @@
   (cond
     ((= (length key) 3) (by-code key *currency-codes*))
     ((every #'alpha-char-p key) (by-word key *currency-codes*))
-    (t (format nil "No currency ISO code found for key: ~A" key))))
+    (t (format nil "No ISO currency code found for key: ~A" key))))
 
 (defparameter *syllable-counts* nil)
 

@@ -77,14 +77,9 @@ word or two of the chain.  Returns a list of strings."
 		     (random-start)
 		     (chain-next word1 word2))
 		 (chain-next word1 word2))
-	  (utterance (remove-if
-		      (lambda (s)
-			(equal s (string #\Newline)))
-		      (list word1 word2 word3)) 
-		     (if (equal word3 (string #\Newline))
-			 utterance
-			 (append utterance (list word3)))))
-	 ((or (not word3) (equal word3 (string #\Newline))) utterance))))
+	  (utterance (list word1 word2 word3) 
+		     (append utterance (list word3))))
+	 ((or (not word3) (equal word3 (string #\Newline))) (remove (string #\Newline) utterance :test 'equal)))))
 
 (defun accept-n (l n)
   "Test to see whether an n-syllable sequence appears at the start of l.

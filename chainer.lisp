@@ -2,8 +2,6 @@
 
 (in-package :harlie)
 
-(defparameter *botdb* '("botdb" "tuxedo" nil :UNIX))
-
 (defun fetch-start (rownum)
   (query (:select 'word3
 	  :from 'words
@@ -30,7 +28,7 @@
   )
 
 (defun chain ()
-  (with-connection *botdb*
+  (with-connection *chain-db*
     (do* ((word1 (string #\Newline) word2)
 	  (word2 (string #\Newline) word3)
 	  (word3 (random-start) (chain-next word1 word2))

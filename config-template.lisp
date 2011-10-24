@@ -30,3 +30,5 @@
     ("thugdb" "semaphor" nil :unix)))
 
 (defparameter *psql-new-credentials* '("harliedb" "semaphor" nil :unix))
+
+(defparameter *chain-db* '("botdb" "semaphor" nil :unix))

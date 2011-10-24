@@ -60,28 +60,32 @@ the chain, and also the number of trials before finding it."
 	   (:raw "random()"))
 	  1) :single))
 
-(defun chain (&optional w1 w2 )
+(defun argshift (filler &optional w1 w2)
+  "Shift arguments to fill in from the right."
+  (let ((stack (list nil nil))
+	(queue (list w1 w2 nil)))
+    (do* ((arg (pop queue) (pop queue)))
+	 ((not queue) (substitute filler nil (reverse (subseq stack 0 2))))
+      (when arg (push arg stack)))))
+
+(defun chain (&optional w1 w2)
   "Generate a full random chain.  If desired, you can specify the first
 word or two of the chain.  Returns a list of strings."
   (with-connection *chain-db*
     ;; If w1 and/or w2 are provided, use them.  Otherwise use sentinel values.
-    (do* ((word1 (if (and w1 w2)
-		     w1
-		     *sentinel*)
-		 word2)
-	  (word2 (cond ((and w1 w2) w2)
-		       (w1 w1)
-		       (t *sentinel*))
-		 word3)
-	  ;; If no w1 or w2 is specified, then pick a random starting point.
-	  ;; Otherwise, start chaining.
-	  (word3 (if (not (or w1 w2))
-		     (random-start)
-		     (chain-next word1 word2))
-		 (chain-next word1 word2))
-	  (utterance (list word1 word2 word3) 
-		     (append utterance (list word3))))
-	 ((or (not word3) (equal word3 *sentinel*)) (remove *sentinel* utterance :test 'equal)))))
+    (destructuring-bind (a b) (argshift *sentinel* w1 w2)
+      (do* ((word1 a word2)
+	    (word2 b word3)
+	    ;; If no w1 or w2 is specified, then pick a random starting point.
+	    ;; Otherwise, start chaining.
+	    (word3 (if (not (or w1 w2))
+		       (random-start)
+		       (chain-next word1 word2))
+		   (chain-next word1 word2))
+	    (utterance (list word1 word2 word3) 
+		       (append utterance (list word3))))
+	   ((or (not word3) (equal word3 *sentinel*)) (remove *sentinel* utterance :test 'equal)))      )
+    ))
 
 (defun accept-n (l n)
   "Test to see whether an n-syllable sequence appears at the start of l.

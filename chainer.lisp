@@ -2,6 +2,10 @@
 
 (in-package :harlie)
 
+(defun count-phrases ()
+  (with-connection *chain-db*
+    (query (:select (:raw "count(*)") :from 'words) :single)))
+
 (defun fetch-start (rownum)
   (query (:select 'word3
 	  :from 'words
@@ -21,11 +25,10 @@
 	  (:order-by
 	   (:select 'word3
 	    :from 'words
-	    :where (:and (:= 'word1 word1)
-			 (:= 'word2 word2)))
+	    :where (:and (:= (:raw "upper(word1)") (string-upcase word1))
+			 (:= (:raw "upper(word2)") (string-upcase word2))))
 	   (:raw "random()"))
-	  1) :single)
-  )
+	  1) :single))
 
 (defun chain ()
   (with-connection *chain-db*

@@ -13,7 +13,7 @@
 
 (defplugin status (reply-to token-list)
   (declare (ignore reply-to token-list))
-  (format nil "I know no phrases."))
+  (format nil "I know ~A phrases." (count-phrases)))
 
 (defplugin conv (reply-to token-list)
   (declare (ignore reply-to))

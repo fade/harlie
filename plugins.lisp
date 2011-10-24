@@ -89,6 +89,10 @@
 (defplugin babble (reply-to token-list)
   (format nil "~{~A~^ ~}" (chain)))
 
+(defplugin haiku ()
+  (if (not *syllable-counts*) (setf *syllable-counts* (count-syllables)))
+  (make-haiku))
+
 ;; ftoc
 
 ;; ctof

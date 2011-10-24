@@ -1,0 +1,36 @@
+* Chainer (Tuxedo)
+
+- Logarithmic probabilities in chainer
+- Coalesce entries in chain DB
+- Enable write access for chainer
+- Triggers for chainer
+
+* (Fade)
+- YACLML for all HTML generation
+- Convert other bot commands
+
+- Deliberately order full-page URL listing by reverse chronological order
+- Get full host string w/Web request
+- Multiheaded bot w/multiple chain, URL stores (sort of)
+- Smart rejoin
+- Help web page(s)
+
+- Wrap HTTP GETs in trivial-timeout
+- !conv: detect failed return?
+- Limit length of title strings
+- Paginate full-page URL listing
+- Get redirected URIs
+- Smarter chaining: punctuation, better endings
+
+- Test chtml-matcher again.  Bug?
+- Unit conversion.  Do some locally
+- Test that short URLs won't collide
+- Implement transactions in DB
+- Read Web pages for chaining data
+- Shorter domain name w/out port #
+
+- Make short URLs longer when table > high water mark
+- Auth module
+- Contexts for chaining
+- Twitter plug-in, SMS gateway
+- More back-end Web stuff

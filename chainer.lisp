@@ -2,6 +2,8 @@
 
 (in-package :harlie)
 
+(defparameter *sentinel* (string #\Newline))
+
 (defun count-phrases ()
   "Return the number of entries in the words table."
   (with-connection *chain-db*
@@ -12,8 +14,8 @@
   (query (:select 'word3
 	  :from 'words
 	  :where (:and (:= 'row-num rownum)
-		       (:= 'word1 (string #\Newline))
-		       (:= 'word2 (string #\Newline)))) :single))
+		       (:= 'word1 *sentinel*)
+		       (:= 'word2 *sentinel*))) :single))
 
 (defun random-start ()
   "Find a random starting point for a chain.  Return the word which starts
@@ -29,7 +31,7 @@ the chain, and also the number of trials before finding it."
   (query (:select 'word2
 	  :from 'words
 	  :where (:and (:= 'row-num rownum)
-		       (:!= 'word2 (string #\Newline)))) :single))
+		       (:!= 'word2 *sentinel*))) :single))
 
 (defun random-word ()
   "Find a random word in the chaining database."
@@ -65,11 +67,11 @@ word or two of the chain.  Returns a list of strings."
     ;; If w1 and/or w2 are provided, use them.  Otherwise use sentinel values.
     (do* ((word1 (if (and w1 w2)
 		     w1
-		     (string #\Newline))
+		     *sentinel*)
 		 word2)
 	  (word2 (cond ((and w1 w2) w2)
 		       (w1 w1)
-		       (t (string #\Newline)))
+		       (t *sentinel*))
 		 word3)
 	  ;; If no w1 or w2 is specified, then pick a random starting point.
 	  ;; Otherwise, start chaining.
@@ -79,7 +81,7 @@ word or two of the chain.  Returns a list of strings."
 		 (chain-next word1 word2))
 	  (utterance (list word1 word2 word3) 
 		     (append utterance (list word3))))
-	 ((or (not word3) (equal word3 (string #\Newline))) (remove (string #\Newline) utterance :test 'equal)))))
+	 ((or (not word3) (equal word3 *sentinel*)) (remove *sentinel* utterance :test 'equal)))))
 
 (defun accept-n (l n)
   "Test to see whether an n-syllable sequence appears at the start of l.

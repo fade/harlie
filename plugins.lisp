@@ -86,6 +86,9 @@
 	 (forex (split-sequence #\Space fx)))
     (format nil "[ ~A ~A ] = [ ~A ~A ]" (first forex) (second forex) (third forex) (fourth forex))))
 
+(defplugin babble (reply-to token-list)
+  (chain-string))
+
 ;; ftoc
 
 ;; ctof

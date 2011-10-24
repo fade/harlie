@@ -4,22 +4,6 @@
 
 (defparameter *acceptors* nil)
 
-;; (defun make-webpage-listing-urls (store)
-;;   "Generate and return the HTML for a page listing all the URLS in the store."
-;;   (concatenate 'string "<html><head><title>Bot Spew</title></head><body><ul>"
-;; 	       (apply 'concatenate 'string
-;; 		      (mapcar (lambda (x) (format nil "<li><a href=\"~A\">~A</A></li>" (car x) (cadr x)))
-;; 			      (get-urls-and-headlines store)))
-;; 	       "</ul></body></html>"))
-
-;; (defun make-webpage-listing-urls (store)
-;;   (with-html-output-to-string (s)
-;;     (:html
-;;      (:head
-;;       ;;; this title will have to change if/when we support multiple server connections.
-;; ))
-;;     s))
-
 (defun make-webpage-listing-urls (store)
   (with-html-output-to-string (s)
     (:html

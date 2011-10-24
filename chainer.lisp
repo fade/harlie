@@ -2,7 +2,13 @@
 
 (in-package :harlie)
 
+(defun count-phrases ()
+  "Return the number of entries in the words table."
+  (with-connection *chain-db*
+    (query (:select (:raw "count(*)") :from 'words) :single)))
+
 (defun fetch-start (rownum)
+  "Select an entry from the words table by row number, and return word3."
   (query (:select 'word3
 	  :from 'words
 	  :where (:and (:= 'row-num rownum)
@@ -10,37 +16,96 @@
 		       (:= 'word2 (string #\Newline)))) :single))
 
 (defun random-start ()
-    (let* ((numrows (query (:select (:raw "max(row_num)") :from 'words) :single)))
-      (do* ((rownum (random (1+ numrows)) (random (1+ numrows)))
-	    (r (fetch-start rownum) (fetch-start rownum))
-	    (n 1 (1+ n)))
-	   (r (values r n)))))
+  "Find a random starting point for a chain.  Return the word which starts
+the chain, and also the number of trials before finding it."
+  (let* ((numrows (query (:select (:raw "max(row_num)") :from 'words) :single)))
+    (do* ((rownum (random (1+ numrows)) (random (1+ numrows)))
+	  (r (fetch-start rownum) (fetch-start rownum))
+	  (n 1 (1+ n)))
+	 (r (values r n)))))
 
 (defun chain-next (word1 word2)
+  "Retrieve a random word to go next in the chain."
   (query (:limit
 	  (:order-by
 	   (:select 'word3
 	    :from 'words
-	    :where (:and (:= 'word1 word1)
-			 (:= 'word2 word2)))
+	    :where (:and (:= (:raw "upper(word1)") (string-upcase word1))
+			 (:= (:raw "upper(word2)") (string-upcase word2))))
 	   (:raw "random()"))
-	  1) :single)
-  )
+	  1) :single))
 
-(defun chain ()
+(defun chain (&optional w1 w2 )
+  "Generate a full random chain.  If desired, you can specify the first
+word or two of the chain.  Returns a list of strings."
   (with-connection *chain-db*
-    (do* ((word1 (string #\Newline) word2)
-	  (word2 (string #\Newline) word3)
-	  (word3 (random-start) (chain-next word1 word2))
-	  (utterance (list word3)
+    ;; If w1 and/or w2 are provided, use them.  Otherwise use sentinel values.
+    (do* ((word1 (if (and w1 w2)
+		     w1
+		     (string #\Newline))
+		 word2)
+	  (word2 (cond ((and w1 w2) w2)
+		       (w1 w1)
+		       (t (string #\Newline)))
+		 word3)
+	  ;; If no w1 or w2 is specified, then pick a random starting point.
+	  ;; Otherwise, start chaining.
+	  (word3 (if (not (or w1 w2))
+		     (random-start)
+		     (chain-next word1 word2))
+		 (chain-next word1 word2))
+	  (utterance (remove-if
+		      (lambda (s)
+			(equal s (string #\Newline)))
+		      (list word1 word2 word3)) 
 		     (if (equal word3 (string #\Newline))
 			 utterance
 			 (append utterance (list word3)))))
-	 ((equal word3 (string #\Newline)) utterance)
-;      (format t "~A ~A ~A ~A~%" word1 word2 word3 utterance)
-      )))
+	 ((or (not word3) (equal word3 (string #\Newline))) utterance))))
 
-(defun chain-string ()
-  (let* ((message (format nil "~A" (chain)))
-	 (len (length message)))
-    (subseq message 1 (1- len))))
+(defun accept-n (l n)
+  "Test to see whether an n-syllable sequence appears at the start of l.
+l is a list of conses from make-syllable-sums.  Return the n-syllable
+sequence, or nil if not found."
+  (when (equal l nil) (return-from accept-n nil))
+  (do* ((verse (list (caar l)) (append verse (list (car (second l)))))
+	(l l (cdr l))
+	(sum (cdar l) (incf sum (cdar l))))
+       ((or (>= sum n) (= (length l) 1)) (if (= sum n) verse nil))
+					;    (format t "~A ~A ~A~%" verse sum l)
+    ))
+
+(defun find-haiku (l)
+  "Scan through a list of conses from make-syllable-sums to see whether there's
+a haiku at the beginning of the list.  If not, recursively call ourselves on
+the cdr of the list to see if any haikus lurk further along.  Return the
+haiku (if found) or nil (if not)."
+  (when (equal l nil) (return-from find-haiku nil))
+  (let ((line1 (accept-n l 5)))
+    (when line1
+      (let ((line2 (accept-n (subseq l (length line1)) 7)))
+	(when line2
+	  (let ((line3 (accept-n (subseq l (+ (length line1) (length line2))) 5)))
+	    (when line3
+;	      (format t "Bingo! ~A ~A ~A~%" line1 line2 line3)
+	      (return-from find-haiku (concatenate 'list line1 '("/") line2 '("/") line3))))))))
+  (find-haiku (cdr l)))
+
+(defun make-syllable-sums (l)
+  "Given a list of words, generate a list of conses of the form (word . syllable-count).
+The magic value of 18 is used for any words we didn't find in the CMU dict, because
+an 18-syllable word can't be in any part of any haiku."
+  (mapcar (lambda (w) (cons w (gethash (string-upcase w) *syllable-counts* 18))) l))
+
+(defun make-haiku ()
+  "Generate chains and test them for haikus until you give up.  Returns a list of
+strings for the haiku and also a count for the number of attempts made."
+  (do* ((n 0 (1+ n))
+	(candidate (chain) (chain))
+	(haiku (find-haiku (make-syllable-sums candidate)) (find-haiku (make-syllable-sums candidate))))
+       ((or haiku (> n 20))
+	(if haiku
+	    (values haiku n) 
+	    (values '("With" "apologies" "/"
+		      "the" "Muse" "is" "not" "with" "me" "now" "/"
+		      "Try" "again" "later.") 20)))))

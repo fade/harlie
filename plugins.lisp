@@ -13,7 +13,7 @@
 
 (defplugin status (reply-to token-list)
   (declare (ignore reply-to token-list))
-  (format nil "I know no phrases."))
+  (format nil "I know ~A phrases." (count-phrases)))
 
 (defplugin conv (reply-to token-list)
   (declare (ignore reply-to))
@@ -87,7 +87,14 @@
     (format nil "[ ~A ~A ] = [ ~A ~A ]" (first forex) (second forex) (third forex) (fourth forex))))
 
 (defplugin babble (reply-to token-list)
-  (chain-string))
+  (format nil "~{~A~^ ~}" (chain)))
+
+(defplugin haiku (reply-to token-list)
+  (if (not *syllable-counts*) (setf *syllable-counts* (count-syllables)))
+  (format nil "~{~A~^ ~}" (make-haiku)))
+
+(defplugin ftw (reply-to token-list)
+  (format nil "VICTORY!  FLAWLESS!"))
 
 ;; ftoc
 

@@ -104,7 +104,7 @@
     (with-open-file (instream (constant-file "cmudict.0.6"))
       (do* ((l (read-line instream) (read-line instream nil 'eof)))
 	   ((eq l 'eof) word->syllables)
-	(let* ((w (remove-if (lambda (c) (equal #\SPACE c)) (scan-to-strings "^(['A-Z]+)\\s" l)))
+	(let* ((w (remove #\SPACE (scan-to-strings "^(['A-Z]+)\\s" l) :test 'equal))
 	       (count (if w (length (remove-if-not 'digit-char-p l)) 0)))
 	  (when w
 	    (setf (gethash w word->syllables) count)))))))

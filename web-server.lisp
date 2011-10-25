@@ -60,12 +60,17 @@ or an error message, as appropriate."
 		    (html-apology)))))
 	(let (( page (make-webpage-listing-urls *the-url-store*)))
 	  (format t "~&passed.. prepare to get a page!~&~A" page)
-	  (values (format nil "~A" page)))))) ;;(format nil "<html><head><title>I am a constant webpage</title></head></html>")
+	  (values (format nil "~A" page))))))
+
+(defun redirect-help-dispatch ()
+  "Dispatcher for the help page served by the bot."
+  (html-help))
 
 (defun start-web-servers ()
   (push (make-instance 'hunchentoot:acceptor :port *web-server-port*) *acceptors*)
   (hunchentoot:start (car *acceptors*))
-  (push (create-prefix-dispatcher "/" 'redirect-shortener-dispatch) *dispatch-table*))
+  (push (create-prefix-dispatcher "/" 'redirect-shortener-dispatch) *dispatch-table*)
+  (push (create-prefix-dispatcher "/help" 'redirect-help-dispatch) *dispatch-table*))
 
 (defun stop-web-servers ()
   (dolist (acceptor *acceptors*) (hunchentoot:stop acceptor))

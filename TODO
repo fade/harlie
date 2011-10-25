@@ -22,7 +22,6 @@
 - Get redirected URIs
 - Smarter chaining: punctuation, better endings
 
-- Test chtml-matcher again.  Bug?
 - Unit conversion.  Do some locally
 - Test that short URLs won't collide
 - Implement transactions in DB
@@ -34,3 +33,9 @@
 - Contexts for chaining
 - Twitter plug-in, SMS gateway
 - More back-end Web stuff
+
+BUGS
+
+- Something was weird with chtml-matcher.
+- Why can't Postmodern do an "order by desc" clause correctly in a query?
+- Why's Harlie wedging in q-runner?

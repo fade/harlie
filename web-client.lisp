@@ -84,6 +84,37 @@ Only the first match is returned."
 	      "No title found."))
 	nil)))
 
+
+;;; alternative scraping system which uses an STP document structure
+;;; to do a recursive search on the target document for various
+;;; entities and values.
+
+(defun webget (url)
+  "take an URL and get the html returned by the webserver at that
+   resource. Return this html to the caller as a string."
+  (drakma:http-request url
+		       :user-agent
+		       "Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US) AppleWebKit/525.13 (KHTML, like Gecko) Chrome/0.A.B.C Safari/525.13"))
+
+(defun clean-html (string)
+  "take a shot at repairing broken html. This won't work in the
+   presence of semantically undecidable breakage, but it does work for
+   the most common types of human fuck-up."
+  (chtml:parse string (chtml:make-string-sink)))
+
+(defun parse-page (page)
+  "assumes page refers to a string of raw html. Returns a cxml-stp
+   document structure."
+  (chtml:parse (clean-html page) (cxml-stp:make-builder)))
+
+(defun stp->string (stpdoc)
+  (stp:serialize stpdoc (cxml:make-string-sink)))
+
+(defun dump-page-string (page file)
+  (with-open-file (st file :direction :output :if-exists :supersede)
+    (write-string page st)))
+
+
 ;; drakma is very thorough in checking the correctness of the HTML
 ;; it fetches.  Unfortunately, it wants to see a newline character
 ;; at the end-of-file.  The Hacker News website doesn't provide one.

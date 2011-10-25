@@ -2,18 +2,18 @@
 
 - Logarithmic probabilities in chainer
 - Coalesce entries in chain DB
-- Enable write access for chainer
-- Triggers for chainer
+- Enable write access for chainer [DONE]
+- Triggers for chainer [DONE]
 
 * (Fade)
 - YACLML for all HTML generation
 - Convert other bot commands
 
-- Deliberately order full-page URL listing by reverse chronological order
+- Deliberately order full-page URL listing by reverse chronological order [DONE]
 - Get full host string w/Web request
 - Multiheaded bot w/multiple chain, URL stores (sort of)
 - Smart rejoin
-- Help web page(s)
+- Help web page(s) [DONE]
 
 - Wrap HTTP GETs in trivial-timeout
 - !conv: detect failed return?

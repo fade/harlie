@@ -84,12 +84,21 @@ Only the first match is returned."
 	      "No title found."))
 	nil)))
 
+;; drakma is very thorough in checking the correctness of the HTML
+;; it fetches.  Unfortunately, it wants to see a newline character
+;; at the end-of-file.  The Hacker News website doesn't provide one.
+;; *old-bogus-eols* stores the original value of
+;; chunga:*accept-bogus-eols* so we can set it to t to suppress
+;; this stringent checking.
+
 (defvar *old-bogus-eols* nil)
 
 (defun start-web-client ()
+  "Initialize the system to request Web pages."
   (setf *old-bogus-eols* chunga:*accept-bogus-eols*)
   (setf chunga:*accept-bogus-eols* t))
 
 (defun stop-web-client ()
+  "Clean up after requesting Web pages."
   (setf chunga:*accept-bogus-eols* *old-bogus-eols*)
   (setf *old-bogus-eols* nil))

@@ -127,7 +127,9 @@
 
 (defmethod get-urls-and-headlines ((store postmodern-url-store))
   (with-connection (readwrite-url-db store)
-    (query (:select 'input-url 'title :from 'urls))))
+    (query "select input_url, title from urls order by tstamp desc")
+;    (query (:select 'input-url 'title :from 'urls))
+    ))
 
 (defun fetch-formatted-url (url-string &rest args)
   "Retrieve the lhtml contents of the page at a specified URL.

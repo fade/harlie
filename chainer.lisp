@@ -2,6 +2,28 @@
 
 (in-package :harlie)
 
+(defparameter *sentinel* (string #\Newline))
+
+(defclass words ()
+  ((word1 :col-type string :initarg :word1 :accessor word1)
+   (word2 :col-type string :initarg :word2 :accessor word2)
+   (word3 :col-type string :initarg :word3 :accessor word3)
+   (incidence :col-type integer :initform 1 :accessor incidence)
+   (row-num :col-type integer :accessor row-num))
+  (:metaclass dao-class)
+  (:keys row-num))
+
+(defun chain-in (toklist)
+  (unless (< (length toklist) 3)
+    (with-connection *chain-db*
+      (do* ((word1 *sentinel* word2)
+	    (word2 *sentinel* word3)
+	    (word3 (pop toklist) (pop toklist)))
+	   ((and (not word3) (not word2))  nil)
+	(insert-dao (make-instance 'words :word1 word1
+					  :word2 (if word2 word2 *sentinel*)
+					  :word3 (if word3 word3 *sentinel*)))))))
+
 (defun count-phrases ()
   "Return the number of entries in the words table."
   (with-connection *chain-db*
@@ -12,8 +34,8 @@
   (query (:select 'word3
 	  :from 'words
 	  :where (:and (:= 'row-num rownum)
-		       (:= 'word1 (string #\Newline))
-		       (:= 'word2 (string #\Newline)))) :single))
+		       (:= 'word1 *sentinel*)
+		       (:= 'word2 *sentinel*))) :single))
 
 (defun random-start ()
   "Find a random starting point for a chain.  Return the word which starts
@@ -29,7 +51,7 @@ the chain, and also the number of trials before finding it."
   (query (:select 'word2
 	  :from 'words
 	  :where (:and (:= 'row-num rownum)
-		       (:!= 'word2 (string #\Newline)))) :single))
+		       (:!= 'word2 *sentinel*))) :single))
 
 (defun random-word ()
   "Find a random word in the chaining database."
@@ -40,6 +62,7 @@ the chain, and also the number of trials before finding it."
 	 (r (values r n)))))
 
 (defun random-words (n)
+  "Return n random words from the chaining db."
   (with-connection *chain-db*
     (do ((words nil))
 	((= (length words) n) words)
@@ -58,33 +81,31 @@ the chain, and also the number of trials before finding it."
 	   (:raw "random()"))
 	  1) :single))
 
-(defun chain (&optional w1 w2 )
+(defun argshift (filler &optional w1 w2)
+  "Shift arguments to fill in from the right."
+  (let ((stack (list nil nil))
+	(queue (list w1 w2 nil)))
+    (do* ((arg (pop queue) (pop queue)))
+	 ((not queue) (substitute filler nil (reverse (subseq stack 0 2))))
+      (when arg (push arg stack)))))
+
+(defun chain (&optional w1 w2)
   "Generate a full random chain.  If desired, you can specify the first
 word or two of the chain.  Returns a list of strings."
   (with-connection *chain-db*
     ;; If w1 and/or w2 are provided, use them.  Otherwise use sentinel values.
-    (do* ((word1 (if (and w1 w2)
-		     w1
-		     (string #\Newline))
-		 word2)
-	  (word2 (cond ((and w1 w2) w2)
-		       (w1 w1)
-		       (t (string #\Newline)))
-		 word3)
-	  ;; If no w1 or w2 is specified, then pick a random starting point.
-	  ;; Otherwise, start chaining.
-	  (word3 (if (not (or w1 w2))
-		     (random-start)
-		     (chain-next word1 word2))
-		 (chain-next word1 word2))
-	  (utterance (remove-if
-		      (lambda (s)
-			(equal s (string #\Newline)))
-		      (list word1 word2 word3)) 
-		     (if (equal word3 (string #\Newline))
-			 utterance
-			 (append utterance (list word3)))))
-	 ((or (not word3) (equal word3 (string #\Newline))) utterance))))
+    (destructuring-bind (a b) (argshift *sentinel* w1 w2)
+      (do* ((word1 a word2)
+	    (word2 b word3)
+	    ;; If no w1 or w2 is specified, then pick a random starting point.
+	    ;; Otherwise, start chaining.
+	    (word3 (if (not (or w1 w2))
+		       (random-start)
+		       (chain-next word1 word2))
+		   (chain-next word1 word2))
+	    (utterance (list word1 word2 word3) 
+		       (append utterance (list word3))))
+	   ((or (not word3) (equal word3 *sentinel*)) (remove *sentinel* utterance :test 'equal))))))
 
 (defun accept-n (l n)
   "Test to see whether an n-syllable sequence appears at the start of l.
@@ -94,9 +115,7 @@ sequence, or nil if not found."
   (do* ((verse (list (caar l)) (append verse (list (car (second l)))))
 	(l l (cdr l))
 	(sum (cdar l) (incf sum (cdar l))))
-       ((or (>= sum n) (= (length l) 1)) (if (= sum n) verse nil))
-					;    (format t "~A ~A ~A~%" verse sum l)
-    ))
+       ((or (>= sum n) (= (length l) 1)) (if (= sum n) verse nil))))
 
 (defun find-haiku (l)
   "Scan through a list of conses from make-syllable-sums to see whether there's
@@ -110,7 +129,6 @@ haiku (if found) or nil (if not)."
 	(when line2
 	  (let ((line3 (accept-n (subseq l (+ (length line1) (length line2))) 5)))
 	    (when line3
-;	      (format t "Bingo! ~A ~A ~A~%" line1 line2 line3)
 	      (return-from find-haiku (concatenate 'list line1 '("/") line2 '("/") line3))))))))
   (find-haiku (cdr l)))
 

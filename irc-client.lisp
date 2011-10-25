@@ -2,6 +2,8 @@
 
 (in-package #:harlie)
 
+(declaim (optimize (debug 3) (safety 3) (speed 0)))
+
 (defvar *irc-connection* nil)
 
 (defvar *last-message* nil)

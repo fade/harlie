@@ -24,3 +24,12 @@
   "Is fstring a floating point number encoded as a string?"
   (let ((scanner (create-scanner "^[0-9]*([.][0-9]*)?$")))
     (cl-ppcre:scan scanner fstring)))
+
+(defun break-on-no-break-space (zert)
+  "break up a string or list of strings by #\NO-BREAK_SPACE; these
+   types of string are returned by our find-forex function as encoded
+   at xe.com."
+  (if (listp zert)
+      (loop for string in zert
+	    :collect (split-sequence:split-sequence #\NO-BREAK_SPACE string))
+      (split-sequence:split-sequence #\NO-BREAK_SPACE zert)))

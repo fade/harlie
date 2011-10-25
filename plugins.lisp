@@ -148,11 +148,21 @@
 	(t (let* ((amount 1)
 		  (from (second token-list))
 		  (to (third token-list))
-		  (fx (find-forex (fetch-formatted-url
-				   "http://www.xe.com/ucc/convert/?Amount=~A&From=~A&To=~A"
-				   amount from to)))
-		  (forex (split-sequence #\Space fx)))
-	     (format nil "[ ~A ~A ] = [ ~A ~A ]" (first forex) (second forex) (third forex) (fourth forex))))))
+		  (fx
+		    (break-on-no-break-space (find-forex (fetch-formatted-url
+							  "http://www.xe.com/ucc/convert/?Amount=~A&From=~A&To=~A"
+							  amount from to))))
+		  (c1amt (parse-number:parse-number
+			  (remove #\, (first (first fx)))))
+		  (curr1 (second (first fx)))
+		  (c2amt (parse-number:parse-number
+			  (remove #\, (first (second fx)))))
+		  (curr2 (second (second fx)))
+		  (c1->c2 (format nil " ~$ ~A  =  ~$ ~A "
+				  c1amt curr1 c2amt curr2))
+		  (c2->c1 (format nil " ~$ ~A  =  ~$ ~A "
+				  amount curr2 (/ c1amt c2amt ) curr1)))
+	     (format nil "[ ~A | ~A ]" c1->c2 c2->c1)))))
 
 (defplugin babble (reply-to token-list)
   (declare (ignore token-list))

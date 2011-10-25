@@ -4,6 +4,26 @@
 
 (defparameter *sentinel* (string #\Newline))
 
+(defclass words ()
+  ((word1 :col-type string :initarg :word1 :accessor word1)
+   (word2 :col-type string :initarg :word2 :accessor word2)
+   (word3 :col-type string :initarg :word3 :accessor word3)
+   (incidence :col-type integer :initform 1 :accessor incidence)
+   (row-num :col-type integer :accessor row-num))
+  (:metaclass dao-class)
+  (:keys row-num))
+
+(defun chain-in (toklist)
+  (unless (< (length toklist) 3)
+    (with-connection *chain-db*
+      (do* ((word1 *sentinel* word2)
+	    (word2 *sentinel* word3)
+	    (word3 (pop toklist) (pop toklist)))
+	   ((and (not word3) (not word2))  nil)
+	(insert-dao (make-instance 'words :word1 word1
+					  :word2 (if word2 word2 *sentinel*)
+					  :word3 (if word3 word3 *sentinel*)))))))
+
 (defun count-phrases ()
   "Return the number of entries in the words table."
   (with-connection *chain-db*

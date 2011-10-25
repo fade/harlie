@@ -106,9 +106,13 @@
 					   (format nil "[ ~A~A ] [ ~A ]" *url-prefix* short title))
 				    (qmess connection reply-to
 					   (format nil "[ ~A ] Couldn't fetch this page." url)))))))
-			 (trigger-tokens
-			  (qmess connection reply-to (format nil "~{~A~^ ~}" (chain (first trigger-tokens) (second trigger-tokens)))))
-			 (t nil))))))
+			 (t (progn
+			      (chain-in token-text-list)
+			      (when trigger-tokens
+				(qmess connection reply-to
+				       (format nil "~{~A~^ ~}"
+					       (chain (first trigger-tokens)
+						      (second trigger-tokens))))))))))))
 
 (defun threaded-byebye-hook (message)
   "Handle a quit or part message."

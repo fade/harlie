@@ -42,6 +42,8 @@
     :finally (return i)))
 
 (defun make-name-detector (name)
+  "Return a predicate which detects a token in case-insensitive fashion,
+allowing for leading and trailing punctuation characters in the match."
   (lambda (s)
     (scan
      (create-scanner
@@ -51,6 +53,9 @@
       :case-insensitive-mode t) s)))
 
 (defun triggered (token-list sender)
+  "Determine whether to trigger an utterance based on something we heard.
+If so, return the (possibly rewritten) token list against which to chain
+the output.  If not, return nil."
   (let ((recognizer (make-name-detector *my-irc-nick*))
 	(trigger-word (find-if (lambda (s) (member s *trigger-list* :test 'equal)) token-list)))
     (cond ((remove-if-not recognizer token-list)
@@ -125,7 +130,7 @@
 (defvar *trigger-list* nil)
 
 (defun start-irc-client-instance ()
-  "Run an instance of the bot's IRC client."
+  "Start a session with an IRC server."
   (setf *irc-connection* (connect :nickname *my-irc-nick* :server *irc-server-name*))
   (setf *trigger-list* (random-words 10))
   (dolist (channel *irc-channel-names*)
@@ -138,6 +143,7 @@
   (read-message-loop *irc-connection*))
 
 (defun stop-irc-client-instance ()
+  "Shut down a session with the IRC server."
   (cl-irc:quit *irc-connection*  "I'm tired. I'm going home.")
   (setf *ignorelist* nil)
   (setf *trigger-list* nil)
@@ -146,9 +152,11 @@
 (defparameter *irc-client-thread* nil)
 
 (defun start-threaded-irc-client-instance ()
+  "Spawn a thread to run a session with an IRC server."
   (setf *irc-client-thread* (make-thread #'start-irc-client-instance)))
 
 (defun stop-threaded-irc-client-instance ()
+  "Shut down a session with an IRC server, and clean up."
   (stop-irc-client-instance)
   (bt:destroy-thread *irc-client-thread*)
   (setf *irc-client-thread* nil)

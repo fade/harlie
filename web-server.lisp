@@ -5,6 +5,7 @@
 (defparameter *acceptors* nil)
 
 (defun make-webpage-listing-urls (store)
+  "Generate HTML for the Web page listing the Web links in the database."
   (with-html-output-to-string (s)
     (:html
      (:head
@@ -16,9 +17,9 @@
        (dolist (link (get-urls-and-headlines store))
 	 (let ((target (car link))
 	       (link-description (cadr link)))
-	    (htm
-	     (:li
-	      (:a :href target (str (escape-string link-description))))))))))
+	   (htm
+	    (:li
+	     (:a :href target (str (escape-string link-description))))))))))
     s))
 
 (defun bug (store)
@@ -67,12 +68,14 @@ or an error message, as appropriate."
   (html-help))
 
 (defun start-web-servers ()
+  "Initialize and start the web server subsystem."
   (push (make-instance 'hunchentoot:acceptor :port *web-server-port*) *acceptors*)
   (hunchentoot:start (car *acceptors*))
   (push (create-prefix-dispatcher "/" 'redirect-shortener-dispatch) *dispatch-table*)
   (push (create-prefix-dispatcher "/help" 'redirect-help-dispatch) *dispatch-table*))
 
 (defun stop-web-servers ()
+  "Shut down the web server subsystem."
   (dolist (acceptor *acceptors*) (hunchentoot:stop acceptor))
   (setf *acceptors* nil)
   (setf *dispatch-table* (list 'dispatch-easy-handlers 'default-dispatcher)))

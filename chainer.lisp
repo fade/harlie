@@ -62,6 +62,7 @@ the chain, and also the number of trials before finding it."
 	 (r (values r n)))))
 
 (defun random-words (n)
+  "Return n random words from the chaining db."
   (with-connection *chain-db*
     (do ((words nil))
 	((= (length words) n) words)

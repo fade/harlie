@@ -9,6 +9,8 @@
    (plugin-hook :initarg :plugin-hook :accessor plugin-hook)
    (plugin-doc :initform nil :accessor plugin-doc)))
 
+;; *doublehelp* is the fallback plugin which gives documentation on a failed lookup.
+
 (defparameter *doublehelp*
   (make-instance 'plugin
 		 :plugin-name "DOUBLEHELP"
@@ -23,6 +25,25 @@
   `(setf (gethash (symbol-name (quote ,funame)) *plugins*)
 	 (make-instance 'plugin :plugin-name (symbol-name (quote ,funame))
 				:plugin-hook (lambda (,@args) ,@body))))
+
+;; So here's the new drill:
+;; plugins are expected to respond to the protocol exemplified in sources.
+;; If reply-to is :docstring, then return a documentation string.
+;; If reply-to is :priority, then return a float representing the position
+;; of this plugin among all the plugins.
+;;
+;; In the help page, plugins are listed in numeric order by priority,
+;; and by name within priority.
+;;
+;; Plugins with priorities <= 0.0 are not listed on the help page,
+;; but you can still get online help for them with the !help command.
+;;
+;; On the help page, there's a small vertical break between groups of
+;; plugins at integer intervals.  Hence, the plugins with priorities
+;; in the range [1.0, 2.0) will be listed in one block, and those in
+;; [2.0, 3.0) will be listed in another, etc.  This lets you group
+;; plugins together by general type and micromanage their order within
+;; a group if you wish.
 
 (defplugin sources (reply-to token-list)
   (declare (ignore token-list))
@@ -214,28 +235,31 @@
 ;; ===[ hyperspace motivator follows. ]===
 
 (defun plugin-docs ()
+  "Generate a list-of-lists from the plugin names, doc strings, and priorities."
   (loop for k being the hash-keys in *plugins*
 	collecting (list k
 			 (funcall (plugin-hook (gethash k *plugins*)) :docstring nil)
 			 (funcall (plugin-hook (gethash k *plugins*)) :priority nil))))
 
 (defun sort-docs (a b)
+  "Sort a list-of-lists of plugins by name within priority."
   (cond ((not (= (third a) (third b))) (< (third a) (third b)))
 	((not (string= (first a) (first b))) (string< (first a) (first b)))
 	(t nil)))
 
 (defun run-plugin (botcmd connection reply-to token-list)
+  "Run a plugin's hook function and send the return text back to the requester."
   (let* ((plugname (string-upcase (subseq botcmd 1)))
 	 (plugf (gethash plugname *plugins* nil)))
     (if plugf
 	(let ((reply (funcall (plugin-hook plugf) reply-to token-list)))
 	  (cond ((stringp reply)
 		 (qmess connection reply-to
-			  (format nil "~A:: ~A" (string-downcase plugname) reply)))
+			(format nil "~A:: ~A" (string-downcase plugname) reply)))
 		((listp reply)
 		 (dolist (line reply)
 		   (qmess connection reply-to
-			    (format nil "~A:: ~A" (string-downcase plugname) line))))
+			  (format nil "~A:: ~A" (string-downcase plugname) line))))
 		(t (qmess connection reply-to
-			    (format nil "~A:: I'm a tragic victim of duck typing gone wrong." (string-downcase plugname))))))
+			  (format nil "~A:: I'm a tragic victim of duck typing gone wrong." (string-downcase plugname))))))
 	(qmess connection reply-to (format nil "~A: unknown command." (string-downcase plugname))))))

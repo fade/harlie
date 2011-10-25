@@ -84,6 +84,12 @@ Only the first match is returned."
 	      "No title found."))
 	nil)))
 
+(defun fetch-calc ()
+    (do* ((stream (third (http-get (format nil "http://www.google.com/search?q=1+mile+in+furlongs&client=ubuntu&channel=fs"))))
+	  (line (read-line stream) (read-line stream nil 'eof)))
+	 ((eq line 'eof) nil)
+      (format t "~A~%" line)))
+
 ;; drakma is very thorough in checking the correctness of the HTML
 ;; it fetches.  Unfortunately, it wants to see a newline character
 ;; at the end-of-file.  The Hacker News website doesn't provide one.

@@ -15,7 +15,8 @@
 	       #:postmodern
 	       #:local-time
 	       #:split-sequence
-	       #:cl-fad)
+	       #:cl-fad
+	       #:trivial-http)
   :components ((:file "package")
 	       (:file "config")
 	       (:file "util")

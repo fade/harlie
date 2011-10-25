@@ -231,6 +231,11 @@
 		    (:dd (str (escape-string (format nil "~A" (second doc))))))
 		 (setf oldpriority (third doc))))))))))))
 
+(defplugin 8ball (reply-to token-list)
+  (cond ((eq reply-to :docstring)
+	 (format nil "Consult the Magic 8-Ball if you dare"))
+	((eq reply-to :priority) 4.0)
+	(t (format nil "~A" (consult-8ball)))))
 
 ;; ftoc
 

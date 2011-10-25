@@ -108,3 +108,17 @@
 	       (count (if w (length (remove-if-not 'digit-char-p l)) 0)))
 	  (when w
 	    (setf (gethash w word->syllables) count)))))))
+
+(defparameter *8ball-data* nil)
+
+(defun read-8ball ()
+  (with-open-file (instream (constant-file "8ball_dump"))
+    (do* ((l (read-line instream) (read-line instream nil 'eof))
+	  (balls nil))
+	 ((eq l 'eof) balls)
+      (push l balls))))
+
+(defun consult-8ball ()
+  (when (not *8ball-data*)
+    (setf *8ball-data* (read-8ball)))
+  (elt *8ball-data* (random (length *8ball-data*))))

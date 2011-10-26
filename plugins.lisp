@@ -64,12 +64,15 @@
 	 (format nil "Convert between currencies.  Usage: !conv <amount> <from-abbrev> <to-abbrev>"))
 	((eq reply-to :priority) 2.0)
 	(t (let* ((amount (second token-list))
-		  (from (third token-list))
-		  (to (fourth token-list))
-		  (forex (find-forex (fetch-formatted-url
-				      "http://www.xe.com/ucc/convert/?Amount=~A&From=~A&To=~A"
-				      amount from to))))
-	     (format nil "~A = ~A" (first forex) (second forex))))))
+		  (from (string-upcase (third token-list)))
+		  (to (string-upcase (fourth token-list))))
+	     (if (string= from to)
+		 (format nil "Converting ~A to ~A is redundant." from to)
+		 (format nil "~{~A~^ = ~}"
+			 (find-forex
+			  (fetch-formatted-url
+			   "http://www.xe.com/ucc/convert/?Amount=~A&From=~A&To=~A"
+			   amount from to))))))))
 
 (defplugin jcw (reply-to token-list)
   (declare (ignore token-list))
@@ -146,23 +149,27 @@
 	 (format nil "Look up the conversion rate between two currencies.  Usage: !rate <curr1> <curr2>"))
 	((eq reply-to :priority) 2.0)
 	(t (let* ((amount 1)
-		  (from (second token-list))
-		  (to (third token-list))
-		  (fx
-		    (break-on-no-break-space (find-forex (fetch-formatted-url
-							  "http://www.xe.com/ucc/convert/?Amount=~A&From=~A&To=~A"
-							  amount from to))))
-		  (c1amt (parse-number:parse-number
-			  (remove #\, (first (first fx)))))
-		  (curr1 (second (first fx)))
-		  (c2amt (parse-number:parse-number
-			  (remove #\, (first (second fx)))))
-		  (curr2 (second (second fx)))
-		  (c1->c2 (format nil " ~$ ~A  =  ~$ ~A "
-				  c1amt curr1 c2amt curr2))
-		  (c2->c1 (format nil " ~$ ~A  =  ~$ ~A "
-				  amount curr2 (/ c1amt c2amt ) curr1)))
-	     (format nil "[ ~A | ~A ]" c1->c2 c2->c1)))))
+		  (from (string-upcase (second token-list)))
+		  (to (string-upcase (third token-list))))
+	     (if (string= from to)
+		 (format nil "The rate of ~A in ~A is obvious." from to)
+		 (progn
+		   (let* ((fx
+			   (break-on-no-break-space
+			    (find-forex (fetch-formatted-url
+					 "http://www.xe.com/ucc/convert/?Amount=~A&From=~A&To=~A"
+					 amount from to))))
+			  (c1amt (parse-number:parse-number
+				  (remove #\, (first (first fx)))))
+			  (curr1 (second (first fx)))
+			  (c2amt (parse-number:parse-number
+				  (remove #\, (first (second fx)))))
+			  (curr2 (second (second fx)))
+			  (c1->c2 (format nil " ~$ ~A  =  ~$ ~A "
+					  c1amt curr1 c2amt curr2))
+			  (c2->c1 (format nil " ~$ ~A  =  ~$ ~A "
+					  amount curr2 (/ c1amt c2amt ) curr1)))
+		     (format nil "[ ~A | ~A ]" c1->c2 c2->c1))))))))
 
 (defplugin babble (reply-to token-list)
   (declare (ignore token-list))

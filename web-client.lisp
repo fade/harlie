@@ -177,7 +177,6 @@ Only the first match is returned."
 (defun find-doomsday (tree)
   "Find how many minutes to midnight according to the Bulletin of the Atomic Scientists."
   (extract-from-html tree 'doomsday-anchor 'doomsday-extractor))
->>>>>>> b2f0e148ff50ed5a9b9a1dfbee971e1cb1a4fa54
 
 ;; drakma is very thorough in checking the correctness of the HTML
 ;; it fetches.  Unfortunately, it wants to see a newline character

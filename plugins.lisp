@@ -227,6 +227,14 @@
 	((eq reply-to :priority) 4.0)
 	(t (format nil "~A" (consult-8ball)))))
 
+(defplugin calc (reply-to token-list)
+  (cond ((eq reply-to :docstring)
+	 (format nil "Unit conversion and other exciting things."))
+	((eq reply-to :priority) 2.0)
+	(t (let* ((search-tokens (cdr token-list))
+		  (calcresult (find-calc (fetch-formatted-url "http://www.google.com/search?q=~{~A~^+~}&client=ubuntu&channel=fs" search-tokens))))
+	     calcresult))))
+
 ;; ftoc
 
 ;; ctof
@@ -234,8 +242,6 @@
 ;; 8ball
 
 ;; area
-
-;; calc
 
 ;; ===[ hyperspace motivator follows. ]===
 

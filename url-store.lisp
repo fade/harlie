@@ -131,6 +131,8 @@
 ;    (query (:select 'input-url 'title :from 'urls))
     ))
 
+(defparameter *suppress-url-encoding* t)
+
 (defun fetch-formatted-url (url-string &rest args)
   "Retrieve the lhtml contents of the page at a specified URL.
 Does format-style string interpolation on the url string."

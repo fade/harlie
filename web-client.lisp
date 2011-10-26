@@ -84,11 +84,39 @@ Only the first match is returned."
 	      "No title found."))
 	nil)))
 
-(defun fetch-calc ()
-    (do* ((stream (third (http-get (format nil "http://www.google.com/search?q=1+mile+in+furlongs&client=ubuntu&channel=fs"))))
-	  (line (read-line stream) (read-line stream nil 'eof)))
-	 ((eq line 'eof) nil)
-      (format t "~A~%" line)))
+(defun calc-anchor (tree)
+  "Predicate which detects the result in a Google Calc page."
+  (and (equal (car tree) :H2)
+       (listp (second tree))
+       (equal "r"
+	      (some #'identity
+		    (mapcar (lambda (proplist)
+			      (getf proplist :CLASS))
+			    (second tree))))))
+
+(defun calc-extractor (tree)
+  "Extract the result from a Google Calc query."
+  (if (and (> (length (third tree)) 3) (eq (car (fourth (third tree))) :SUP))
+      (list (concatenate 'string
+			 (make-string (length (third (third tree))) :initial-element #\Space) (third (fourth (third tree))))
+	    (concatenate 'string
+			 (substitute #\x #\MULTIPLICATION_SIGN (third (third tree)))
+			 (make-string (length (third (fourth (third tree)))) :initial-element #\Space)
+			 (fifth (third tree))))
+      (substitute #\x #\MULTIPLICATION_SIGN (third (third tree)))      
+      ))
+
+(defun find-calc (tree)
+  "Take the result in a Google Calc page."
+  (extract-from-html tree 'calc-anchor 'calc-extractor))
+
+(defun retrieve-calc (search-tokens)
+  (do* ((stream (third (http-get (format nil "http://www.google.com/search?q=~{~A~^+~}&client=ubuntu&channel=fs" search-tokens))))
+	(line (read-line stream) (read-line stream nil 'eof))
+	(lines (list line) (cons line lines)))
+       ((eq line 'eof) (apply 'concatenate 'string (reverse (cdr lines))))
+    (format t "~A~%" line)
+    ))
 
 ;; drakma is very thorough in checking the correctness of the HTML
 ;; it fetches.  Unfortunately, it wants to see a newline character

@@ -78,6 +78,13 @@
 			  "http://www.xe.com/ucc/convert/?Amount=~A&From=~A&To=~A"
 			  amount from to))))))))
 
+(defplugin stock (plug-request)
+  (case (plugin-action plug-request)
+    (:docstring (format nil "Get a vaguely timely appraisal of the trading value of a given stock, by symbol"))
+    (:priority 2.0)
+    (:run (let ((symbol (string-upcase (second (plugin-token-text-list plug-request)))))
+	    (format nil "~{~A~^  ~}" (get-stock-values symbol))))))
+
 (defplugin jcw (plug-request)
   (case (plugin-action plug-request)
     (:docstring (format nil "Address the left/right libertarian/asshole continuum"))
@@ -264,10 +271,6 @@
 ;; ftoc
 
 ;; ctof
-
-;; area
-
-;; stock
 
 ;; ===[ hyperspace motivator follows. ]===
 

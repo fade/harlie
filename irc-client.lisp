@@ -107,7 +107,7 @@ wasn't on the list; otherwise returns t."
 			(connection (connection message))
 			(text (second (arguments message)))
 			(token-text-list (split "\\s+" text))
-			(botcmd (string-upcase (first token-text-list)))
+			(command (string-upcase (first token-text-list)))
 			(reply-to channel)
 			(urls (all-matches-as-strings "((ftp|http|https)://[^\\s]+)|(www[.][^\\s]+)" text))
 			(trigger-tokens (triggered token-text-list sender)))
@@ -122,7 +122,7 @@ wasn't on the list; otherwise returns t."
 			  (start-ignoring sender)
 			  (qmess connection sender "NOTIFY:: Help, I'm a bot!"))
 
-			 ((string= "!IGNOREME" botcmd)
+			 ((string= "!IGNOREME" command)
 			  (if (or
 			       (< (length token-text-list) 2)
 			       (not (string= "OFF" (string-upcase (second token-text-list)))))
@@ -138,8 +138,12 @@ wasn't on the list; otherwise returns t."
 			 
 			 ((member (string-upcase sender) *ignorelist* :test 'string=) nil)
 
-			 ((scan "^![^!]" botcmd)
-			  (run-plugin botcmd connection reply-to token-text-list))
+			 ((scan "^![^!]" command)
+			  (run-plugin (make-instance
+				       'plugin-request :botcmd command
+						       :connection connection
+						       :reply-to reply-to
+						       :token-text-list token-text-list)))
 
 			 ((scan "^NOTIFY:: Help, I'm a bot!" text)
 			  (qmess connection sender (format nil "NOTIFY:: Help, I'm a bot!"))

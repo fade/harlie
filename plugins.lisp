@@ -235,6 +235,13 @@
 		  (calcresult (find-calc (fetch-formatted-url "http://www.google.com/search?q=~{~A~^+~}&client=ubuntu&channel=fs" search-tokens))))
 	     calcresult))))
 
+(defplugin pants (reply-to token-list)
+  (declare (ignore token-list))
+  (cond ((eq reply-to :docstring)
+	 (format nil "Make the dicklicking face again"))
+	((eq reply-to :priority) 4.0)
+	(t (format nil "~{~A~^ ~}" (random-choice *bong-noises* (+ 3 (random 8)))))))
+
 ;; ftoc
 
 ;; ctof

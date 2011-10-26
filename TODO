@@ -9,7 +9,8 @@
 - YACLML for all HTML generation
 - Convert other bot commands
 
-- calc [DONE]
+- !calc [DONE]
+- !pants [DONE]
 
 - Deliberately order full-page URL listing by reverse chronological order [DONE]
 - Get full host string w/Web request

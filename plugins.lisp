@@ -267,6 +267,8 @@
 
 ;; area
 
+;; stock
+
 ;; ===[ hyperspace motivator follows. ]===
 
 (defun plugin-docs ()

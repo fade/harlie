@@ -242,6 +242,14 @@
 	((eq reply-to :priority) 4.0)
 	(t (format nil "~{~A~^ ~}" (random-choice *bong-noises* (+ 3 (random 8)))))))
 
+(defplugin doomsday (reply-to token-list)
+  (cond ((eq reply-to :docstring)
+	 (format nil "Check the purity of essence of your precious bodily fluids"))
+	((eq reply-to :priority) 4.0)
+	(t (let* ((search-tokens (cdr token-list))
+		  (doomresult (find-doomsday (fetch-formatted-url "http://www.thebulletin.org/"))))
+	     doomresult))))
+
 ;; ftoc
 
 ;; ctof

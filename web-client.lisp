@@ -125,6 +125,27 @@ Only the first match is returned."
     (format t "~A~%" line)
     ))
 
+(defun doomsday-anchor (tree)
+  "Predicate which detects the result in a Doomsday lookup."
+  (and (eq (car tree) :DIV)
+       (listp (second tree))
+       (equal "module-content"
+	      (some #'identity
+		    (mapcar (lambda (proplist)
+			      (getf proplist :CLASS))
+			    (second tree))))
+       (>= (length tree) 3)
+       (listp (third tree))
+       (eq (car (third tree)) :H3)))
+
+(defun doomsday-extractor (tree)
+  "Extract the result from a Doomsday lookup."
+  (third (third tree)))
+
+(defun find-doomsday (tree)
+  "Find how many minutes to midnight according to the Bulletin of the Atomic Scientists."
+  (extract-from-html tree 'doomsday-anchor 'doomsday-extractor))
+
 ;; drakma is very thorough in checking the correctness of the HTML
 ;; it fetches.  Unfortunately, it wants to see a newline character
 ;; at the end-of-file.  The Hacker News website doesn't provide one.

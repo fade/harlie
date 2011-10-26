@@ -94,7 +94,7 @@ Only the first match is returned."
    resource. Return this html to the caller as a string."
   (drakma:http-request url
 		       :user-agent
-		       "Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US) AppleWebKit/525.13 (KHTML, like Gecko) Chrome/0.A.B.C Safari/525.13"))
+		       "Mozilla/5.0 (X11; Linux x86_64; rv:7.0.1) Gecko/20100101 Firefox/7.0.1"))
 
 (defun clean-html (string)
   "take a shot at repairing broken html. This won't work in the

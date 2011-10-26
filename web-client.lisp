@@ -114,6 +114,70 @@ Only the first match is returned."
   (with-open-file (st file :direction :output :if-exists :supersede)
     (write-string page st)))
 
+;;; /webtils
+
+(defun calc-anchor (tree)
+  "Predicate which detects the result in a Google Calc page."
+  (and (equal (car tree) :H2)
+       (listp (second tree))
+       (equal "r"
+	      (some #'identity
+		    (mapcar (lambda (proplist)
+			      (getf proplist :CLASS))
+			    (second tree))))))
+
+(defun cleanup-calc-string (s)
+  (substitute #\Space #\NO-BREAK_SPACE
+	      (substitute #\x #\MULTIPLICATION_SIGN s)))
+
+(defun calc-extractor (tree)
+  "Extract the result from a Google Calc query."
+  (let ((mantissa (cleanup-calc-string (third (third tree)))))
+    (if (and (> (length (third tree)) 3) (eq (car (fourth (third tree))) :SUP))
+	(let ((exponent (third (fourth (third tree))))
+	      (trailing-units (fifth (third tree))))
+	  (list (concatenate 'string
+			     (make-string (length mantissa) :initial-element #\Space) exponent)
+		(concatenate 'string
+			     mantissa
+			     (make-string (length exponent) :initial-element #\Space)
+			     trailing-units))
+	  )
+	mantissa)))
+
+(defun find-calc (tree)
+  "Take the result in a Google Calc page."
+  (extract-from-html tree 'calc-anchor 'calc-extractor))
+
+(defun retrieve-calc (search-tokens)
+  (do* ((stream (third (http-get (format nil "http://www.google.com/search?q=~{~A~^+~}&client=ubuntu&channel=fs" search-tokens))))
+	(line (read-line stream) (read-line stream nil 'eof))
+	(lines (list line) (cons line lines)))
+       ((eq line 'eof) (apply 'concatenate 'string (reverse (cdr lines))))
+    (format t "~A~%" line)
+    ))
+
+(defun doomsday-anchor (tree)
+  "Predicate which detects the result in a Doomsday lookup."
+  (and (eq (car tree) :DIV)
+       (listp (second tree))
+       (equal "module-content"
+	      (some #'identity
+		    (mapcar (lambda (proplist)
+			      (getf proplist :CLASS))
+			    (second tree))))
+       (>= (length tree) 3)
+       (listp (third tree))
+       (eq (car (third tree)) :H3)))
+
+(defun doomsday-extractor (tree)
+  "Extract the result from a Doomsday lookup."
+  (third (third tree)))
+
+(defun find-doomsday (tree)
+  "Find how many minutes to midnight according to the Bulletin of the Atomic Scientists."
+  (extract-from-html tree 'doomsday-anchor 'doomsday-extractor))
+>>>>>>> b2f0e148ff50ed5a9b9a1dfbee971e1cb1a4fa54
 
 ;; drakma is very thorough in checking the correctness of the HTML
 ;; it fetches.  Unfortunately, it wants to see a newline character

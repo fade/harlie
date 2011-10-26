@@ -13,10 +13,12 @@
 	#:irc
 	#:postmodern
 	#:local-time
-	#:split-sequence)
+	#:split-sequence
+	#:trivial-http)
   (:shadowing-import-from :closure-html :attribute :text :comment)
   (:shadowing-import-from :hunchentoot
    :host :*header-stream* :cookie-path :cookie-expires :cookie-name
    :cookie-domain :parameter-error :cookie-value)
   (:shadowing-import-from :cl-irc :connect)
-  (:shadowing-import-from :cl-who :with-html-output))
+  (:shadowing-import-from :cl-who :with-html-output)
+  (:shadowing-import-from :drakma :header-value))

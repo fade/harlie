@@ -237,6 +237,29 @@
 	((eq reply-to :priority) 4.0)
 	(t (format nil "~A" (consult-8ball)))))
 
+(defplugin calc (reply-to token-list)
+  (cond ((eq reply-to :docstring)
+	 (format nil "Unit conversion and other exciting things."))
+	((eq reply-to :priority) 2.0)
+	(t (let* ((search-tokens (cdr token-list))
+		  (calcresult (find-calc (fetch-formatted-url "http://www.google.com/search?q=~{~A~^+~}&client=ubuntu&channel=fs" search-tokens))))
+	     calcresult))))
+
+(defplugin pants (reply-to token-list)
+  (declare (ignore token-list))
+  (cond ((eq reply-to :docstring)
+	 (format nil "Make the dicklicking face again"))
+	((eq reply-to :priority) 4.0)
+	(t (format nil "~{~A~^ ~}" (random-choice *bong-noises* (+ 3 (random 8)))))))
+
+(defplugin doomsday (reply-to token-list)
+  (cond ((eq reply-to :docstring)
+	 (format nil "Check the purity of essence of your precious bodily fluids"))
+	((eq reply-to :priority) 4.0)
+	(t (let* ((search-tokens (cdr token-list))
+		  (doomresult (find-doomsday (fetch-formatted-url "http://www.thebulletin.org/"))))
+	     doomresult))))
+
 ;; ftoc
 
 ;; ctof
@@ -244,8 +267,6 @@
 ;; 8ball
 
 ;; area
-
-;; calc
 
 ;; ===[ hyperspace motivator follows. ]===
 

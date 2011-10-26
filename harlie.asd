@@ -2,7 +2,7 @@
 
 (asdf:defsystem #:harlie
   :serial t
-  :depends-on (#:sb-concurrency
+  :depends-on (#:sb-concurreny
 	       #:bordeaux-threads
 	       #:cl-irc
 	       #:cl-ppcre
@@ -16,7 +16,9 @@
 	       #:local-time
 	       #:split-sequence
 	       #:cl-fad
-	       #:parse-number)
+	       #:parse-number
+	       #:trivial-http)
+
   :components ((:file "package")
 	       (:file "config")
 	       (:file "util")
@@ -26,5 +28,6 @@
 	       (:file "chainer")
 	       (:file "plugins")
 	       (:file "web-client")
+	       (:file "http-request")
 	       (:file "web-server")
 	       (:file "harlie")))

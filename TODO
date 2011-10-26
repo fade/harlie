@@ -9,6 +9,10 @@
 - YACLML for all HTML generation
 - Convert other bot commands
 
+- !calc [DONE]
+- !pants [DONE]
+- !doomsday [DONE]
+
 - Deliberately order full-page URL listing by reverse chronological order [DONE]
 - Get full host string w/Web request
 - Multiheaded bot w/multiple chain, URL stores (sort of)
@@ -39,3 +43,7 @@ BUGS
 - Something was weird with chtml-matcher.
 - Why can't Postmodern do an "order by desc" clause correctly in a query?
 - Why's Harlie wedging in q-runner?
+- Drakma needs an option to avoid URL-encoding the URL
+  - We have a fix in our tree
+  - The RFCs support Drakma's interpretation
+  - They may not accept our patch.

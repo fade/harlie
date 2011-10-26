@@ -281,7 +281,9 @@
 
 ;; 8ball
 
-;; area
+;; stock
+
+
 
 ;; ===[ hyperspace motivator follows. ]===
 

@@ -94,17 +94,24 @@ Only the first match is returned."
 			      (getf proplist :CLASS))
 			    (second tree))))))
 
+(defun cleanup-calc-string (s)
+  (substitute #\Space #\NO-BREAK_SPACE
+	      (substitute #\x #\MULTIPLICATION_SIGN s)))
+
 (defun calc-extractor (tree)
   "Extract the result from a Google Calc query."
-  (if (and (> (length (third tree)) 3) (eq (car (fourth (third tree))) :SUP))
-      (list (concatenate 'string
-			 (make-string (length (third (third tree))) :initial-element #\Space) (third (fourth (third tree))))
-	    (concatenate 'string
-			 (substitute #\x #\MULTIPLICATION_SIGN (third (third tree)))
-			 (make-string (length (third (fourth (third tree)))) :initial-element #\Space)
-			 (fifth (third tree))))
-      (substitute #\x #\MULTIPLICATION_SIGN (third (third tree)))      
-      ))
+  (let ((mantissa (cleanup-calc-string (third (third tree)))))
+    (if (and (> (length (third tree)) 3) (eq (car (fourth (third tree))) :SUP))
+	(let ((exponent (third (fourth (third tree))))
+	      (trailing-units (fifth (third tree))))
+	  (list (concatenate 'string
+			     (make-string (length mantissa) :initial-element #\Space) exponent)
+		(concatenate 'string
+			     mantissa
+			     (make-string (length exponent) :initial-element #\Space)
+			     trailing-units))
+	  )
+	mantissa)))
 
 (defun find-calc (tree)
   "Take the result in a Google Calc page."

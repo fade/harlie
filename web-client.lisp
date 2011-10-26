@@ -147,7 +147,9 @@ Only the first match is returned."
 
 (defun find-calc (tree)
   "Take the result in a Google Calc page."
-  (extract-from-html tree 'calc-anchor 'calc-extractor))
+  (let ((result   (extract-from-html tree 'calc-anchor 'calc-extractor)))
+    (if result result
+	"Your query did not return any meaningful data.")))
 
 (defun retrieve-calc (search-tokens)
   (do* ((stream (third (http-get (format nil "http://www.google.com/search?q=~{~A~^+~}&client=ubuntu&channel=fs" search-tokens))))

@@ -71,6 +71,26 @@ the output.  If not, return nil."
 			  token-list))
 	  (t nil))))
 
+(defun start-ignoring (sender)
+  "Put sender onto the *ignorelist*.  Returns nil if sender was
+on the list already; otherwise returns t."
+  (let ((ignoree (string-upcase sender)))
+    (if (not (member ignoree *ignorelist* :test 'string=))
+	(progn
+	  (push ignoree *ignorelist*)
+	  t)
+	nil)))
+
+(defun stop-ignoring (sender)
+  "Take sender off the *ignorelist*.  Returns nil if sender
+wasn't on the list; otherwise returns t."
+  (let ((ignoree (string-upcase sender)))
+    (if (member ignoree *ignorelist* :test 'string=)
+	(progn
+	  (setf *ignorelist* (remove ignoree *ignorelist* :test 'string=))
+	  t)
+	nil)))
+
 ; Why do we fork another thread just to run this lambda, you may ask?
 ; Because the thread that the network event loop runs in keeps getting
 ; killed every time there's an error in any of this code, and then
@@ -91,16 +111,40 @@ the output.  If not, return nil."
 			(reply-to channel)
 			(urls (all-matches-as-strings "((ftp|http|https)://[^\\s]+)|(www[.][^\\s]+)" text))
 			(trigger-tokens (triggered token-text-list sender)))
+
 		   (format t "Message: ~A~%" (raw-message-string message))
 		   (format t "   connection=~A channel=~A~%" connection channel)
+
 		   (when (equal channel (string-upcase *my-irc-nick*))
 		     (setf reply-to sender))
-		   (cond ((member sender *ignorelist* :test #'equal) nil)
+
+		   (cond ((scan "^NOTIFY:: Help, I'm a bot!" text)
+			  (start-ignoring sender)
+			  (qmess connection sender "NOTIFY:: Help, I'm a bot!"))
+
+			 ((string= "!IGNOREME" botcmd)
+			  (if (or
+			       (< (length token-text-list) 2)
+			       (not (string= "OFF" (string-upcase (second token-text-list)))))
+			      (when (start-ignoring (string-upcase sender))
+				(qmess connection reply-to
+				       (format nil
+					       "Now ignoring ~A.  Use !IGNOREME OFF when you want me to hear you again." sender)))
+			      (if (stop-ignoring (string-upcase sender))
+				  (qmess connection reply-to
+					 (format nil "No longer ignoring ~A." sender))
+				  (qmess connection reply-to
+					 (format nil "I wasn't ignoring you, ~A." sender)))))
+			 
+			 ((member (string-upcase sender) *ignorelist* :test 'string=) nil)
+
 			 ((scan "^![^!]" botcmd)
 			  (run-plugin botcmd connection reply-to token-text-list))
+
 			 ((scan "^NOTIFY:: Help, I'm a bot!" text)
 			  (qmess connection sender (format nil "NOTIFY:: Help, I'm a bot!"))
 			  (push sender *ignorelist*))
+
 			 (urls
 			  (dolist (url urls)
 			    (unless (or (scan (format nil "http://~A:~A" *web-server-name* *web-server-port*) url)
@@ -113,6 +157,7 @@ the output.  If not, return nil."
 					   (format nil "[ ~A~A ] [ ~A ]" *url-prefix* short title))
 				    (qmess connection reply-to
 					   (format nil "[ ~A ] Couldn't fetch this page." url)))))))
+
 			 (t (progn
 			      (chain-in token-text-list)
 			      (when trigger-tokens

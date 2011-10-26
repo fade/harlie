@@ -116,10 +116,10 @@ the output.  If not, return nil."
 			 (t (progn
 			      (chain-in token-text-list)
 			      (when trigger-tokens
-				(qmess connection reply-to
-				       (format nil "~{~A~^ ~}"
-					       (chain (first trigger-tokens)
-						      (second trigger-tokens))))))))))))
+				(let ((outgoing (chain (first trigger-tokens) (second trigger-tokens))))
+				  (unless (not (mismatch trigger-tokens outgoing :test 'equal))
+				    (qmess connection reply-to
+					   (format nil "~{~A~^ ~}" outgoing))))))))))))
 
 (defun threaded-byebye-hook (message)
   "Handle a quit or part message."

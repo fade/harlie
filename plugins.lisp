@@ -52,6 +52,14 @@
 	((eq reply-to :priority) -1.0)
 	(t (format nil "git@coruscant.deepsky.com:harlie.git"))))
 
+;; (defplugin ignoreme (reply-to token-list)
+;;   (declare (ignorable token-list))
+;;   (cond ((eq reply-to :docstring)
+;; 	 (format nil "Issue this command to cause the bot to ignore you. Takes no arguments"))
+;; 	((eq reply-to :priority) 1.0)
+;; 	(t (progn
+;; 	     ()))))
+
 (defplugin status (reply-to token-list)
   (declare (ignore token-list))
   (cond ((eq reply-to :docstring)

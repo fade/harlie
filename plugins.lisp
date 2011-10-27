@@ -78,12 +78,24 @@
 			  "http://www.xe.com/ucc/convert/?Amount=~A&From=~A&To=~A"
 			  amount from to))))))))
 
+(defun parse-stock (tick)
+  (cond ((string= tick "N/A") nil)
+	((float-as-string-p tick) (parse-number tick))
+	((or (every #'alpha-char-p tick) (some #'alphanumericp tick)) tick)
+	(t nil)))
+
 (defplugin stock (plug-request)
   (case (plugin-action plug-request)
     (:docstring (format nil "Get a vaguely timely appraisal of the trading value of a given stock, by symbol"))
     (:priority 2.0)
-    (:run (let ((symbol (string-upcase (second (plugin-token-text-list plug-request)))))
-	    (format nil "~{~A~^  ~}" (get-stock-values symbol))))))
+    (:run (let* ((symbol (string-upcase (second (plugin-token-text-list plug-request))))
+		 (quote (loop for i in (get-stock-values symbol)
+			      :collect (parse-stock i))))
+	    (if (every #'identity quote)
+		(format nil "Issue: ~A last traded for ~$ at ~A on ~A, ~A changed on the day. Opened at ~A with a high of ~$ and a low of ~$. ~:D shares traded."
+			(first quote) (second quote) (fourth quote) (third quote)
+			(fifth quote) (sixth quote) (seventh quote) (eighth quote) (ninth quote))
+		(format nil "No quotes for symbole: ~A. Perhaps you mistyped?" symbol))))))
 
 (defplugin jcw (plug-request)
   (case (plugin-action plug-request)

@@ -27,12 +27,15 @@
     (privmsg connection reply-to message)))
 
 (defun q-runner ()
-  "if the queue isn't empty, dequeue and send a message, FIFO style."
+  "if the queue isn't empty, dequeue and send a message, FIFO
+   style. Reset the timer for some point 1.5 - 2.5 seconds in the
+   future."
   (when (not (queue-empty-p *message-q*))
     (dqmess))
   (sb-ext:schedule-timer *message-timer* (max 1.5 (random 2.5))))
 
-(defparameter *message-timer* (sb-ext:make-timer #'q-runner :name "queue runner."))
+(defparameter *message-timer* (sb-ext:make-timer #'q-runner :name "queue runner.")
+  "this timer handles emptying the message queue as needed.")
 
 (defun print-some-random-dots ()
   "An anti-function function."

@@ -67,7 +67,7 @@ the output.  If not, return nil."
 			 s))
 		   token-list))
 	  (trigger-word (progn
-			  (setf *trigger-list* (substitute (car (random-words 1)) trigger-word *trigger-list* :test 'equal)) 
+			  (setf *trigger-list* (substitute (car (random-words 1)) trigger-word *trigger-list* :test 'string-equal)) 
 			  token-list))
 	  (t nil))))
 

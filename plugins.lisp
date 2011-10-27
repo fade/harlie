@@ -92,7 +92,7 @@
 		 (quote (loop for i in (get-stock-values symbol)
 			      :collect (parse-stock i))))
 	    (if (every #'identity quote)
-		(format nil "Issue: ~A last traded for ~$ at ~A on ~A, ~A changed on the day. Opened at ~A with a high of ~$ and a low of ~$. ~:D shares traded."
+		(format nil "Issue: ~A last traded for $~$ at ~A on ~A, ~A changed on the day. Opened at $~$ with a high of $~$ and a low of $~$. ~:D shares traded."
 			(first quote) (second quote) (fourth quote) (third quote)
 			(fifth quote) (sixth quote) (seventh quote) (eighth quote) (ninth quote))
 		(format nil "No quotes for symbole: ~A. Perhaps you mistyped?" symbol))))))

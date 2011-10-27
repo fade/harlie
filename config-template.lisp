@@ -13,13 +13,15 @@
 
 (defparameter *web-server-name* "127.0.0.1")
 
-(defparameter *url-prefix*
+(defun make-url-prefix ()
   (if (eql 80 *web-server-port*)
       (format nil "http://~A/"
 	      *web-server-name*)
       (format nil "http://~A:~A/"
 	      *web-server-name*
 	      *web-server-port*)))
+
+(defparameter *url-prefix* (make-url-prefix))
 
 (defparameter *url-store-type* :hash)
 
@@ -32,3 +34,14 @@
 (defparameter *psql-new-credentials* '("harliedb" "semaphor" nil :unix))
 
 (defparameter *chain-db* '("botdb" "semaphor" nil :unix))
+
+(defun (set-shogun)
+    (progn
+      (setf *my-irc-nick* "shogun")
+      (setf *irc-channel-names* '("#walled"))
+      (setf *web-server-port* 5783)
+      (setf *web-server-name* "coruscant.deepsky.com")
+      (setf *url-prefix* (make-url-prefix))
+      (setf *url-store-type* :psql)
+      (setf *psql-new-credentials* '("shogundb" "semaphor" nil :unix))
+      (setf *chain-db* '("shogundb" "semaphor" nil :unix))))

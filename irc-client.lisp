@@ -34,8 +34,9 @@
     (dqmess))
   (sb-ext:schedule-timer *message-timer* (max 1.5 (random 2.5))))
 
-(defparameter *message-timer* (sb-ext:make-timer #'q-runner :name "queue runner.")
-  "this timer handles emptying the message queue as needed.")
+(defparameter *message-timer* (sb-ext:make-timer #'q-runner :name "queue runner." :thread t)
+  "this timer empties the message queue as needed.")
+
 
 (defun print-some-random-dots ()
   "An anti-function function."
@@ -62,7 +63,7 @@ allowing for leading and trailing punctuation characters in the match."
 If so, return the (possibly rewritten) token list against which to chain
 the output.  If not, return nil."
   (let ((recognizer (make-name-detector *my-irc-nick*))
-	(trigger-word (find-if (lambda (s) (member s *trigger-list* :test 'equal)) token-list)))
+	(trigger-word (find-if (lambda (s) (member s *trigger-list* :test 'string-equal)) token-list)))
     (cond ((remove-if-not recognizer token-list)
 	   (mapcar (lambda (s)
 		     (if (funcall recognizer s)
@@ -70,7 +71,7 @@ the output.  If not, return nil."
 			 s))
 		   token-list))
 	  (trigger-word (progn
-			  (setf *trigger-list* (substitute (car (random-words 1)) trigger-word *trigger-list* :test 'equal)) 
+			  (setf *trigger-list* (substitute (car (random-words 1)) trigger-word *trigger-list* :test 'string-equal)) 
 			  token-list))
 	  (t nil))))
 

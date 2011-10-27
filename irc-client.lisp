@@ -59,7 +59,7 @@ allowing for leading and trailing punctuation characters in the match."
 If so, return the (possibly rewritten) token list against which to chain
 the output.  If not, return nil."
   (let ((recognizer (make-name-detector *my-irc-nick*))
-	(trigger-word (find-if (lambda (s) (member s *trigger-list* :test 'equal)) token-list)))
+	(trigger-word (find-if (lambda (s) (member s *trigger-list* :test 'string-equal)) token-list)))
     (cond ((remove-if-not recognizer token-list)
 	   (mapcar (lambda (s)
 		     (if (funcall recognizer s)

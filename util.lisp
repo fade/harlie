@@ -49,3 +49,11 @@
 				:external-format :utf-8)))))
     (if quote
 	(loop for i in quote :collect (remove #\" i)))))
+
+(defun make-url-prefix (server-name server-port)
+  (if (eql 80 server-port)
+      (format nil "http://~A/"
+	      server-name)
+      (format nil "http://~A:~A/"
+	      server-name
+	      server-port)))

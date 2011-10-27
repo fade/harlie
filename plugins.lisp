@@ -24,7 +24,7 @@
 		 :plugin-hook (lambda (plug-request)
 				(cond ((eq (action plug-request) :docstring)
 				       (list (format nil "Sorry, I don't recognize that command.")
-					     (format nil "  Try ~A~A for a list of commands." *url-prefix* "help")))
+					     (format nil "  Try ~A~A for a list of commands." (make-url-prefix (config-web-server-name *bot-config*) (config-web-server-port *bot-config*)) "help")))
 				      (t nil)))))
 
 (defmacro defplugin (funame args &rest body)
@@ -227,7 +227,7 @@
 			(gethash (string-upcase (remove #\! (second (plugin-token-text-list plug-request)))) *plugins* *doublehelp*))
 		       (make-instance 'plugin-request :action :docstring))
 	      (list
-	       (format nil "~A~A" *url-prefix* "help")
+	       (format nil "~A~A" (make-url-prefix (config-web-server-name *bot-config*) (config-web-server-port *bot-config*)) "help")
 	       (format nil "  or !help <command>"))))))
 
 (defun html-help ()

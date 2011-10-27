@@ -10,17 +10,18 @@
    (url->headline :initform (make-hash-table :test 'equal :synchronized t) :accessor url->headline)))
 
 (defclass postmodern-url-store (url-store)
-  ((readonly-url-dbs :initform (if (boundp '*psql-old-credentials*) *psql-old-credentials* nil) :accessor readonly-url-dbs)
-   (readwrite-url-db :initform (if (boundp '*psql-new-credentials*) *psql-new-credentials* nil) :accessor readwrite-url-db)))
+  ((readonly-url-dbs :initform (config-psql-old-credentials *bot-config*) :accessor readonly-url-dbs)
+   (readwrite-url-db :initform (config-psql-url-new-credentials *bot-config*) :accessor readwrite-url-db)))
 
 (defvar *hash-url-store* (make-instance 'hash-url-store))
 
 (defvar *pomo-url-store* (make-instance 'postmodern-url-store))
 
 (defvar *the-url-store*
-  (cond ((and (boundp '*url-store-type*)  (eq *url-store-type* :psql)) *pomo-url-store*)
-	((and (boundp '*url-store-type*)  (eq *url-store-type* :hash)) *hash-url-store*)
-	(t *hash-url-store*)))
+  (case (config-url-store-type *bot-config*)
+    (:psql *pomo-url-store*)
+    (:hash *hash-url-store*)
+    (otherwise *hash-url-store*)))
 
 (defgeneric get-url-from-old-shortstring (store url)
   (:documentation "Check the existing databases for entries corresponding to a given shortstring."))

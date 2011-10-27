@@ -15,7 +15,7 @@
 
 (defun chain-in (toklist)
   (unless (< (length toklist) 3)
-    (with-connection *chain-db*
+    (with-connection (config-psql-chain-credentials *bot-config*)
       (do* ((word1 *sentinel* word2)
 	    (word2 *sentinel* word3)
 	    (word3 (pop toklist) (pop toklist)))
@@ -26,7 +26,7 @@
 
 (defun count-phrases ()
   "Return the number of entries in the words table."
-  (with-connection *chain-db*
+  (with-connection (config-psql-chain-credentials *bot-config*)
     (query (:select (:raw "count(*)") :from 'words) :single)))
 
 (defun fetch-start (rownum)
@@ -63,7 +63,7 @@ the chain, and also the number of trials before finding it."
 
 (defun random-words (n)
   "Return n random words from the chaining db."
-  (with-connection *chain-db*
+  (with-connection (config-psql-chain-credentials *bot-config*)
     (do ((words nil))
 	((= (length words) n) words)
       (let ((word (random-word)))
@@ -92,7 +92,7 @@ the chain, and also the number of trials before finding it."
 (defun chain (&optional w1 w2)
   "Generate a full random chain.  If desired, you can specify the first
 word or two of the chain.  Returns a list of strings."
-  (with-connection *chain-db*
+  (with-connection (config-psql-chain-credentials *bot-config*)
     ;; If w1 and/or w2 are provided, use them.  Otherwise use sentinel values.
     (destructuring-bind (a b) (argshift *sentinel* w1 w2)
       (do* ((word1 a word2)

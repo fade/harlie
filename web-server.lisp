@@ -9,7 +9,7 @@
   (with-html-output-to-string (s)
     (:html
      (:head
-      (:title (str (escape-string (format nil "Short URL index for server: ~A" *irc-server-name*)))))
+      (:title (str (escape-string (format nil "Short URL index for server: ~A" (config-irc-server-name *bot-config*))))))
      (:body
       (:h2 "URL Index")
       (:br)
@@ -69,7 +69,7 @@ or an error message, as appropriate."
 
 (defun start-web-servers ()
   "Initialize and start the web server subsystem."
-  (push (make-instance 'hunchentoot:acceptor :port *web-server-port*) *acceptors*)
+  (push (make-instance 'hunchentoot:acceptor :port (config-web-server-port *bot-config*)) *acceptors*)
   (hunchentoot:start (car *acceptors*))
   (push (create-prefix-dispatcher "/" 'redirect-shortener-dispatch) *dispatch-table*)
   (push (create-prefix-dispatcher "/help" 'redirect-help-dispatch) *dispatch-table*))

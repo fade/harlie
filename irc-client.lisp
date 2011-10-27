@@ -62,12 +62,12 @@ allowing for leading and trailing punctuation characters in the match."
   "Determine whether to trigger an utterance based on something we heard.
 If so, return the (possibly rewritten) token list against which to chain
 the output.  If not, return nil."
-  (let ((recognizer (make-name-detector *my-irc-nick*))
+  (let ((recognizer (make-name-detector (config-irc-nick *bot-config*)))
 	(trigger-word (find-if (lambda (s) (member s *trigger-list* :test 'string-equal)) token-list)))
     (cond ((remove-if-not recognizer token-list)
 	   (mapcar (lambda (s)
 		     (if (funcall recognizer s)
-			 (regex-replace (string-upcase *my-irc-nick*) (string-upcase s) sender)
+			 (regex-replace (string-upcase (config-irc-nick *bot-config*)) (string-upcase s) sender)
 			 s))
 		   token-list))
 	  (trigger-word (progn
@@ -119,7 +119,7 @@ wasn't on the list; otherwise returns t."
 		   (format t "Message: ~A~%" (raw-message-string message))
 		   (format t "   connection=~A channel=~A~%" connection channel)
 
-		   (when (equal channel (string-upcase *my-irc-nick*))
+		   (when (equal channel (string-upcase (config-irc-nick *bot-config*)))
 		     (setf reply-to sender))
 
 		   (cond ((scan "^NOTIFY:: Help, I'm a bot!" text)
@@ -155,14 +155,14 @@ wasn't on the list; otherwise returns t."
 
 			 (urls
 			  (dolist (url urls)
-			    (unless (or (scan (format nil "http://~A:~A" *web-server-name* *web-server-port*) url)
+			    (unless (or (scan (format nil "http://~A:~A" (config-web-server-name *bot-config*) (config-web-server-port *bot-config*)) url)
 					(scan "127.0.0.1" url))
 			      (when (scan "^www" url)
 				(setf url (format nil "http://~A" url)))
 			      (destructuring-bind (short title) (lookup-url *the-url-store* url sender)
 				(if (and short title)
 				    (qmess connection reply-to
-					   (format nil "[ ~A~A ] [ ~A ]" *url-prefix* short title))
+					   (format nil "[ ~A~A ] [ ~A ]" (make-url-prefix (config-web-server-name *bot-config*) (config-web-server-port *bot-config*)) short title))
 				    (qmess connection reply-to
 					   (format nil "[ ~A ] Couldn't fetch this page." url)))))))
 
@@ -186,9 +186,9 @@ wasn't on the list; otherwise returns t."
 
 (defun start-irc-client-instance ()
   "Start a session with an IRC server."
-  (setf *irc-connection* (connect :nickname *my-irc-nick* :server *irc-server-name*))
+  (setf *irc-connection* (connect :nickname (config-irc-nick *bot-config*) :server (config-irc-server-name *bot-config*)))
   (setf *trigger-list* (random-words 10))
-  (dolist (channel *irc-channel-names*)
+  (dolist (channel (config-irc-channel-names *bot-config*))
     (cl-irc:join *irc-connection* channel)
     (privmsg *irc-connection* channel (format nil "NOTIFY:: Help, I'm a bot!")))
   (sb-ext:schedule-timer *message-timer* 5)  

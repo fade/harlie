@@ -32,7 +32,7 @@
     (dqmess))
   (sb-ext:schedule-timer *message-timer* (max 1.5 (random 2.5))))
 
-(defparameter *message-timer* (sb-ext:make-timer #'q-runner :name "queue runner."))
+(defparameter *message-timer* (sb-ext:make-timer #'q-runner :name "queue runner." :thread t))
 
 (defun print-some-random-dots ()
   "An anti-function function."

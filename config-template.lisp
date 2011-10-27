@@ -35,7 +35,7 @@
 
 (defparameter *chain-db* '("botdb" "semaphor" nil :unix))
 
-(defun (set-shogun)
+(defun set-shogun ()
     (progn
       (setf *my-irc-nick* "shogun")
       (setf *irc-channel-names* '("#walled"))

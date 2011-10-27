@@ -14,6 +14,7 @@
 	#:postmodern
 	#:local-time
 	#:split-sequence
+	#:parse-number
 	#:trivial-http)
   (:shadowing-import-from :closure-html :attribute :text :comment)
   (:shadowing-import-from :hunchentoot

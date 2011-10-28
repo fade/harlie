@@ -9,7 +9,41 @@
 (defclass bot-irc-connection (cl-irc:connection)
   ((last-message :initform nil :accessor last-message)
    (bot-irc-client-thread :initform nil :accessor bot-irc-client-thread)
-   (ignore-list :initform nil :accessor ignore-list)))
+   (ignore-list :initform nil :accessor ignore-list)
+   (message-q :initform (make-queue :name (format nil "IRC message queue")) :accessor message-q)
+   (message-timer :initform nil :accessor message-timer)))
+
+(defun make-q-runner (connection)
+  "A closure to generate the function which gets called periodically to flush the queue."
+  #'(lambda ()
+      (when (not (queue-empty-p (message-q connection)))
+	(dqmess connection))
+      (sb-ext:schedule-timer (message-timer connection) (max 1.5 (random 2.5)))))
+
+(defun start-irc-message-queue (connection)
+  "A convenience function to regenerate the queue flusher and restart it."
+  (let ((q-runner (make-q-runner connection)))
+    (setf (message-timer connection)
+	  (sb-ext:make-timer q-runner :name "queue runner." :thread t))
+    (funcall q-runner)))
+
+(defgeneric qmess (connection reply-to message)
+  (:documentation "queue a message for rate-limited sending."))
+
+(defgeneric dqmess (connection)
+  (:documentation "dequeue a message to send."))
+
+(defmethod qmess ((connection bot-irc-connection) reply-to message)
+  (enqueue (list reply-to message) (message-q connection)))
+
+(defmethod dqmess ((connection bot-irc-connection))
+  (let* ((mobj (dequeue (message-q connection)))
+	 (reply-to (first mobj))
+	 (message (second mobj)))
+    (privmsg connection reply-to message)))
+
+(defmethod initialize-instance :after ((connection bot-irc-connection) &key)
+  (start-irc-message-queue connection))
 
 (defgeneric start-ignoring (connection sender)
   (:documentation "Begin ignoring sender on connection.  Returns nil if
@@ -34,35 +68,8 @@ sender wasn't being ignored; true otherwise."))
 	nil)))
 
 (defun ignoring-whom ()
+  "Convenience function to print out some semblance of who's on the global ignore list."
   (loop for k being the hash-keys in *irc-connections* append (list k (ignore-list (gethash k *irc-connections*)))))
-
-(defparameter *message-q* (make-queue :name "message queue")
-  "a global queue to hold all bot messaging output so that we can
-  rate-limit it.")
-
-(defun qmess (connection reply-to message)
-  "queue a message for rate-limited sending."
-  (enqueue (list connection reply-to message) *message-q*))
-
-(defun dqmess ()
-  "dequeue a message to send."
-  (let* ((mobj (dequeue *message-q*))
-	 (connection (first mobj))
-	 (reply-to (second mobj))
-	 (message (third mobj)))
-    (privmsg connection reply-to message)))
-
-(defun q-runner ()
-  "if the queue isn't empty, dequeue and send a message, FIFO
-   style. Reset the timer for some point 1.5 - 2.5 seconds in the
-   future."
-  (when (not (queue-empty-p *message-q*))
-    (dqmess))
-  (sb-ext:schedule-timer *message-timer* (max 1.5 (random 2.5))))
-
-(defparameter *message-timer* (sb-ext:make-timer #'q-runner :name "queue runner." :thread t)
-  "this timer empties the message queue as needed.")
-
 
 (defun print-some-random-dots ()
   "An anti-function function."
@@ -197,6 +204,7 @@ the output.  If not, return nil."
     (loop for k being the hash-keys in *irc-connections*
 	  do (let ((connection (gethash k *irc-connections*)))
 	       (cl-irc:quit connection  "I'm tired. I'm going home.")
+	       (sb-ext:unschedule-timer (message-timer connection))
 	       (sleep 1)
 	       (bt:destroy-thread (bot-irc-client-thread connection))
 	       (setf *trigger-list* nil)
@@ -221,7 +229,6 @@ the output.  If not, return nil."
 	 (dolist (channel (config-irc-channel-names *bot-config*))
 	   (cl-irc:join connection channel)
 	   (privmsg connection channel (format nil "NOTIFY:: Help, I'm a bot!")))
-	 (sb-ext:schedule-timer *message-timer* 5)  
 	 (add-hook connection 'irc::irc-privmsg-message 'threaded-msg-hook)
 	 (add-hook connection 'irc::irc-quit-message 'threaded-byebye-hook)
 	 (add-hook connection 'irc::irc-part-message 'threaded-byebye-hook)

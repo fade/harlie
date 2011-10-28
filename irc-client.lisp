@@ -33,6 +33,9 @@ sender wasn't being ignored; true otherwise."))
 	  t)
 	nil)))
 
+(defun ignoring-whom ()
+  (loop for k being the hash-keys in *irc-connections* append (list k (ignore-list (gethash k *irc-connections*)))))
+
 (defparameter *message-q* (make-queue :name "message queue")
   "a global queue to hold all bot messaging output so that we can
   rate-limit it.")
@@ -210,7 +213,10 @@ the output.  If not, return nil."
      #'(lambda ()
 	 (setf (bot-irc-client-thread connection) (bt:current-thread))
 	 (sb-ext:with-locked-hash-table (*irc-connections*)
-	   (setf (gethash (list ircserver nickname) *irc-connections*) connection))
+	   (setf (gethash
+		  (list (string-upcase ircserver)
+			(string-upcase nickname))
+		  *irc-connections*) connection))
 	 (setf *trigger-list* (random-words 10))
 	 (dolist (channel (config-irc-channel-names *bot-config*))
 	   (cl-irc:join connection channel)

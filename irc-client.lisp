@@ -123,8 +123,8 @@ wasn't on the list; otherwise returns t."
 		     (setf reply-to sender))
 
 		   (cond ((scan "^NOTIFY:: Help, I'm a bot!" text)
-			  (start-ignoring sender)
-			  (qmess connection sender "NOTIFY:: Help, I'm a bot!"))
+			  (when (start-ignoring sender)
+			    (qmess connection sender "NOTIFY:: Help, I'm a bot!")))
 
 			 ((string= "!IGNOREME" command)
 			  (if (or

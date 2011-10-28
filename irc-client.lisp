@@ -138,7 +138,11 @@ sender wasn't being ignored; true otherwise."))
 
 (defun ignoring-whom ()
   "Convenience function to print out some semblance of who's on the global ignore list."
-  (loop for k being the hash-keys in *irc-connections* append (list k (ignore-list (gethash k *irc-connections*)))))
+  (sb-ext:with-locked-hash-table (*irc-connections*)
+    (loop for k being the hash-keys
+	  in *irc-connections*
+	  append (list k (ignore-list
+			  (gethash k *irc-connections*))))))
 
 (defun print-some-random-dots ()
   "An anti-function function."
@@ -196,7 +200,9 @@ the output.  If not, return nil."
   (make-thread #'(lambda ()
 		   (let* ((connection (connection message))
 			  (channel-name (car (arguments message)))
-			  (channel (gethash channel-name (channels connection) nil))
+			  (channel (sb-ext:with-locked-hash-table
+				       ((channels connection))
+				     (gethash channel-name (channels connection) nil)))
 			  (sender (source message))
 			  (text (second (arguments message)))
 			  (token-text-list (split "\\s+" text))
@@ -272,7 +278,8 @@ the output.  If not, return nil."
   "Shut down a session with the IRC server."
   (sb-ext:with-locked-hash-table (*irc-connections*)
     (loop for k being the hash-keys in *irc-connections*
-	  do (let ((connection (gethash k *irc-connections*)))
+	  do (let ((connection (sb-ext:with-locked-hash-table (*irc-connections*)
+				 (gethash k *irc-connections*))))
 	       (cl-irc:quit connection  "I'm tired. I'm going home.")
 	       (sb-ext:unschedule-timer (message-timer connection))
 	       (sleep 1)

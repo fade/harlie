@@ -79,3 +79,14 @@ BUGS
 - !calc 10 / 0 gives no return, instead of a div-by-zero return. [Found by Kritter, fixed by Tuxedo] [DONE]
 - Should https:// links be shortened? [Found by Kritter, Fade]
 - http://www.phat.uklinux.net/cgi-bin/crash.cgi doesn't generate a return [Found by Kritter]
+
+- URL http://dl.dropbox.com/u/27845290/object_oriented_programming_in_common_lisp.djvu
+  results in this error:
+  Corrupted UTF-8 input (initial byte was #b10100110)
+     [Condition of type RUNES-ENCODING:ENCODING-ERROR]
+  We need to catch that or otherwise work around it.  It happens with other non-HTML payloads,
+  too.
+
+Issues
+  cl-irc:connection initializes (channels connection) as a hash table
+  without :synchronize t.  We could override that, and perhaps should.

@@ -8,9 +8,30 @@
 
 (defclass bot-irc-connection (cl-irc:connection)
   ((last-message :initform nil :accessor last-message)
-   (bot-irc-client-thread :initform nil :accessor bot-irc-client-thread)))
+   (bot-irc-client-thread :initform nil :accessor bot-irc-client-thread)
+   (ignore-list :initform nil :accessor ignore-list)))
 
-(defvar *ignorelist* nil)
+(defgeneric start-ignoring (connection sender)
+  (:documentation "Begin ignoring sender on connection.  Returns nil if
+sender was already being ignored, and a true value otherwise."))
+
+(defgeneric stop-ignoring (connection sender)
+  (:documentation "Stop ignoring sender on connection.  Returns nil if
+sender wasn't being ignored; true otherwise."))
+
+(defmethod start-ignoring ((connection bot-irc-connection) sender)
+  (let ((ignoree (string-upcase sender)))
+    (if (not (member ignoree (ignore-list connection) :test #'string-equal))
+	  (push ignoree (ignore-list connection))
+	  nil)))
+
+(defmethod stop-ignoring ((connection bot-irc-connection) sender)
+  (let ((ignoree (string-upcase sender)))
+    (if (member ignoree (ignore-list connection) :test #'string-equal)
+	(progn
+	  (setf (ignore-list connection) (remove ignoree (ignore-list connection) :test #'string-equal))
+	  t)
+	nil)))
 
 (defparameter *message-q* (make-queue :name "message queue")
   "a global queue to hold all bot messaging output so that we can
@@ -65,37 +86,22 @@ allowing for leading and trailing punctuation characters in the match."
 If so, return the (possibly rewritten) token list against which to chain
 the output.  If not, return nil."
   (let ((recognizer (make-name-detector (config-irc-nick *bot-config*)))
-	(trigger-word (find-if #'(lambda (s) (member s *trigger-list* :test 'string-equal)) token-list)))
+	(trigger-word (find-if #'(lambda (s) (member s *trigger-list* :test #'string-equal)) token-list)))
     (cond ((remove-if-not recognizer token-list)
 	   (mapcar #'(lambda (s)
 		       (if (funcall recognizer s)
 			   (regex-replace (string-upcase (config-irc-nick *bot-config*)) (string-upcase s) sender)
 			   s))
 		   token-list))
-	  (trigger-word (progn
-			  (setf *trigger-list* (substitute (car (random-words 1)) trigger-word *trigger-list* :test 'string-equal)) 
-			  token-list))
+	  (trigger-word
+	   (progn
+	     (setf *trigger-list*
+		   (substitute (car (random-words 1))
+			       trigger-word
+			       *trigger-list*
+			       :test #'string-equal)) 
+	     token-list))
 	  (t nil))))
-
-(defun start-ignoring (sender)
-  "Put sender onto the *ignorelist*.  Returns nil if sender was
-on the list already; otherwise returns t."
-  (let ((ignoree (string-upcase sender)))
-    (if (not (member ignoree *ignorelist* :test 'string=))
-	(progn
-	  (push ignoree *ignorelist*)
-	  t)
-	nil)))
-
-(defun stop-ignoring (sender)
-  "Take sender off the *ignorelist*.  Returns nil if sender
-wasn't on the list; otherwise returns t."
-  (let ((ignoree (string-upcase sender)))
-    (if (member ignoree *ignorelist* :test 'string=)
-	(progn
-	  (setf *ignorelist* (remove ignoree *ignorelist* :test 'string=))
-	  t)
-	nil)))
 
 ; Why do we fork another thread just to run this lambda, you may ask?
 ; Because the thread that the network event loop runs in keeps getting
@@ -125,24 +131,24 @@ wasn't on the list; otherwise returns t."
 		       (setf reply-to sender))
 
 		     (cond ((scan "^NOTIFY:: Help, I'm a bot!" text)
-			    (when (start-ignoring sender)
+			    (when (start-ignoring connection sender)
 			      (qmess connection sender "NOTIFY:: Help, I'm a bot!")))
 
 			   ((string= "!IGNOREME" command)
 			    (if (or
 				 (< (length token-text-list) 2)
 				 (not (string= "OFF" (string-upcase (second token-text-list)))))
-				(when (start-ignoring (string-upcase sender))
+				(when (start-ignoring connection sender)
 				  (qmess connection reply-to
 					 (format nil
 						 "Now ignoring ~A.  Use !IGNOREME OFF when you want me to hear you again." sender)))
-				(if (stop-ignoring (string-upcase sender))
+				(if (stop-ignoring connection sender)
 				    (qmess connection reply-to
 					   (format nil "No longer ignoring ~A." sender))
 				    (qmess connection reply-to
 					   (format nil "I wasn't ignoring you, ~A." sender)))))
 			   
-			   ((member (string-upcase sender) *ignorelist* :test 'string=) nil)
+			   ((member sender (ignore-list connection) :test #'string-equal) nil)
 
 			   ((scan "^![^!]" command)
 			    (run-plugin (make-instance
@@ -150,11 +156,6 @@ wasn't on the list; otherwise returns t."
 							 :connection connection
 							 :reply-to reply-to
 							 :token-text-list token-text-list)))
-
-			   ((scan "^NOTIFY:: Help, I'm a bot!" text)
-			    (qmess connection sender (format nil "NOTIFY:: Help, I'm a bot!"))
-			    (push sender *ignorelist*))
-
 			   (urls
 			    (dolist (url urls)
 			      (unless (or (scan (format nil "http://~A:~A" (config-web-server-name *bot-config*) (config-web-server-port *bot-config*)) url)
@@ -172,7 +173,7 @@ wasn't on the list; otherwise returns t."
 				(chain-in token-text-list)
 				(when trigger-tokens
 				  (let ((outgoing (chain (first trigger-tokens) (second trigger-tokens))))
-				    (unless (not (mismatch trigger-tokens outgoing :test 'equal))
+				    (unless (not (mismatch trigger-tokens outgoing :test #'string-equal))
 				      (qmess connection reply-to
 					     (format nil "~{~A~^ ~}" outgoing))))))))))))
 
@@ -183,7 +184,7 @@ wasn't on the list; otherwise returns t."
 			  (sender (source message)))
 		     (setf (last-message connection) message)
 		     (format t "In threaded-byebye-hook, sender = ~A~%" sender)
-		     (setf *ignorelist* (remove sender *ignorelist* :test #'equal))))))
+		     (stop-ignoring connection sender)))))
 
 (defvar *trigger-list* nil)
 
@@ -195,7 +196,6 @@ wasn't on the list; otherwise returns t."
 	       (cl-irc:quit connection  "I'm tired. I'm going home.")
 	       (sleep 1)
 	       (bt:destroy-thread (bot-irc-client-thread connection))
-	       (setf *ignorelist* nil)
 	       (setf *trigger-list* nil)
 	       (remhash k *irc-connections*)))))
 

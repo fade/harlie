@@ -136,7 +136,7 @@ haiku (if found) or nil (if not)."
   "Given a list of words, generate a list of conses of the form (word . syllable-count).
 The magic value of 18 is used for any words we didn't find in the CMU dict, because
 an 18-syllable word can't be in any part of any haiku."
-  (mapcar (lambda (w) (cons w (gethash (string-upcase w) *syllable-counts* 18))) l))
+  (mapcar #'(lambda (w) (cons w (gethash (string-upcase w) *syllable-counts* 18))) l))
 
 (defun make-haiku ()
   "Generate chains and test them for haikus until you give up.  Returns a list of

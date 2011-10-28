@@ -50,8 +50,8 @@
   "A hash-talbe containing most ISO currency codes on earth.")
 
 (defun dump-constant-table (table)
-  (maphash (lambda (k v)
-	     (format t "~&[~A][~A]" k v)) table))
+  (maphash #'(lambda (k v)
+	       (format t "~&[~A][~A]" k v)) table))
 
 (defun by-code (key base)
   (let ((place (gethash key base)))

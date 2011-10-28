@@ -60,8 +60,8 @@ Only the first match is returned."
        (listp (second tree))
        (equal "CnvrsnTxt"
 	      (some #'identity
-		    (mapcar (lambda (proplist)
-			      (getf proplist :CLASS))
+		    (mapcar #'(lambda (proplist)
+				(getf proplist :CLASS))
 			    (second tree))))))
 
 (defun forex-extractor (tree)
@@ -122,8 +122,8 @@ Only the first match is returned."
        (listp (second tree))
        (equal "r"
 	      (some #'identity
-		    (mapcar (lambda (proplist)
-			      (getf proplist :CLASS))
+		    (mapcar #'(lambda (proplist)
+				(getf proplist :CLASS))
 			    (second tree))))))
 
 (defun cleanup-calc-string (s)
@@ -165,8 +165,8 @@ Only the first match is returned."
        (listp (second tree))
        (equal "module-content"
 	      (some #'identity
-		    (mapcar (lambda (proplist)
-			      (getf proplist :CLASS))
+		    (mapcar #'(lambda (proplist)
+				(getf proplist :CLASS))
 			    (second tree))))
        (>= (length tree) 3)
        (listp (third tree))

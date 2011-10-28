@@ -21,16 +21,16 @@
 (defparameter *doublehelp*
   (make-instance 'plugin
 		 :plugin-name "DOUBLEHELP"
-		 :plugin-hook (lambda (plug-request)
-				(cond ((eq (action plug-request) :docstring)
-				       (list (format nil "Sorry, I don't recognize that command.")
-					     (format nil "  Try ~A~A for a list of commands." (make-url-prefix (config-web-server-name *bot-config*) (config-web-server-port *bot-config*)) "help")))
-				      (t nil)))))
+		 :plugin-hook #'(lambda (plug-request)
+				  (cond ((eq (action plug-request) :docstring)
+					 (list (format nil "Sorry, I don't recognize that command.")
+					       (format nil "  Try ~A~A for a list of commands." (make-url-prefix (config-web-server-name *bot-config*) (config-web-server-port *bot-config*)) "help")))
+					(t nil)))))
 
 (defmacro defplugin (funame args &rest body)
   `(setf (gethash (symbol-name (quote ,funame)) *plugins*)
 	 (make-instance 'plugin :plugin-name (symbol-name (quote ,funame))
-				:plugin-hook (lambda (,@args) ,@body))))
+				:plugin-hook #'(lambda (,@args) ,@body))))
 
 ;; So here's the new drill:
 ;; plugins are expected to respond to the protocol exemplified in sources.

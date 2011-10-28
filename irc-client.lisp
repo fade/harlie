@@ -52,25 +52,25 @@
 (defun make-name-detector (name)
   "Return a predicate which detects a token in case-insensitive fashion,
 allowing for leading and trailing punctuation characters in the match."
-  (lambda (s)
-    (scan
-     (create-scanner
-      (format nil
-	      "^[^0-9a-z]*~A[^0-9a-z]*$"
-	      name)
-      :case-insensitive-mode t) s)))
+  #'(lambda (s)
+      (scan
+       (create-scanner
+	(format nil
+		"^[^0-9a-z]*~A[^0-9a-z]*$"
+		name)
+	:case-insensitive-mode t) s)))
 
 (defun triggered (token-list sender)
   "Determine whether to trigger an utterance based on something we heard.
 If so, return the (possibly rewritten) token list against which to chain
 the output.  If not, return nil."
   (let ((recognizer (make-name-detector (config-irc-nick *bot-config*)))
-	(trigger-word (find-if (lambda (s) (member s *trigger-list* :test 'string-equal)) token-list)))
+	(trigger-word (find-if #'(lambda (s) (member s *trigger-list* :test 'string-equal)) token-list)))
     (cond ((remove-if-not recognizer token-list)
-	   (mapcar (lambda (s)
-		     (if (funcall recognizer s)
-			 (regex-replace (string-upcase (config-irc-nick *bot-config*)) (string-upcase s) sender)
-			 s))
+	   (mapcar #'(lambda (s)
+		       (if (funcall recognizer s)
+			   (regex-replace (string-upcase (config-irc-nick *bot-config*)) (string-upcase s) sender)
+			   s))
 		   token-list))
 	  (trigger-word (progn
 			  (setf *trigger-list* (substitute (car (random-words 1)) trigger-word *trigger-list* :test 'string-equal)) 
@@ -106,84 +106,84 @@ wasn't on the list; otherwise returns t."
 
 (defun threaded-msg-hook (message)
   "Handle an incoming message."
-  (make-thread (lambda ()
-		 (let* ((channel (string-upcase (car (arguments message))))
-			(sender (source message))
-			(connection (connection message))
-			(text (second (arguments message)))
-			(token-text-list (split "\\s+" text))
-			(command (string-upcase (first token-text-list)))
-			(reply-to channel)
-			(urls (all-matches-as-strings "((ftp|http|https)://[^\\s]+)|(www[.][^\\s]+)" text))
-			(trigger-tokens (triggered token-text-list sender)))
+  (make-thread #'(lambda ()
+		   (let* ((channel (string-upcase (car (arguments message))))
+			  (sender (source message))
+			  (connection (connection message))
+			  (text (second (arguments message)))
+			  (token-text-list (split "\\s+" text))
+			  (command (string-upcase (first token-text-list)))
+			  (reply-to channel)
+			  (urls (all-matches-as-strings "((ftp|http|https)://[^\\s]+)|(www[.][^\\s]+)" text))
+			  (trigger-tokens (triggered token-text-list sender)))
 
-		   (setf (last-message connection) message)
-		   (format t "Message: ~A~%" (raw-message-string message))
-		   (format t "   connection=~A channel=~A~%" connection channel)
+		     (setf (last-message connection) message)
+		     (format t "Message: ~A~%" (raw-message-string message))
+		     (format t "   connection=~A channel=~A~%" connection channel)
 
-		   (when (equal channel (string-upcase (config-irc-nick *bot-config*)))
-		     (setf reply-to sender))
+		     (when (equal channel (string-upcase (config-irc-nick *bot-config*)))
+		       (setf reply-to sender))
 
-		   (cond ((scan "^NOTIFY:: Help, I'm a bot!" text)
-			  (when (start-ignoring sender)
-			    (qmess connection sender "NOTIFY:: Help, I'm a bot!")))
+		     (cond ((scan "^NOTIFY:: Help, I'm a bot!" text)
+			    (when (start-ignoring sender)
+			      (qmess connection sender "NOTIFY:: Help, I'm a bot!")))
 
-			 ((string= "!IGNOREME" command)
-			  (if (or
-			       (< (length token-text-list) 2)
-			       (not (string= "OFF" (string-upcase (second token-text-list)))))
-			      (when (start-ignoring (string-upcase sender))
-				(qmess connection reply-to
-				       (format nil
-					       "Now ignoring ~A.  Use !IGNOREME OFF when you want me to hear you again." sender)))
-			      (if (stop-ignoring (string-upcase sender))
+			   ((string= "!IGNOREME" command)
+			    (if (or
+				 (< (length token-text-list) 2)
+				 (not (string= "OFF" (string-upcase (second token-text-list)))))
+				(when (start-ignoring (string-upcase sender))
 				  (qmess connection reply-to
-					 (format nil "No longer ignoring ~A." sender))
-				  (qmess connection reply-to
-					 (format nil "I wasn't ignoring you, ~A." sender)))))
-			 
-			 ((member (string-upcase sender) *ignorelist* :test 'string=) nil)
-
-			 ((scan "^![^!]" command)
-			  (run-plugin (make-instance
-				       'plugin-request :botcmd command
-						       :connection connection
-						       :reply-to reply-to
-						       :token-text-list token-text-list)))
-
-			 ((scan "^NOTIFY:: Help, I'm a bot!" text)
-			  (qmess connection sender (format nil "NOTIFY:: Help, I'm a bot!"))
-			  (push sender *ignorelist*))
-
-			 (urls
-			  (dolist (url urls)
-			    (unless (or (scan (format nil "http://~A:~A" (config-web-server-name *bot-config*) (config-web-server-port *bot-config*)) url)
-					(scan "127.0.0.1" url))
-			      (when (scan "^www" url)
-				(setf url (format nil "http://~A" url)))
-			      (destructuring-bind (short title) (lookup-url *the-url-store* url sender)
-				(if (and short title)
+					 (format nil
+						 "Now ignoring ~A.  Use !IGNOREME OFF when you want me to hear you again." sender)))
+				(if (stop-ignoring (string-upcase sender))
 				    (qmess connection reply-to
-					   (format nil "[ ~A~A ] [ ~A ]" (make-url-prefix (config-web-server-name *bot-config*) (config-web-server-port *bot-config*)) short title))
+					   (format nil "No longer ignoring ~A." sender))
 				    (qmess connection reply-to
-					   (format nil "[ ~A ] Couldn't fetch this page." url)))))))
+					   (format nil "I wasn't ignoring you, ~A." sender)))))
+			   
+			   ((member (string-upcase sender) *ignorelist* :test 'string=) nil)
 
-			 (t (progn
-			      (chain-in token-text-list)
-			      (when trigger-tokens
-				(let ((outgoing (chain (first trigger-tokens) (second trigger-tokens))))
-				  (unless (not (mismatch trigger-tokens outgoing :test 'equal))
-				    (qmess connection reply-to
-					   (format nil "~{~A~^ ~}" outgoing))))))))))))
+			   ((scan "^![^!]" command)
+			    (run-plugin (make-instance
+					 'plugin-request :botcmd command
+							 :connection connection
+							 :reply-to reply-to
+							 :token-text-list token-text-list)))
+
+			   ((scan "^NOTIFY:: Help, I'm a bot!" text)
+			    (qmess connection sender (format nil "NOTIFY:: Help, I'm a bot!"))
+			    (push sender *ignorelist*))
+
+			   (urls
+			    (dolist (url urls)
+			      (unless (or (scan (format nil "http://~A:~A" (config-web-server-name *bot-config*) (config-web-server-port *bot-config*)) url)
+					  (scan "127.0.0.1" url))
+				(when (scan "^www" url)
+				  (setf url (format nil "http://~A" url)))
+				(destructuring-bind (short title) (lookup-url *the-url-store* url sender)
+				  (if (and short title)
+				      (qmess connection reply-to
+					     (format nil "[ ~A~A ] [ ~A ]" (make-url-prefix (config-web-server-name *bot-config*) (config-web-server-port *bot-config*)) short title))
+				      (qmess connection reply-to
+					     (format nil "[ ~A ] Couldn't fetch this page." url)))))))
+
+			   (t (progn
+				(chain-in token-text-list)
+				(when trigger-tokens
+				  (let ((outgoing (chain (first trigger-tokens) (second trigger-tokens))))
+				    (unless (not (mismatch trigger-tokens outgoing :test 'equal))
+				      (qmess connection reply-to
+					     (format nil "~{~A~^ ~}" outgoing))))))))))))
 
 (defun threaded-byebye-hook (message)
   "Handle a quit or part message."
-  (make-thread (lambda ()
-		 (let* ((connection (connection message))
-			(sender (source message)))
-		   (setf (last-message connection) message)
-		   (format t "In threaded-byebye-hook, sender = ~A~%" sender)
-		   (setf *ignorelist* (remove sender *ignorelist* :test #'equal))))))
+  (make-thread #'(lambda ()
+		   (let* ((connection (connection message))
+			  (sender (source message)))
+		     (setf (last-message connection) message)
+		     (format t "In threaded-byebye-hook, sender = ~A~%" sender)
+		     (setf *ignorelist* (remove sender *ignorelist* :test #'equal))))))
 
 (defvar *trigger-list* nil)
 

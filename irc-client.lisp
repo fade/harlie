@@ -4,9 +4,11 @@
 
 (declaim (optimize (debug 3) (safety 3) (speed 0)))
 
-(defvar *irc-connection* nil)
+(defvar *irc-connections* (make-hash-table :test 'equal :synchronized t))
 
-(defvar *last-message* nil)
+(defclass bot-irc-connection (cl-irc:connection)
+  ((last-message :initform nil :accessor last-message)
+   (bot-irc-client-thread :initform nil :accessor bot-irc-client-thread)))
 
 (defvar *ignorelist* nil)
 
@@ -105,7 +107,6 @@ wasn't on the list; otherwise returns t."
 (defun threaded-msg-hook (message)
   "Handle an incoming message."
   (make-thread (lambda ()
-		 (setf *last-message* message)
 		 (let* ((channel (string-upcase (car (arguments message))))
 			(sender (source message))
 			(connection (connection message))
@@ -116,6 +117,7 @@ wasn't on the list; otherwise returns t."
 			(urls (all-matches-as-strings "((ftp|http|https)://[^\\s]+)|(www[.][^\\s]+)" text))
 			(trigger-tokens (triggered token-text-list sender)))
 
+		   (setf (last-message connection) message)
 		   (format t "Message: ~A~%" (raw-message-string message))
 		   (format t "   connection=~A channel=~A~%" connection channel)
 
@@ -177,42 +179,51 @@ wasn't on the list; otherwise returns t."
 (defun threaded-byebye-hook (message)
   "Handle a quit or part message."
   (make-thread (lambda ()
-		 (setf *last-message* message)
-		 (let* ((sender (source message)))
+		 (let* ((connection (connection message))
+			(sender (source message)))
+		   (setf (last-message connection) message)
 		   (format t "In threaded-byebye-hook, sender = ~A~%" sender)
 		   (setf *ignorelist* (remove sender *ignorelist* :test #'equal))))))
 
 (defvar *trigger-list* nil)
 
-(defun start-irc-client-instance ()
-  "Start a session with an IRC server."
-  (setf *irc-connection* (connect :nickname (config-irc-nick *bot-config*) :server (config-irc-server-name *bot-config*)))
-  (setf *trigger-list* (random-words 10))
-  (dolist (channel (config-irc-channel-names *bot-config*))
-    (cl-irc:join *irc-connection* channel)
-    (privmsg *irc-connection* channel (format nil "NOTIFY:: Help, I'm a bot!")))
-  (sb-ext:schedule-timer *message-timer* 5)  
-  (add-hook *irc-connection* 'irc::irc-privmsg-message 'threaded-msg-hook)
-  (add-hook *irc-connection* 'irc::irc-quit-message 'threaded-byebye-hook)
-  (add-hook *irc-connection* 'irc::irc-part-message 'threaded-byebye-hook)
-  (read-message-loop *irc-connection*))
-
 (defun stop-irc-client-instance ()
   "Shut down a session with the IRC server."
-  (cl-irc:quit *irc-connection*  "I'm tired. I'm going home.")
-  (setf *ignorelist* nil)
-  (setf *trigger-list* nil)
-  (setf *irc-connection* nil))
-
-(defparameter *irc-client-thread* nil)
+  (sb-ext:with-locked-hash-table (*irc-connections*)
+    (loop for k being the hash-keys in *irc-connections*
+	  do (let ((connection (gethash k *irc-connections*)))
+	       (cl-irc:quit connection  "I'm tired. I'm going home.")
+	       (sleep 1)
+	       (bt:destroy-thread (bot-irc-client-thread connection))
+	       (setf *ignorelist* nil)
+	       (setf *trigger-list* nil)
+	       (remhash k *irc-connections*)))))
 
 (defun start-threaded-irc-client-instance ()
   "Spawn a thread to run a session with an IRC server."
-  (setf *irc-client-thread* (make-thread #'start-irc-client-instance)))
+  (let* ((nickname (config-irc-nick *bot-config*))
+	 (ircserver (config-irc-server-name *bot-config*))
+	 (connection (connect :nickname nickname
+			      :server ircserver
+			      :connection-type 'bot-irc-connection)))
+    (make-thread
+     #'(lambda ()
+	 (setf (bot-irc-client-thread connection) (bt:current-thread))
+	 (sb-ext:with-locked-hash-table (*irc-connections*)
+	   (setf (gethash (list ircserver nickname) *irc-connections*) connection))
+	 (setf *trigger-list* (random-words 10))
+	 (dolist (channel (config-irc-channel-names *bot-config*))
+	   (cl-irc:join connection channel)
+	   (privmsg connection channel (format nil "NOTIFY:: Help, I'm a bot!")))
+	 (sb-ext:schedule-timer *message-timer* 5)  
+	 (add-hook connection 'irc::irc-privmsg-message 'threaded-msg-hook)
+	 (add-hook connection 'irc::irc-quit-message 'threaded-byebye-hook)
+	 (add-hook connection 'irc::irc-part-message 'threaded-byebye-hook)
+	 (read-message-loop connection))
+     :name (format nil "IRC Client thread: server ~A, nick ~A"
+		   ircserver nickname))))
 
 (defun stop-threaded-irc-client-instance ()
   "Shut down a session with an IRC server, and clean up."
   (stop-irc-client-instance)
-  (bt:destroy-thread *irc-client-thread*)
-  (setf *irc-client-thread* nil)
   (setf *trigger-list* nil))

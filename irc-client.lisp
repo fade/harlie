@@ -10,6 +10,9 @@
   "Sometimes you just want to grab a connection object from the REPL."
   (car (loop for conn being the hash-values in *irc-connections* collecting conn)))
 
+;; We subclass cl-irc:connection and cl-irc:channel so we can store per-connection
+;; and per-channel data here.
+
 (defclass bot-irc-connection (cl-irc:connection)
   ((last-message :initform nil :accessor last-message)
    (bot-irc-client-thread :initform nil :accessor bot-irc-client-thread)
@@ -20,12 +23,23 @@
 (defclass bot-irc-channel (cl-irc:channel)
   ((trigger-list :initform (random-words 10) :accessor trigger-list)))
 
-(defun make-q-runner (connection)
-  "A closure to generate the function which gets called periodically to flush the queue."
-  #'(lambda ()
-      (when (not (queue-empty-p (message-q connection)))
-	(dqmess connection))
-      (sb-ext:schedule-timer (message-timer connection) (max 1.5 (random 2.5)))))
+;; A couple of bodges which force cl-irc to instantiate our bot-irc-channel objects
+;; instead of its channel objects.
+;;
+;; Our bot-irc-connection class gets used because we can pass a symbol for the
+;; class in to the connect function, which we do in start-threaded-irc-client-instance
+;; below.  But I can't see a simple way to override the creation of channels to
+;; use our subclass for those instead.
+;;
+;; intercept-join-message is registered as a hook which gets called upon receipt
+;; of join message from the server.  It's a copy of the corresponding
+;; callback from cl-irc, except that we call make-rigged-channel instead of
+;; make-channel.
+;;
+;; make-rigged-channel is likewise a copy of make-channel except that it instantiates
+;; a bot-irc-channel object instead of a channel object.
+;;
+;; Oh, and we have to qualify all kinds of symbols here as being from cl-irc.
 
 (defun make-rigged-channel (connection
 			    &key (name "")
@@ -64,6 +78,15 @@
         (cl-irc:add-user cl-irc:connection user)
         (cl-irc:add-user channel user)))))
 
+;; The rate-limiting queue structure for the connection to the IRC server.
+
+(defun make-q-runner (connection)
+  "A closure to generate the function which gets called periodically to flush the queue."
+  #'(lambda ()
+      (when (not (queue-empty-p (message-q connection)))
+	(dqmess connection))
+      (sb-ext:schedule-timer (message-timer connection) (max 1.5 (random 2.5)))))
+
 (defun start-irc-message-queue (connection)
   "A convenience function to regenerate the queue flusher and restart it."
   (let ((q-runner (make-q-runner connection)))
@@ -88,6 +111,8 @@
 
 (defmethod initialize-instance :after ((connection bot-irc-connection) &key)
   (start-irc-message-queue connection))
+
+;; The !IGNOREME plumbing.
 
 (defgeneric start-ignoring (connection sender)
   (:documentation "Begin ignoring sender on connection.  Returns nil if
@@ -123,6 +148,8 @@ sender wasn't being ignored; true otherwise."))
     :when (= (mod i 3) 0)
     :do (format t ".")
     :finally (return i)))
+
+;; Two functions used for the triggering mechanism about the chainer.
 
 (defun make-name-detector (name)
   "Return a predicate which detects a token in case-insensitive fashion,

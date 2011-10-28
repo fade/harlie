@@ -5,6 +5,27 @@
 - Enable write access for chainer [DONE]
 - Triggers for chainer [DONE]
 
+Major Refactoring for Contexts/Multiheaded [Tuxedo]
+
+- Reduced all specials related to the IRC client module to one: *irc-connections*. [DONE]
+- Mapped out the specials for each of the other subsystems and where they belong
+  in the general <-> specific hierarchy [DONE]
+- Still need to finish work on:
+  - URL DB
+  - Chain DB
+  - Web server
+  - Web client
+  - Plugins
+  - Constants
+
+- Need to define "contexts" abstraction -- a way to map
+{IRC server, channel, nick} --> context
+  (to read and write the chaining database and URL database)
+     and
+{Web host, port, URI} --> context
+  (to read the URL database)
+In progress.
+
 * (Fade)
 - YACLML for all HTML generation
 - Convert other bot commands
@@ -28,7 +49,8 @@
 - Get redirected URIs
 - Smarter chaining: punctuation, better endings
 
-- Unit conversion.  Do some locally
+- Unit conversion. [DONE]
+  - Do some locally
 - Test that short URLs won't collide
 - Implement transactions in DB
 - Read Web pages for chaining data

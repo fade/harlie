@@ -6,6 +6,10 @@
 
 (defvar *irc-connections* (make-hash-table :test 'equal :synchronized t))
 
+(defun some-connection ()
+  "Sometimes you just want to grab a connection object from the REPL."
+  (car (loop for conn being the hash-values in *irc-connections* collecting conn)))
+
 (defclass bot-irc-connection (cl-irc:connection)
   ((last-message :initform nil :accessor last-message)
    (bot-irc-client-thread :initform nil :accessor bot-irc-client-thread)
@@ -13,12 +17,52 @@
    (message-q :initform (make-queue :name (format nil "IRC message queue")) :accessor message-q)
    (message-timer :initform nil :accessor message-timer)))
 
+(defclass bot-irc-channel (cl-irc:channel)
+  ((trigger-list :initform (random-words 10) :accessor trigger-list)))
+
 (defun make-q-runner (connection)
   "A closure to generate the function which gets called periodically to flush the queue."
   #'(lambda ()
       (when (not (queue-empty-p (message-q connection)))
 	(dqmess connection))
       (sb-ext:schedule-timer (message-timer connection) (max 1.5 (random 2.5)))))
+
+(defun make-rigged-channel (connection
+			    &key (name "")
+			      (topic "")
+			      (modes nil)
+			      (users nil)
+			      (user-count nil))
+  "Half of the hook to ram our bot-irc-channel type into the cl-irc amalgam."
+  (let ((channel
+	  (make-instance 'bot-irc-channel
+			 :name name
+			 :normalized-name
+			 (cl-irc:normalize-channel-name connection name)
+			 :topic topic
+			 :modes modes
+			 :user-count user-count)))
+    (dolist (user users)
+      (cl-irc:add-user channel user))
+    channel))
+
+(defun intercept-join-message (message)
+  "The other half of the hook for insinuating bot-irc-channel into cl-irc."
+  (with-slots
+	(cl-irc:connection cl-irc:source cl-irc:host cl-irc:user cl-irc:arguments)
+      message
+    (destructuring-bind
+        (channel)
+        arguments
+      (let ((user (cl-irc::find-or-make-user cl-irc:connection cl-irc:source
+					     :hostname cl-irc:host
+					     :username cl-irc:user))
+	    (channel (or (cl-irc:find-channel cl-irc:connection channel)
+                         (make-rigged-channel connection :name channel))))
+        (when (cl-irc:self-message-p message)
+          (cl-irc:add-channel cl-irc:connection channel))
+        (cl-irc:add-user cl-irc:connection user)
+        (cl-irc:add-user channel user)))))
 
 (defun start-irc-message-queue (connection)
   "A convenience function to regenerate the queue flusher and restart it."
@@ -91,12 +135,12 @@ allowing for leading and trailing punctuation characters in the match."
 		name)
 	:case-insensitive-mode t) s)))
 
-(defun triggered (token-list sender)
+(defun triggered (token-list sender channel)
   "Determine whether to trigger an utterance based on something we heard.
 If so, return the (possibly rewritten) token list against which to chain
 the output.  If not, return nil."
   (let ((recognizer (make-name-detector (config-irc-nick *bot-config*)))
-	(trigger-word (find-if #'(lambda (s) (member s *trigger-list* :test #'string-equal)) token-list)))
+	(trigger-word (find-if #'(lambda (s) (member s (trigger-list channel) :test #'string-equal)) token-list)))
     (cond ((remove-if-not recognizer token-list)
 	   (mapcar #'(lambda (s)
 		       (if (funcall recognizer s)
@@ -105,10 +149,10 @@ the output.  If not, return nil."
 		   token-list))
 	  (trigger-word
 	   (progn
-	     (setf *trigger-list*
+	     (setf (trigger-list channel)
 		   (substitute (car (random-words 1))
 			       trigger-word
-			       *trigger-list*
+			       (trigger-list channel)
 			       :test #'string-equal)) 
 	     token-list))
 	  (t nil))))
@@ -123,21 +167,22 @@ the output.  If not, return nil."
 (defun threaded-msg-hook (message)
   "Handle an incoming message."
   (make-thread #'(lambda ()
-		   (let* ((channel (string-upcase (car (arguments message))))
+		   (let* ((connection (connection message))
+			  (channel-name (car (arguments message)))
+			  (channel (gethash channel-name (channels connection)))
 			  (sender (source message))
-			  (connection (connection message))
 			  (text (second (arguments message)))
 			  (token-text-list (split "\\s+" text))
 			  (command (string-upcase (first token-text-list)))
-			  (reply-to channel)
+			  (reply-to channel-name)
 			  (urls (all-matches-as-strings "((ftp|http|https)://[^\\s]+)|(www[.][^\\s]+)" text))
-			  (trigger-tokens (triggered token-text-list sender)))
+			  (trigger-tokens (triggered token-text-list sender channel)))
 
 		     (setf (last-message connection) message)
 		     (format t "Message: ~A~%" (raw-message-string message))
-		     (format t "   connection=~A channel=~A~%" connection channel)
+		     (format t "   connection=~A channel=~A~%" connection channel-name)
 
-		     (when (equal channel (string-upcase (config-irc-nick *bot-config*)))
+		     (when (string-equal channel-name (config-irc-nick *bot-config*))
 		       (setf reply-to sender))
 
 		     (cond ((scan "^NOTIFY:: Help, I'm a bot!" text)
@@ -164,6 +209,7 @@ the output.  If not, return nil."
 			    (run-plugin (make-instance
 					 'plugin-request :botcmd command
 							 :connection connection
+					                 :channel-name channel-name
 							 :reply-to reply-to
 							 :token-text-list token-text-list)))
 			   (urls
@@ -196,8 +242,6 @@ the output.  If not, return nil."
 		     (format t "In threaded-byebye-hook, sender = ~A~%" sender)
 		     (stop-ignoring connection sender)))))
 
-(defvar *trigger-list* nil)
-
 (defun stop-irc-client-instance ()
   "Shut down a session with the IRC server."
   (sb-ext:with-locked-hash-table (*irc-connections*)
@@ -207,7 +251,6 @@ the output.  If not, return nil."
 	       (sb-ext:unschedule-timer (message-timer connection))
 	       (sleep 1)
 	       (bt:destroy-thread (bot-irc-client-thread connection))
-	       (setf *trigger-list* nil)
 	       (remhash k *irc-connections*)))))
 
 (defun start-threaded-irc-client-instance ()
@@ -225,18 +268,17 @@ the output.  If not, return nil."
 		  (list (string-upcase ircserver)
 			(string-upcase nickname))
 		  *irc-connections*) connection))
-	 (setf *trigger-list* (random-words 10))
 	 (dolist (channel (config-irc-channel-names *bot-config*))
 	   (cl-irc:join connection channel)
 	   (privmsg connection channel (format nil "NOTIFY:: Help, I'm a bot!")))
-	 (add-hook connection 'irc::irc-privmsg-message 'threaded-msg-hook)
-	 (add-hook connection 'irc::irc-quit-message 'threaded-byebye-hook)
-	 (add-hook connection 'irc::irc-part-message 'threaded-byebye-hook)
+	 (add-hook connection 'irc::irc-privmsg-message #'threaded-msg-hook)
+	 (add-hook connection 'irc::irc-quit-message #'threaded-byebye-hook)
+	 (add-hook connection 'irc::irc-part-message #'threaded-byebye-hook)
+	 (add-hook connection 'irc::irc-join-message #'intercept-join-message)
 	 (read-message-loop connection))
      :name (format nil "IRC Client thread: server ~A, nick ~A"
 		   ircserver nickname))))
 
 (defun stop-threaded-irc-client-instance ()
   "Shut down a session with an IRC server, and clean up."
-  (stop-irc-client-instance)
-  (setf *trigger-list* nil))
+  (stop-irc-client-instance))

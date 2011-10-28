@@ -7,6 +7,7 @@
 (defclass plugin-request ()
   ((plugin-cmd :initarg :botcmd :accessor plugin-cmd)
    (plugin-conn :initarg :connection :accessor plugin-conn)
+   (plugin-channel-name :initarg :channel-name :accessor plugin-channel-name)
    (plugin-reply-to :initarg :reply-to :accessor plugin-reply-to)
    (plugin-token-text-list :initarg :token-text-list :accessor plugin-token-text-list)
    (plugin-action :initarg :action :initform :run :accessor plugin-action)))
@@ -216,7 +217,9 @@
   (case (plugin-action plug-request)
     (:docstring (format nil "Return the current trigger word list"))
     (:priority 1.5)
-    (:run (format nil "~{~A~^, ~}" *trigger-list*))))
+    (:run (format nil "~{~A~^, ~}"
+		  (trigger-list (gethash (plugin-channel-name plug-request)
+					(channels (plugin-conn plug-request))))))))
 
 (defplugin help (plug-request)
   (case (plugin-action plug-request)

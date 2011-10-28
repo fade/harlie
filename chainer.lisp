@@ -105,7 +105,7 @@ word or two of the chain.  Returns a list of strings."
 		   (chain-next word1 word2))
 	    (utterance (list word1 word2 word3) 
 		       (append utterance (list word3))))
-	   ((or (not word3) (equal word3 *sentinel*)) (remove *sentinel* utterance :test 'equal))))))
+	   ((or (not word3) (equal word3 *sentinel*)) (remove *sentinel* (butlast utterance) :test #'equal))))))
 
 (defun accept-n (l n)
   "Test to see whether an n-syllable sequence appears at the start of l.

@@ -18,7 +18,7 @@
 (defun constant-table (file)
   "return a hash-table built from a file of key/value pairs, one per
    line, separated by a colon.."
-  (let ((ccode-hashtable (make-hash-table :test #'equalp :synchronized t)))
+  (let ((ccode-hashtable (make-hash-table :test 'equalp :synchronized t)))
     ;; if external format of file is latin-1 utf8 will puke. pass
     ;; 8859-1 as a safety measure.
     (with-open-file (s (constant-file file)
@@ -104,7 +104,7 @@
     (with-open-file (instream (constant-file "cmudict.0.6"))
       (do* ((l (read-line instream) (read-line instream nil 'eof)))
 	   ((eq l 'eof) word->syllables)
-	(let* ((w (remove #\SPACE (scan-to-strings "^(['A-Z]+)\\s" l) :test 'equal))
+	(let* ((w (remove #\SPACE (scan-to-strings "^(['A-Z]+)\\s" l)))
 	       (count (if w (length (remove-if-not 'digit-char-p l)) 0)))
 	  (when w
 	    (setf (gethash w word->syllables) count)))))))

@@ -140,7 +140,7 @@ allowing for leading and trailing punctuation characters in the match."
 If so, return the (possibly rewritten) token list against which to chain
 the output.  If not, return nil."
   (let ((recognizer (make-name-detector (config-irc-nick *bot-config*)))
-	(trigger-word (find-if #'(lambda (s) (member s (trigger-list channel) :test #'string-equal)) token-list)))
+	(trigger-word (find-if #'(lambda (s) (member s token-list :test #'string-equal)) (trigger-list channel))))
     (cond ((remove-if-not recognizer token-list)
 	   (mapcar #'(lambda (s)
 		       (if (funcall recognizer s)
@@ -169,14 +169,13 @@ the output.  If not, return nil."
   (make-thread #'(lambda ()
 		   (let* ((connection (connection message))
 			  (channel-name (car (arguments message)))
-			  (channel (gethash channel-name (channels connection)))
+			  (channel (gethash channel-name (channels connection) nil))
 			  (sender (source message))
 			  (text (second (arguments message)))
 			  (token-text-list (split "\\s+" text))
 			  (command (string-upcase (first token-text-list)))
 			  (reply-to channel-name)
-			  (urls (all-matches-as-strings "((ftp|http|https)://[^\\s]+)|(www[.][^\\s]+)" text))
-			  (trigger-tokens (triggered token-text-list sender channel)))
+			  (urls (all-matches-as-strings "((ftp|http|https)://[^\\s]+)|(www[.][^\\s]+)" text)))
 
 		     (setf (last-message connection) message)
 		     (format t "Message: ~A~%" (raw-message-string message))
@@ -225,7 +224,7 @@ the output.  If not, return nil."
 				      (qmess connection reply-to
 					     (format nil "[ ~A ] Couldn't fetch this page." url)))))))
 
-			   (t (progn
+			   (t (let ((trigger-tokens (triggered token-text-list sender channel)))
 				(chain-in token-text-list)
 				(when trigger-tokens
 				  (let ((outgoing (chain (first trigger-tokens) (second trigger-tokens))))

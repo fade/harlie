@@ -199,7 +199,7 @@
   (case (plugin-action plug-request)
     (:docstring (format nil "Generate some ill-considered bot spew."))
     (:priority -1.0)
-    (:run (format nil "~{~A~^ ~}" (chain)))))
+    (:run (format nil "~{~A~^ ~}" (chain (plugin-context plug-request))))))
 
 (defplugin haiku (plug-request)
   (case (plugin-action plug-request)
@@ -207,7 +207,7 @@
     (:priority 1.5)
     (:run (progn
 	    (if (not *syllable-counts*) (setf *syllable-counts* (count-syllables)))
-	    (format nil "~{~A~^ ~}" (make-haiku))))))
+	    (format nil "~{~A~^ ~}" (make-haiku (plugin-context plug-request)))))))
 
 (defplugin ftw (plug-request)
   (case (plugin-action plug-request)

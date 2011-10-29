@@ -13,16 +13,18 @@
   (:metaclass dao-class)
   (:keys row-num))
 
-(defun chain-in (toklist)
+(defun chain-in (context toklist)
   (unless (< (length toklist) 3)
-    (with-connection (config-psql-chain-credentials *bot-config*)
+    (with-connection (chain-write-credentials context)
       (do* ((word1 *sentinel* word2)
 	    (word2 *sentinel* word3)
-	    (word3 (pop toklist) (pop toklist)))
+	    (word3 (pop toklist) (pop toklist))
+	    (context-id (chain-write-context-id context)))
 	   ((and (not word3) (not word2))  nil)
 	(insert-dao (make-instance 'words :word1 word1
 					  :word2 (if word2 word2 *sentinel*)
-					  :word3 (if word3 word3 *sentinel*)))))))
+					  :word3 (if word3 word3 *sentinel*)
+					  :context-id context-id))))))
 
 (defun count-phrases (context)
   "Return the number of entries in the words table."
@@ -34,20 +36,22 @@
 		       (chain-read-context-id context)))
 	   :single)))
 
-(defun fetch-start (rownum)
+(defun fetch-start (context rownum)
   "Select a chain-starting entry from the words table by row number, and return word3."
   (query (:select 'word3
 	  :from 'words
 	  :where (:and (:= 'row-num rownum)
 		       (:= 'word1 *sentinel*)
-		       (:= 'word2 *sentinel*))) :single))
+		       (:= 'word2 *sentinel*)
+		       (:= 'context-id (chain-read-context-id context))))
+	 :single))
 
-(defun random-start ()
+(defun random-start (context)
   "Find a random starting point for a chain.  Return the word which starts
 the chain, and also the number of trials before finding it."
   (let ((numrows (query (:select (:raw "max(row_num)") :from 'words) :single)))
     (do* ((rownum (random (1+ numrows)) (random (1+ numrows)))
-	  (r (fetch-start rownum) (fetch-start rownum))
+	  (r (fetch-start context rownum) (fetch-start context rownum))
 	  (n 1 (1+ n)))
 	 (r (values r n)))))
 
@@ -94,14 +98,15 @@ the chain, and also the number of trials before finding it."
 	until (>= (length rwords) n)
 	finally (return (subseq rwords 0 n))))))
 
-(defun chain-next (word1 word2)
+(defun chain-next (context word1 word2)
   "Retrieve a random word to go next in the chain."
   (query (:limit
 	  (:order-by
 	   (:select 'word3
 	    :from 'words
 	    :where (:and (:= (:raw "upper(word1)") (string-upcase word1))
-			 (:= (:raw "upper(word2)") (string-upcase word2))))
+			 (:= (:raw "upper(word2)") (string-upcase word2))
+			 (:= 'context-id (chain-read-context-id context))))
 	   (:raw "random()"))
 	  1) :single))
 
@@ -113,10 +118,10 @@ the chain, and also the number of trials before finding it."
 	 ((not queue) (substitute filler nil (reverse (subseq stack 0 2))))
       (when arg (push arg stack)))))
 
-(defun chain (&optional w1 w2)
+(defun chain (context &optional w1 w2)
   "Generate a full random chain.  If desired, you can specify the first
 word or two of the chain.  Returns a list of strings."
-  (with-connection (config-psql-chain-credentials *bot-config*)
+  (with-connection (chain-read-credentials context)
     ;; If w1 and/or w2 are provided, use them.  Otherwise use sentinel values.
     (destructuring-bind (a b) (argshift *sentinel* w1 w2)
       (do* ((word1 a word2)
@@ -124,9 +129,9 @@ word or two of the chain.  Returns a list of strings."
 	    ;; If no w1 or w2 is specified, then pick a random starting point.
 	    ;; Otherwise, start chaining.
 	    (word3 (if (not (or w1 w2))
-		       (random-start)
-		       (chain-next word1 word2))
-		   (chain-next word1 word2))
+		       (random-start context)
+		       (chain-next context word1 word2))
+		   (chain-next context word1 word2))
 	    (utterance (list word1 word2 word3) 
 		       (append utterance (list word3))))
 	   ((or (not word3) (equal word3 *sentinel*)) (remove *sentinel* (butlast utterance) :test #'equal))))))
@@ -162,11 +167,11 @@ The magic value of 18 is used for any words we didn't find in the CMU dict, beca
 an 18-syllable word can't be in any part of any haiku."
   (mapcar #'(lambda (w) (cons w (gethash (string-upcase w) *syllable-counts* 18))) l))
 
-(defun make-haiku ()
+(defun make-haiku (context)
   "Generate chains and test them for haikus until you give up.  Returns a list of
 strings for the haiku and also a count for the number of attempts made."
   (do* ((n 0 (1+ n))
-	(candidate (chain) (chain))
+	(candidate (chain context) (chain context))
 	(haiku (find-haiku (make-syllable-sums candidate)) (find-haiku (make-syllable-sums candidate))))
        ((or haiku (> n 20))
 	(if haiku

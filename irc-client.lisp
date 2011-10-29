@@ -270,9 +270,9 @@ the output.  If not, return nil."
 					     (format nil "[ ~A ] Couldn't fetch this page." url)))))))
 
 			   (t (let ((trigger-tokens (triggered context token-text-list sender channel)))
-				(chain-in token-text-list)
+				(chain-in context token-text-list)
 				(when trigger-tokens
-				  (let ((outgoing (chain (first trigger-tokens) (second trigger-tokens))))
+				  (let ((outgoing (chain context (first trigger-tokens) (second trigger-tokens))))
 				    (unless (not (mismatch trigger-tokens outgoing :test #'string-equal))
 				      (qmess connection reply-to
 					     (format nil "~{~A~^ ~}" outgoing))))))))))))

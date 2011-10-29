@@ -56,10 +56,12 @@ the chain, and also the number of trials before finding it."
 (defun random-word ()
   "Find a random word in the chaining database."
   (let ((numrows (query (:select (:raw "max(row_num)") :from 'words) :single)))
-    (do* ((rownum (random (1+ numrows)) (random (1+ numrows)))
-	  (r (fetch-row rownum) (fetch-row rownum))
-	  (n 1 (1+ n)))
-	 (r (values r n)))))
+    (if (> numrows 0)
+	(do* ((rownum (1+ (random numrows)) (1+ (random numrows)))
+	      (r (fetch-row rownum) (fetch-row rownum))
+	      (n 1 (1+ n)))
+	     (r (values r n)))
+	nil)))
 
 (defun random-words (n)
   "Return n random words from the chaining db."

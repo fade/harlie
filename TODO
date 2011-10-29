@@ -90,3 +90,10 @@ BUGS
 Issues
   cl-irc:connection initializes (channels connection) as a hash table
   without :synchronize t.  We could override that, and perhaps should.
+
+  irc-client.lisp:start-ignoring
+   - Replace the test somehow and push with pushnew?
+
+  chainer.lisp:random-words
+   - If none of the words in the DB match the predicate, we'll loop forever.
+     It's a pathological case, but it should be addressed.

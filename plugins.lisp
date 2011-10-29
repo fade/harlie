@@ -5,7 +5,8 @@
 (defvar *plugins* (make-hash-table :test 'equal))
 
 (defclass plugin-request ()
-  ((plugin-cmd :initarg :botcmd :accessor plugin-cmd)
+  ((plugin-context :initarg :plugin-context :accessor plugin-context)
+   (plugin-cmd :initarg :botcmd :accessor plugin-cmd)
    (plugin-conn :initarg :connection :accessor plugin-conn)
    (plugin-channel-name :initarg :channel-name :accessor plugin-channel-name)
    (plugin-reply-to :initarg :reply-to :accessor plugin-reply-to)
@@ -62,7 +63,8 @@
   (case (plugin-action plug-request)
     (:docstring (format nil "Give the count of phrases in the chaining database"))
     (:priority 1.0)
-    (:run (format nil "I know ~A phrases." (count-phrases)))))
+    (:run (format nil "I know ~A phrases."
+		  (count-phrases (plugin-context plug-request))))))
 
 (defplugin conv (plug-request)
   (case (plugin-action plug-request)

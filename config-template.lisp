@@ -13,7 +13,8 @@
   url-store-type
   psql-old-credentials
   psql-url-new-credentials
-  psql-chain-credentials)
+  psql-chain-credentials
+  psql-context-credentials)
 
 (defparameter *shogun-config*
   (make-config :irc-server-name "irc.srh.org"
@@ -27,7 +28,8 @@
 				       ("shogundb" "semaphor" nil :unix)
 				       ("thugdb" "semaphor" nil :unix))
 	       :psql-url-new-credentials '("shogundb" "semaphor" nil :unix)
-	       :psql-chain-credentials '("shogundb" "semaphor" nil :unix)))
+	       :psql-chain-credentials '("shogundb" "semaphor" nil :unix)
+	       :psql-context-credentials '("shogundb" "semaphor" nil :unix)))
 
 (defparameter *harlie-config*
   (make-config :irc-server-name "irc.srh.org"
@@ -41,7 +43,8 @@
 				       ("shogundb" "semaphor" nil :unix)
 				       ("thugdb" "semaphor" nil :unix))
 	       :psql-url-new-credentials '("harliedb" "semaphor" nil :unix)
-	       :psql-chain-credentials '("botdb" "semaphor" nil :unix)))
+	       :psql-chain-credentials '("botdb" "semaphor" nil :unix)
+	       :psql-context-credentials '("botdb" "semaphor" nil :unix)))
 
 (defparameter *harlot-config*
   (make-config :irc-server-name "irc.srh.org"
@@ -50,11 +53,9 @@
 	       :web-server-name "coruscant.deepsky.com"
 	       :web-server-port 5791
 	       :url-store-type :psql
-	       :psql-old-credentials '(("botdb" "tuxedo" nil :unix)
-				       ("bootsydb" "tuxedo" nil :unix)
-				       ("shogundb" "tuxedo" nil :unix)
-				       ("thugdb" "tuxedo" nil :unix))
+	       :psql-old-credentials '(("botdb" "tuxedo" nil :unix))
 	       :psql-url-new-credentials '("harliedb" "tuxedo" nil :unix)
-	       :psql-chain-credentials '("botdb" "tuxedo" nil :unix)))
+	       :psql-chain-credentials '("botdb" "tuxedo" nil :unix)
+	       :psql-context-credentials '("botdb" "tuxedo" nil :unix)))
 
 (defparameter *bot-config* *harlie-config*)

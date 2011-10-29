@@ -21,7 +21,7 @@
    (message-timer :initform nil :accessor message-timer)))
 
 (defclass bot-irc-channel (cl-irc:channel)
-  ((trigger-list :initform (random-words 10) :accessor trigger-list)))
+  ((trigger-list :initarg :trigger-list :initform nil :accessor trigger-list)))
 
 ;; A couple of bodges which force cl-irc to instantiate our bot-irc-channel objects
 ;; instead of its channel objects.
@@ -55,7 +55,13 @@
 			 (cl-irc:normalize-channel-name connection name)
 			 :topic topic
 			 :modes modes
-			 :user-count user-count)))
+			 :user-count user-count
+			 :trigger-list (random-words
+					(make-instance 'bot-context
+						       :bot-nick (nickname (user connection))
+						       :bot-irc-server (server-name connection)
+						       :bot-irc-channel name)
+					10 #'acceptable-word-p))))
     (dolist (user users)
       (cl-irc:add-user channel user))
     channel))
@@ -166,7 +172,7 @@ allowing for leading and trailing punctuation characters in the match."
 		name)
 	:case-insensitive-mode t) s)))
 
-(defun triggered (token-list sender channel)
+(defun triggered (context token-list sender channel)
   "Determine whether to trigger an utterance based on something we heard.
 If so, return the (possibly rewritten) token list against which to chain
 the output.  If not, return nil."
@@ -181,7 +187,7 @@ the output.  If not, return nil."
 	  (trigger-word
 	   (progn
 	     (setf (trigger-list channel)
-		   (substitute (car (random-words 1))
+		   (substitute (car (random-words context 1 #'acceptable-word-p))
 			       trigger-word
 			       (trigger-list channel)
 			       :test #'string-equal)) 
@@ -208,6 +214,11 @@ the output.  If not, return nil."
 			  (token-text-list (split "\\s+" text))
 			  (command (string-upcase (first token-text-list)))
 			  (reply-to channel-name)
+			  (context (make-instance
+				    'bot-context
+				    :bot-nick (nickname (user connection))
+				    :bot-irc-server (server-name connection)
+				    :bot-irc-channel channel))
 			  (urls (all-matches-as-strings "((ftp|http|https)://[^\\s]+)|(www[.][^\\s]+)" text)))
 
 		     (setf (last-message connection) message)
@@ -240,6 +251,7 @@ the output.  If not, return nil."
 			   ((scan "^![^!]" command)
 			    (run-plugin (make-instance
 					 'plugin-request :botcmd command
+					                 :plugin-context context
 							 :connection connection
 					                 :channel-name channel-name
 							 :reply-to reply-to
@@ -257,7 +269,7 @@ the output.  If not, return nil."
 				      (qmess connection reply-to
 					     (format nil "[ ~A ] Couldn't fetch this page." url)))))))
 
-			   (t (let ((trigger-tokens (triggered token-text-list sender channel)))
+			   (t (let ((trigger-tokens (triggered context token-text-list sender channel)))
 				(chain-in token-text-list)
 				(when trigger-tokens
 				  (let ((outgoing (chain (first trigger-tokens) (second trigger-tokens))))

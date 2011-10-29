@@ -24,10 +24,15 @@
 					  :word2 (if word2 word2 *sentinel*)
 					  :word3 (if word3 word3 *sentinel*)))))))
 
-(defun count-phrases ()
+(defun count-phrases (context)
   "Return the number of entries in the words table."
-  (with-connection (config-psql-chain-credentials *bot-config*)
-    (query (:select (:raw "count(*)") :from 'words) :single)))
+  (with-connection (chain-read-credentials context)
+    (query (:select
+	    (:raw "count(*)")
+	    :from 'words
+	    :where (:= 'context-id
+		       (chain-read-context-id context)))
+	   :single)))
 
 (defun fetch-start (rownum)
   "Select a chain-starting entry from the words table by row number, and return word3."
@@ -53,24 +58,41 @@ the chain, and also the number of trials before finding it."
 	  :where (:and (:= 'row-num rownum)
 		       (:!= 'word2 *sentinel*))) :single))
 
-(defun random-word ()
-  "Find a random word in the chaining database."
-  (let ((numrows (query (:select (:raw "max(row_num)") :from 'words) :single)))
-    (if (> numrows 0)
-	(do* ((rownum (1+ (random numrows)) (1+ (random numrows)))
-	      (r (fetch-row rownum) (fetch-row rownum))
-	      (n 1 (1+ n)))
-	     (r (values r n)))
-	nil)))
+(defun random-numbers (how-many how-large)
+  "Returns how-many random integers in the range [1, how-large]."
+  (loop for i from 1 to how-many collecting (1+ (random how-large))))
 
-(defun random-words (n)
-  "Return n random words from the chaining db."
-  (with-connection (config-psql-chain-credentials *bot-config*)
-    (do ((words nil))
-	((= (length words) n) words)
-      (let ((word (random-word)))
-	(when (scan "^['A-Za-z]+$" word)
-	  (push word words))))))
+(defun make-random-words-query (context-id n range)
+  (let* ((query-head '(:select 'word2 :from 'words :where))
+	 (indices (random-numbers n range))
+	 (clauses (loop for x in indices collecting (list ':= 'row-num x)))
+	 )
+    (sql-compile
+     (append query-head (list (list ':and
+				    (cons ':or clauses)
+				    `(:= 'context-id ,context-id)))))))
+
+(defun acceptable-word-p (w)
+  (and (not (string= (string #\Newline) w))
+       (>= (length w) 4) ;; Redundant, but let's leave it in for example's sake
+       (scan "^[a-zA-Z]*$" w)))
+
+(defun random-words (context n &optional (wordp #'identity))
+  "Return n random words from the chaining db, filtering with predicate wordp."
+  (with-connection (chain-read-credentials context)
+    (let ((table-length (query
+	     (:select
+	      (:raw "max(row_num)")
+	      :from 'words) :single))
+	  (context-id (chain-read-context-id context)))
+      (loop appending
+	(remove-if-not wordp
+	 (mapcar #'car
+	  (query (make-random-words-query
+		  context-id 100 table-length))))
+	  into rwords
+	until (>= (length rwords) n)
+	finally (return (subseq rwords 0 n))))))
 
 (defun chain-next (word1 word2)
   "Retrieve a random word to go next in the chain."

@@ -16,11 +16,11 @@
 	       #:local-time
 	       #:split-sequence
 	       #:cl-fad
-	       #:parse-number
-	       #:trivial-http)
+	       #:parse-number)
 
   :components ((:file "package")
 	       (:file "config")
+	       (:file "context")
 	       (:file "util")
 	       (:file "url-store")
 	       (:file "irc-client")

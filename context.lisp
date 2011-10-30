@@ -17,8 +17,9 @@
 		   (first (query (:select 'irc-server 'irc-channel 'web-server
 					  'web-port 'web-uri-prefix
 				  :from 'contexts
-				  :where (:= 'context-name (string-downcase (bot-nick context))))))
+				  :where (:= (:raw "lower(context_name)") (string-downcase (bot-nick context))))))
 ))
+	     (setf (bot-nick context) (string-downcase (bot-nick context)))
 	     (setf (bot-irc-server context) (first conlist))
 	     (setf (bot-irc-channel context) (second conlist))
 	     (setf (bot-web-server context) (third conlist))
@@ -31,7 +32,7 @@
 				   'web-uri-prefix
 			   :from 'contexts
 			   :where (:= 'web-port (bot-web-port context))))))
-	     (setf (bot-nick context) (first conlist))
+	     (setf (bot-nick context) (string-downcase (first conlist)))
 	     (setf (bot-irc-server context) (second conlist))
 	     (setf (bot-irc-channel context) (third conlist))
 	     (setf (bot-web-server context) (fourth conlist))
@@ -53,7 +54,7 @@
   (with-connection (config-psql-context-credentials *bot-config*)
     (query (:select 'context-id
 	    :from 'contexts
-	    :where (:= 'context-name
+	    :where (:= (:raw "lower(context_name)")
 		       (string-downcase (bot-nick context))))
 	   :single)))
 
@@ -71,7 +72,7 @@
   (with-connection (config-psql-context-credentials *bot-config*)
     (query (:select 'context-id
 	    :from 'contexts
-	    :where (:= 'context-name
+	    :where (:= (:raw "lower(context_name)")
 		       (string-downcase (bot-nick context))))
 	   :single)))
 

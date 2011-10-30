@@ -106,7 +106,7 @@
 			  (:select 'short-url 'title
 			   :from 'urls
 			   :where (:= 'input-url url))
-			  (:raw "tstamp desc")) ))))
+			  (:raw "tstamp desc"))))))
     (if result
 	(destructuring-bind (short title) (first result)
 	  (list (make-short-url-string (context short)) title))
@@ -140,9 +140,10 @@
 
 (defmethod get-urls-and-headlines ((store postmodern-url-store))
   (with-connection (readwrite-url-db store)
-    (query "select input_url, title from urls order by tstamp desc")
-;    (query (:select 'input-url 'title :from 'urls))
-    ))
+    (query (:order-by
+	    (:select 'input-url 'title
+	     :from 'urls)
+	    (:raw "tstamp desc")))))
 
 (defparameter *suppress-url-encoding* t)
 

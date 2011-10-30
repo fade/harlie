@@ -58,4 +58,18 @@
 	       :psql-chain-credentials '("botdb" "tuxedo" nil :unix)
 	       :psql-context-credentials '("botdb" "tuxedo" nil :unix)))
 
-(defparameter *bot-config* *harlie-config*)
+(defparameter *sr-4-config*
+  (make-config :irc-server-name "irc.srh.org"
+	       :irc-nick "SR-4"
+	       :irc-channel-names '("#trinity")
+	       :web-server-name "localhost"
+	       :web-server-port 5791
+	       :url-store-type :psql
+	       :psql-old-credentials '(("botdb" "fade" nil :unix))
+	       :psql-url-new-credentials '("harliedb" "fade" nil :unix)
+	       :psql-chain-credentials '("harliedb" "fade" nil :unix)
+	       :psql-context-credentials '("harliedb" "fade" nil :unix)))
+
+;(defparameter *bot-config* *harlie-config*)
+(defparameter *bot-config* nil)  ; Gotta define this in the REPL before running the bot.
+

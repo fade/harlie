@@ -66,9 +66,9 @@
 	       :web-server-port 5791
 	       :url-store-type :psql
 	       :psql-old-credentials '(("botdb" "fade" nil :unix))
-	       :psql-url-new-credentials '("harliedb" "fade" nil :unix)
-	       :psql-chain-credentials '("harliedb" "fade" nil :unix)
-	       :psql-context-credentials '("harliedb" "fade" nil :unix)))
+	       :psql-url-new-credentials '("botdb" "fade" nil :unix)
+	       :psql-chain-credentials '("botdb" "fade" nil :unix)
+	       :psql-context-credentials '("botdb" "fade" nil :unix)))
 
 ;(defparameter *bot-config* *harlie-config*)
 (defparameter *bot-config* nil)  ; Gotta define this in the REPL before running the bot.

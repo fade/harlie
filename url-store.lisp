@@ -41,7 +41,7 @@
    (title :col-type string :initarg :title :accessor title)
    (from-nick :col-type string :initarg :from-nick :accessor from-nick)
    (tstamp :col-type integer :initform (timestamp-to-unix (now)) :accessor tstamp)
-   (instance-id :col-type integer :initform 5 :accessor instance-id))
+   (context-id :col-type integer :initarg :context-id :accessor context-id))
   (:metaclass dao-class)
   (:keys url-id))
 
@@ -74,11 +74,18 @@
 	((not (query (:select '* :from 'urls :where (:= 'short-url short))))
 	 short))))
 
-(defgeneric lookup-url (store url nick)
+(defgeneric lookup-url (store context url nick)
   (:documentation "Return present or new short URL and title for specified URL."))
 
-(defmethod lookup-url ((store hash-url-store) url nick)
-  (declare (ignore nick))
+(defun make-short-url-string (context hash)
+  "Compose the short URL string for a given hash in a given context."
+  (format nil "~A~A"
+	  (make-url-prefix (bot-web-server context)
+			   (bot-web-port context))
+	  hash))
+
+(defmethod lookup-url ((store hash-url-store) context url nick)
+  (declare (ignore context nick))
   (let ((short (sb-ext:with-locked-hash-table ((url->short store))
 		 (gethash url (url->short store)))))
     (if short
@@ -93,17 +100,22 @@
 		(list short title))
 	      (list nil nil))))))
 
-(defmethod lookup-url ((store postmodern-url-store) url nick)
+(defmethod lookup-url ((store postmodern-url-store) context url nick)
   (let ((result (with-connection (readwrite-url-db store)
-		  (query (:select 'short-url 'title :from 'urls :where (:= 'input-url url))))))
+		  (query (:order-by
+			  (:select 'short-url 'title
+			   :from 'urls
+			   :where (:= 'input-url url))
+			  (:raw "tstamp desc")) ))))
     (if result
-	(first result)
+	(destructuring-bind (short title) (first result)
+	  (list (make-short-url-string (context short)) title))
 	(let ((title (fetch-title url)))
 	  (if title
 	      (let ((short (make-unique-shortstring store url)))
 		(with-connection (readwrite-url-db store)
-		  (insert-dao (make-instance 'urls :input-url url :redirected-url url :short-url short :title title :from-nick nick))
-		  (list short title)))
+		  (insert-dao (make-instance 'urls :input-url url :redirected-url url :short-url short :title title :from-nick nick :context-id (url-write-context-id context)))
+		  (list (make-short-url-string context short) title)))
 	      (list nil nil))))))
 
 (defgeneric get-url-from-shortstring (store short)

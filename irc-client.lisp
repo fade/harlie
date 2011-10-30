@@ -262,10 +262,10 @@ the output.  If not, return nil."
 					  (scan "127.0.0.1" url))
 				(when (scan "^www" url)
 				  (setf url (format nil "http://~A" url)))
-				(destructuring-bind (short title) (lookup-url *the-url-store* url sender)
+				(destructuring-bind (short title) (lookup-url *the-url-store* context url sender)
 				  (if (and short title)
 				      (qmess connection reply-to
-					     (format nil "[ ~A~A ] [ ~A ]" (make-url-prefix (config-web-server-name *bot-config*) (config-web-server-port *bot-config*)) short title))
+					     (format nil "[ ~A ] [ ~A ]" short title))
 				      (qmess connection reply-to
 					     (format nil "[ ~A ] Couldn't fetch this page." url)))))))
 

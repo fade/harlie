@@ -23,9 +23,9 @@
 	       :web-server-name "coruscant.deepsky.com"
 	       :web-server-port 5783
 	       :url-store-type :psql
-	       :psql-old-credentials '(("botdb" "semaphor" nil :unix)
+	       :psql-old-credentials '(("shogundb" "semaphor" nil :unix)
+				       ("botdb" "semaphor" nil :unix)
 				       ("bootsydb" "semaphor" nil :unix)
-				       ("shogundb" "semaphor" nil :unix)
 				       ("thugdb" "semaphor" nil :unix))
 	       :psql-url-new-credentials '("shogundb" "semaphor" nil :unix)
 	       :psql-chain-credentials '("shogundb" "semaphor" nil :unix)

@@ -6,21 +6,22 @@
 
 (defun make-webpage-listing-urls (store)
   "Generate HTML for the Web page listing the Web links in the database."
-  (with-html-output-to-string (s)
-    (:html
-     (:head
-      (:title (str (escape-string (format nil "Short URL index for server: ~A" (config-irc-server-name *bot-config*))))))
-     (:body
-      (:h2 "URL Index")
-      (:br)
-      (:ul
-       (dolist (link (get-urls-and-headlines store))
-	 (let ((target (car link))
-	       (link-description (cadr link)))
-	   (htm
-	    (:li
-	     (:a :href target (str (escape-string link-description))))))))))
-    s))
+  (let ((context (make-instance 'bot-context :bot-web-port (acceptor-port (request-acceptor *request*)))))
+    (with-html-output-to-string (s)
+      (:html
+       (:head
+	(:title (str (escape-string (format nil "Short URL index for ~A on ~A" (bot-nick context) (bot-irc-channel context))))))
+       (:body
+	(:h2 "URL Index")
+	(:br)
+	(:ul
+	 (dolist (link (get-urls-and-headlines store (make-instance 'bot-context :bot-web-port (acceptor-port (request-acceptor *request*)))))
+	   (let ((target (car link))
+		 (link-description (cadr link)))
+	     (htm
+	      (:li
+	       (:a :href target (str (escape-string link-description))))))))))
+      s)))
 
 (defun bug (store)
   (dolist (link (get-urls-and-headlines store))
@@ -46,7 +47,6 @@
   "Dispatcher for the Web pages served by the bot.
 Serve up a redirect page, a list of shortened URL links,
 or an error message, as appropriate."
-  (format t "~&In redirect-shortener-dispatch")
   (let ((uri (request-uri*)))
     (if (> (length uri) *how-short*)
 	(let* ((short (subseq (request-uri*) 1))
@@ -69,10 +69,11 @@ or an error message, as appropriate."
 
 (defun start-web-servers ()
   "Initialize and start the web server subsystem."
-  (push (make-instance 'hunchentoot:acceptor :port (config-web-server-port *bot-config*)) *acceptors*)
-  (hunchentoot:start (car *acceptors*))
-  (push (create-prefix-dispatcher "/" 'redirect-shortener-dispatch) *dispatch-table*)
-  (push (create-prefix-dispatcher "/help" 'redirect-help-dispatch) *dispatch-table*))
+  (dolist (port (config-web-server-ports *bot-config*))
+    (push (make-instance 'hunchentoot:acceptor :port port) *acceptors*)
+    (hunchentoot:start (car *acceptors*))
+    (push (create-prefix-dispatcher "/" 'redirect-shortener-dispatch) *dispatch-table*)
+    (push (create-prefix-dispatcher "/help" 'redirect-help-dispatch) *dispatch-table*)))
 
 (defun stop-web-servers ()
   "Shut down the web server subsystem."

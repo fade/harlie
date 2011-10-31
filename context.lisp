@@ -28,16 +28,15 @@
 	((bot-web-port context)
 	 (with-connection (config-psql-context-credentials *bot-config*)
 	   (let ((conlist
-		   (query (:select 'context-name 'irc-server 'irc-channel 'web-server
-				   'web-uri-prefix
-			   :from 'contexts
-			   :where (:= 'web-port (bot-web-port context))))))
+		   (first (query (:select 'context-name 'irc-server 'irc-channel 'web-server
+					  'web-uri-prefix
+				  :from 'contexts
+				  :where (:= 'web-port (bot-web-port context)))))))
 	     (setf (bot-nick context) (string-downcase (first conlist)))
 	     (setf (bot-irc-server context) (second conlist))
 	     (setf (bot-irc-channel context) (third conlist))
 	     (setf (bot-web-server context) (fourth conlist))
-	     (setf (bot-web-port context) (fifth conlist))
-	     (setf (bot-uri-prefix context) (sixth conlist)))))
+	     (setf (bot-uri-prefix context) (fifth conlist)))))
 	(t nil)))
 
 (defgeneric chain-read-credentials (context)

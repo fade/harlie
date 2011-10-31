@@ -79,10 +79,7 @@
 
 (defun make-short-url-string (context hash)
   "Compose the short URL string for a given hash in a given context."
-  (format nil "~A~A"
-	  (make-url-prefix (bot-web-server context)
-			   (bot-web-port context))
-	  hash))
+  (format nil "~A~A" (make-url-prefix (bot-web-server context) (bot-web-port context)) hash))
 
 (defmethod lookup-url ((store hash-url-store) context url nick)
   (declare (ignore context nick))
@@ -109,7 +106,7 @@
 			  (:raw "tstamp desc"))))))
     (if result
 	(destructuring-bind (short title) (first result)
-	  (list (make-short-url-string (context short)) title))
+	  (list (make-short-url-string context short) title))
 	(let ((title (fetch-title url)))
 	  (if title
 	      (let ((short (make-unique-shortstring store url)))
@@ -129,20 +126,22 @@
   (with-connection (readwrite-url-db store)
     (caar (query (:select 'input-url :from 'urls :where (:= 'short-url short))))))
 
-(defgeneric get-urls-and-headlines (store)
+(defgeneric get-urls-and-headlines (store context)
   (:documentation "Get a list of URLs and headlines from an URL store."))
 
-(defmethod get-urls-and-headlines ((store hash-url-store))
+(defmethod get-urls-and-headlines ((store hash-url-store) (context bot-context))
+  (declare (ignore context))
   (sb-ext:with-locked-hash-table ((url->headline store))
     (loop for k being the hash-keys in (url->headline store)
 	  collecting
 	  (list k (gethash k (url->headline store) "Click here for a random link.")))))
 
-(defmethod get-urls-and-headlines ((store postmodern-url-store))
+(defmethod get-urls-and-headlines ((store postmodern-url-store) (context bot-context))
   (with-connection (readwrite-url-db store)
     (query (:order-by
 	    (:select 'input-url 'title
-	     :from 'urls)
+		     :from 'urls
+		     :where (:= 'context-id (url-read-context-id context)))
 	    (:raw "tstamp desc")))))
 
 (defparameter *suppress-url-encoding* t)

@@ -13,7 +13,7 @@ ALTER TABLE urls ADD COLUMN url_id SERIAL PRIMARY KEY;
 ALTER TABLE urls ADD COLUMN redirected_url text;
 ALTER TABLE urls ADD COLUMN context_id INTEGER DEFAULT 1;
 
-DROP TABLE contexts;
+DROP TABLE contexts CASCADE;
 
 CREATE TABLE contexts
     (context_id BIGSERIAL PRIMARY KEY,

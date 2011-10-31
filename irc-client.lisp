@@ -176,12 +176,12 @@ allowing for leading and trailing punctuation characters in the match."
   "Determine whether to trigger an utterance based on something we heard.
 If so, return the (possibly rewritten) token list against which to chain
 the output.  If not, return nil."
-  (let ((recognizer (make-name-detector (config-irc-nick *bot-config*)))
+  (let ((recognizer (make-name-detector (bot-nick context)))
 	(trigger-word (find-if #'(lambda (s) (member s token-list :test #'string-equal)) (trigger-list channel))))
     (cond ((remove-if-not recognizer token-list)
 	   (mapcar #'(lambda (s)
 		       (if (funcall recognizer s)
-			   (regex-replace (string-upcase (config-irc-nick *bot-config*)) (string-upcase s) sender)
+			   (regex-replace (string-upcase (bot-nick context)) (string-upcase s) sender)
 			   s))
 		   token-list))
 	  (trigger-word
@@ -225,7 +225,7 @@ the output.  If not, return nil."
 		     (format t "Message: ~A~%" (raw-message-string message))
 		     (format t "   connection=~A channel=~A~%" connection channel-name)
 
-		     (when (string-equal channel-name (config-irc-nick *bot-config*))
+		     (when (string-equal channel-name (bot-nick context))
 		       (setf reply-to sender))
 
 		     (cond ((scan "^NOTIFY:: Help, I'm a bot!" text)
@@ -258,7 +258,7 @@ the output.  If not, return nil."
 							 :token-text-list token-text-list)))
 			   (urls
 			    (dolist (url urls)
-			      (unless (or (scan (format nil "http://~A:~A" (config-web-server-name *bot-config*) (config-web-server-port *bot-config*)) url)
+			      (unless (or (scan (make-short-url-string context "") url)
 					  (scan "127.0.0.1" url))
 				(when (scan "^www" url)
 				  (setf url (format nil "http://~A" url)))
@@ -300,29 +300,32 @@ the output.  If not, return nil."
 
 (defun start-threaded-irc-client-instance ()
   "Spawn a thread to run a session with an IRC server."
-  (let* ((nickname (config-irc-nick *bot-config*))
-	 (ircserver (config-irc-server-name *bot-config*))
-	 (connection (connect :nickname nickname
-			      :server ircserver
-			      :connection-type 'bot-irc-connection)))
-    (make-thread
-     #'(lambda ()
-	 (setf (bot-irc-client-thread connection) (bt:current-thread))
-	 (sb-ext:with-locked-hash-table (*irc-connections*)
-	   (setf (gethash
-		  (list (string-upcase ircserver)
-			(string-upcase nickname))
-		  *irc-connections*) connection))
-	 (dolist (channel (config-irc-channel-names *bot-config*))
-	   (cl-irc:join connection channel)
-	   (privmsg connection channel (format nil "NOTIFY:: Help, I'm a bot!")))
-	 (add-hook connection 'irc::irc-privmsg-message #'threaded-msg-hook)
-	 (add-hook connection 'irc::irc-quit-message #'threaded-byebye-hook)
-	 (add-hook connection 'irc::irc-part-message #'threaded-byebye-hook)
-	 (add-hook connection 'irc::irc-join-message #'intercept-join-message)
-	 (read-message-loop connection))
-     :name (format nil "IRC Client thread: server ~A, nick ~A"
-		   ircserver nickname))))
+  (dolist (nickchans (config-irc-nickchannels *bot-config*))
+    (let* ((nickname (car nickchans))
+	   (channels (cadr nickchans))
+	   (ircserver (config-irc-server-name *bot-config*))
+	   (connection (connect :nickname nickname
+				:server ircserver
+				:connection-type 'bot-irc-connection)))
+      (make-thread
+       #'(lambda ()
+	   (setf (bot-irc-client-thread connection) (bt:current-thread))
+	   (sb-ext:with-locked-hash-table (*irc-connections*)
+	     (setf (gethash
+		    (list (string-upcase ircserver)
+			  (string-upcase nickname))
+		    *irc-connections*) connection))
+	   (dolist (channel channels)
+	     (cl-irc:join connection channel)
+	     (privmsg connection channel (format nil "NOTIFY:: Help, I'm a bot!")))
+	   (add-hook connection 'irc::irc-privmsg-message #'threaded-msg-hook)
+	   (add-hook connection 'irc::irc-quit-message #'threaded-byebye-hook)
+	   (add-hook connection 'irc::irc-part-message #'threaded-byebye-hook)
+	   (add-hook connection 'irc::irc-join-message #'intercept-join-message)
+	   (read-message-loop connection))
+       :name (format nil "IRC Client thread: server ~A, nick ~A"
+		     ircserver nickname)))    )
+  )
 
 (defun stop-threaded-irc-client-instance ()
   "Shut down a session with an IRC server, and clean up."

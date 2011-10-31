@@ -180,6 +180,8 @@ an 18-syllable word can't be in any part of any haiku."
 (defun make-haiku (context)
   "Generate chains and test them for haikus until you give up.  Returns a list of
 strings for the haiku and also a count for the number of attempts made."
+  (unless *syllable-counts*
+    (setf *syllable-counts* (count-syllables)))
   (do* ((n 0 (1+ n))
 	(candidate (chain context) (chain context))
 	(haiku (find-haiku (make-syllable-sums candidate)) (find-haiku (make-syllable-sums candidate))))

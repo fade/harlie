@@ -206,7 +206,6 @@
     (:docstring (format nil "each utterance a / closed flower, capable of / independent life."))
     (:priority 1.5)
     (:run (progn
-	    (if (not *syllable-counts*) (setf *syllable-counts* (count-syllables)))
 	    (format nil "~{~A~^ ~}" (make-haiku (plugin-context plug-request)))))))
 
 (defplugin ftw (plug-request)

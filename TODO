@@ -9,6 +9,7 @@
     in context, or no urls in context, a report would
     be in order, not a freeze.
 - Support for following nick changes
+- Event logging
 
 Major Refactoring for Contexts/Multiheaded [Tuxedo]
 

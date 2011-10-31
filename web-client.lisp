@@ -75,7 +75,7 @@ Only the first match is returned."
 
 (defun fetch-title (url)
   "Extract the title from a Web page."
-  (multiple-value-bind (webtext status) (http-request url)
+  (multiple-value-bind (webtext status) (http-request url :redirect 10)
     (if (< status 400)
 	(let* ((document (chtml:parse webtext (chtml:make-lhtml-builder)))
 	       (title (find-title document)))

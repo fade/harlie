@@ -55,7 +55,7 @@ or an error message, as appropriate."
 	  (if url
 	      (redirect url)
 	      (let* ((short (subseq (request-uri*) 4))
-		     (url (get-url-from-old-shortstring *pomo-url-store* short)))
+		     (url (get-url-from-shortstring *the-url-store* short)))
 		(if url
 		    (redirect url)
 		    (html-apology)))))

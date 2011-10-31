@@ -75,8 +75,8 @@ Only the first match is returned."
 
 (defun fetch-title (url)
   "Extract the title from a Web page."
-  (multiple-value-bind (webtext status) (http-request url :accept "text/html" :redirect 10)
-    (if (< status 400)
+  (multiple-value-bind (webtext status) (webget url :accept "text/html" :redirect 10)
+    (if (and webtext status (< status 400))
 	(if (stringp webtext)
 	    (let* ((document (chtml:parse webtext (chtml:make-lhtml-builder)))
 		   (title (cleanup-title (find-title document))))
@@ -86,17 +86,31 @@ Only the first match is returned."
 	    (values nil "Binary data"))
 	(values nil nil))))
 
-
 ;;; alternative scraping system which uses an STP document structure
 ;;; to do a recursive search on the target document for various
 ;;; entities and values.
 
-(defun webget (url)
+(defun webget (url &rest args)
   "take an URL and get the html returned by the webserver at that
-   resource. Return this html to the caller as a string."
-  (drakma:http-request url
-		       :user-agent
-		       "Mozilla/5.0 (X11; Linux x86_64; rv:7.0.1) Gecko/20100101 Firefox/7.0.1"))
+   resource. Return this html to the caller as a string. In the event
+   of a network error from drakma, the return of this function is
+   NIL. Should not throw to the debugger."
+  (multiple-value-bind
+	(page status headers uri stream winky nod)
+      (handler-case
+	  (trivial-timeout:with-timeout (45)
+	    (ignore-errors
+	     (apply #'drakma:http-request url
+		    :user-agent
+		    "Mozilla/5.0 (X11; Linux x86_64; rv:7.0.1) Gecko/20100101 Firefox/7.0.1"
+		    args)))
+	(trivial-timeout:timeout-error (c) (declare (ignore c)) nil))
+    (declare (ignorable page status headers uri stream winky nod))
+    (if (every #'identity (list page status headers uri winky nod))
+	(values page status headers uri winky nod)
+	(values nil nil))))
+
+
 
 (defun clean-html (string)
   "take a shot at repairing broken html. This won't work in the

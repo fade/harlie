@@ -87,15 +87,23 @@
 		 (gethash url (url->short store)))))
     (if short
 	(sb-ext:with-locked-hash-table ((url->headline store))
-	  (list short (gethash url (url->headline store))))
-	(let ((title (fetch-title url)))
-	  (if title
-	      (progn
-		(setf short (make-unique-shortstring store url))
-		(sb-ext:with-locked-hash-table ((url->headline store))
-		  (setf (gethash url (url->headline store)) title))
-		(list short title))
-	      (list nil nil))))))
+	  (values short (gethash url (url->headline store))))
+	(multiple-value-bind (title message) (fetch-title url)
+	  (cond (title
+		 (progn
+		   (setf short (make-unique-shortstring store url))
+		   (sb-ext:with-locked-hash-table ((url->headline store))
+		     (setf (gethash url (url->headline store)) title))
+		   (values short title)))
+		(message
+		 (progn
+		   (setf short (make-unique-shortstring store url))
+		   (sb-ext:with-locked-hash-table ((url->headline store))
+		     (setf (gethash url (url->headline store)) (format nil "~A: ~A" message url)))
+		   (values short message)))
+		(t (values nil nil)))
+	  )
+)))
 
 (defmethod lookup-url ((store postmodern-url-store) context url nick)
   (let ((result (with-connection (readwrite-url-db store)
@@ -106,14 +114,19 @@
 			  (:raw "tstamp desc"))))))
     (if result
 	(destructuring-bind (short title) (first result)
-	  (list (make-short-url-string context short) title))
-	(let ((title (fetch-title url)))
-	  (if title
-	      (let ((short (make-unique-shortstring store url)))
-		(with-connection (readwrite-url-db store)
-		  (insert-dao (make-instance 'urls :input-url url :redirected-url url :short-url short :title title :from-nick nick :context-id (url-write-context-id context)))
-		  (list (make-short-url-string context short) title)))
-	      (list nil nil))))))
+	  (values (make-short-url-string context short) title))
+	(multiple-value-bind (title message) (fetch-title url)
+	  (cond (title
+		 (let ((short (make-unique-shortstring store url)))
+		   (with-connection (readwrite-url-db store)
+		     (insert-dao (make-instance 'urls :input-url url :redirected-url url :short-url short :title title :from-nick nick :context-id (url-write-context-id context)))
+		     (values (make-short-url-string context short) title))))
+		(message
+		 (let ((short (make-unique-shortstring store url)))
+		   (with-connection (readwrite-url-db store)
+		     (insert-dao (make-instance 'urls :input-url url :redirected-url url :short-url short :title (format nil "~A: ~A" message url) :from-nick nick :context-id (url-write-context-id context)))
+		     (values (make-short-url-string context short) message))))
+		(t (values nil nil)))))))
 
 (defgeneric get-url-from-shortstring (store short)
   (:documentation "Return the full URL associated with a given short string."))

@@ -267,7 +267,7 @@ the output.  If not, return nil."
 					  (scan "127.0.0.1" url))
 				(when (scan "^www" url)
 				  (setf url (format nil "http://~A" url)))
-				(destructuring-bind (short title) (lookup-url *the-url-store* context url sender)
+				(multiple-value-bind (short title) (lookup-url *the-url-store* context url sender)
 				  (if (and short title)
 				      (qmess connection reply-to
 					     (format nil "[ ~A ] [ ~A ]" short title))

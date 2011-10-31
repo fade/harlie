@@ -10,6 +10,7 @@
     be in order, not a freeze.
 - Support for following nick changes
 - Event logging
+- Don't try to extract titles from binary files.
 
 Major Refactoring for Contexts/Multiheaded [Tuxedo]
 

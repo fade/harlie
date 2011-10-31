@@ -75,14 +75,16 @@ Only the first match is returned."
 
 (defun fetch-title (url)
   "Extract the title from a Web page."
-  (multiple-value-bind (webtext status) (http-request url :redirect 10)
+  (multiple-value-bind (webtext status) (http-request url :accept "text/html" :redirect 10)
     (if (< status 400)
-	(let* ((document (chtml:parse webtext (chtml:make-lhtml-builder)))
-	       (title (find-title document)))
-	  (if title
-	      (cleanup-title title)
-	      "No title found."))
-	nil)))
+	(if (stringp webtext)
+	    (let* ((document (chtml:parse webtext (chtml:make-lhtml-builder)))
+		   (title (cleanup-title (find-title document))))
+	      (if title
+		  (values title title) 
+		  (values nil "No title found")))
+	    (values nil "Binary data"))
+	(values nil nil))))
 
 
 ;;; alternative scraping system which uses an STP document structure

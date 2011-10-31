@@ -18,7 +18,9 @@
 
 (defun cleanup-title (title)
   "Remove extraneous whitespace characters from within and around a string."
-  (string-strip-surrounding-whitespace (string-remove-embedded-newlines title)))
+  (if title
+      (string-strip-surrounding-whitespace (string-remove-embedded-newlines title))
+      nil))
 
 (defun float-as-string-p (fstring)
   "Is fstring a floating point number encoded as a string?"

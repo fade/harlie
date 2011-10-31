@@ -81,22 +81,32 @@ the chain, and also the number of trials before finding it."
        (>= (length w) 4) ;; Redundant, but let's leave it in for example's sake
        (scan "^[a-zA-Z]*$" w)))
 
+(defparameter *words-safe* nil)
+
 (defun random-words (context n &optional (wordp #'identity))
   "Return n random words from the chaining db, filtering with predicate wordp."
-  (with-connection (chain-read-credentials context)
-    (let ((table-length (query
-	     (:select
-	      (:raw "max(row_num)")
-	      :from 'words) :single))
-	  (context-id (chain-read-context-id context)))
-      (loop appending
-	(remove-if-not wordp
-	 (mapcar #'car
-	  (query (make-random-words-query
-		  context-id 100 table-length))))
-	  into rwords
-	until (>= (length rwords) n)
-	finally (return (subseq rwords 0 n))))))
+  (let ((readcreds (chain-read-credentials context))
+	(readconid (chain-read-context-id context)))
+    (with-connection readcreds
+      (unless (member readconid *words-safe*)
+	(if (= 0 (query (:select (:raw "count(*)") :from 'words :where (:= 'context-id readconid)) :single))
+	    (progn
+	      (format t "Your words database is empty.  There are no trigger words.")
+	      (return-from random-words nil))))
+      (let ((table-length (query
+			   (:select
+			    (:raw "max(row_num)")
+			    :from 'words) :single))
+	    (context-id readconid))
+	(loop appending
+	      (remove-if-not wordp
+			     (mapcar #'car
+				     (query (make-random-words-query
+					     context-id 100 table-length))))
+		into rwords
+	      until (>= (length rwords) n)
+	      finally (return (subseq rwords 0 n)))))    )
+  )
 
 (defun chain-next (context word1 word2)
   "Retrieve a random word to go next in the chain."

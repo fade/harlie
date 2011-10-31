@@ -5,6 +5,10 @@
 - Add smarter indexing for URLs
 - Make the context subsystem (and other parts, generally)
   recover more gracefully when errors attack
+  - In particular, if there are no contexts, no words
+    in context, or no urls in context, a report would
+    be in order, not a freeze.
+- Support for following nick changes
 
 Major Refactoring for Contexts/Multiheaded [Tuxedo]
 

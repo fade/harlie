@@ -178,7 +178,13 @@ If so, return the (possibly rewritten) token list against which to chain
 the output.  If not, return nil."
   (let ((recognizer (make-name-detector (bot-nick context)))
 	(trigger-word (find-if #'(lambda (s) (member s token-list :test #'string-equal)) (trigger-list channel))))
-    (cond ((remove-if-not recognizer token-list)
+    (cond ((> 10 (length (trigger-list channel)))
+	   (progn
+	     (setf (trigger-list channel) (append (trigger-list channel) token-list))
+	     (when (< 10 (length (trigger-list channel)))
+	       (setf (trigger-list channel) (subseq (trigger-list channel) 0 10)))
+	     nil)
+	   (remove-if-not recognizer token-list)
 	   (mapcar #'(lambda (s)
 		       (if (funcall recognizer s)
 			   (regex-replace (string-upcase (bot-nick context)) (string-upcase s) sender)
@@ -187,10 +193,9 @@ the output.  If not, return nil."
 	  (trigger-word
 	   (progn
 	     (setf (trigger-list channel)
-		   (substitute (car (random-words context 1 #'acceptable-word-p))
-			       trigger-word
-			       (trigger-list channel)
-			       :test #'string-equal)) 
+		   (remove trigger-word (trigger-list channel) :test #'string=))
+	     (setf (trigger-list channel)
+		   (append (trigger-list channel) (random-words context (- 10 (length (trigger-list channel))))))
 	     token-list))
 	  (t nil))))
 
@@ -279,6 +284,15 @@ the output.  If not, return nil."
 
 (defun threaded-byebye-hook (message)
   "Handle a quit or part message."
+  (make-thread #'(lambda ()
+		   (let* ((connection (connection message))
+			  (sender (source message)))
+		     (setf (last-message connection) message)
+		     (format t "In threaded-byebye-hook, sender = ~A~%" sender)
+		     (stop-ignoring connection sender)))))
+(defun nick-change-hook (message)
+  "Handle a nick message."
+  
   (make-thread #'(lambda ()
 		   (let* ((connection (connection message))
 			  (sender (source message)))

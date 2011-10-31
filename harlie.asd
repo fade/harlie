@@ -16,7 +16,8 @@
 	       #:local-time
 	       #:split-sequence
 	       #:cl-fad
-	       #:parse-number)
+	       #:parse-number
+	       #:trivial-timeout)
 
   :components ((:file "package")
 	       (:file "config")

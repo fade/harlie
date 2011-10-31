@@ -2,45 +2,27 @@
 
 - Logarithmic probabilities in chainer
 - Coalesce entries in chain DB
-- Enable write access for chainer [DONE]
-- Triggers for chainer [DONE]
+- Add smarter indexing for URLs
+- Make the context subsystem (and other parts, generally)
+  recover more gracefully when errors attack
 
 Major Refactoring for Contexts/Multiheaded [Tuxedo]
 
-- Reduced all specials related to the IRC client module to one: *irc-connections*. [DONE]
-- Mapped out the specials for each of the other subsystems and where they belong
-  in the general <-> specific hierarchy [DONE]
-- Still need to finish work on:
-  - URL DB
-  - Chain DB
-  - Web server
-  - Web client
-  - Plugins
-  - Constants
+There's still some ugly bodgery in the mapping from Web server
+ports to contexts.  Build support to incorporate Web server
+names, names/IPs, base URIs, etc.
 
-- Need to define "contexts" abstraction -- a way to map
-{IRC server, channel, nick} --> context
-  (to read and write the chaining database and URL database)
-     and
-{Web host, port, URI} --> context
-  (to read the URL database)
-In progress.
+Also, get the bots to get more of their configuration out of
+the database rather than half from the config file.
 
 * (Fade)
 - YACLML for all HTML generation
+  - Looks like we're using cl-who for this.
 - Convert other bot commands
+  - Are we about done?
 
-- !calc [DONE]
-- !pants [DONE]
-- !doomsday [DONE]
-- !ignore [DONE]
-- !stock [Fade, Tuxedo] [DONE]
-
-- Deliberately order full-page URL listing by reverse chronological order [DONE]
 - Get full host string w/Web request
-- Multiheaded bot w/multiple chain, URL stores (sort of)
 - Smart rejoin
-- Help web page(s) [DONE]
 
 - Wrap HTTP GETs in trivial-timeout
 - !conv: detect failed return?
@@ -55,28 +37,23 @@ In progress.
 - Implement transactions in DB
 - Read Web pages for chaining data
 - Shorter domain name w/out port #
+  - Now that we're in production, maybe this takes a back seat.
 
 - Make short URLs longer when table > high water mark
 - Auth module
-- Contexts for chaining
+- Contexts for chaining [BEGUN]
 - Twitter plug-in, SMS gateway
 - More back-end Web stuff
 
 BUGS
 
 - Something was weird with chtml-matcher.
-- Why can't Postmodern do an "order by desc" clause correctly in a query?
-- Why's Harlie wedging in q-runner?
 - Drakma needs an option to avoid URL-encoding the URL
   - We have a fix in our tree
   - The RFCs support Drakma's interpretation
   - They may not accept our patch.
 
-- Don't let the bot repeat the input that triggered it. [Found by Fade, fixed by Tuxedo] [DONE]
-- Don't allow !conv and !rate to convert a unit to itself [Found by Kritter, fixed by Tuxedo] [DONE]
 - !conv fails on weird utf-8 inputs [Found by Kritter]
-- !calc 10 + 5 fails, because of (lack of) URL encoding. [Found by Kritter, fixed by Tuxedo] [DONE]
-- !calc 10 / 0 gives no return, instead of a div-by-zero return. [Found by Kritter, fixed by Tuxedo] [DONE]
 - Should https:// links be shortened? [Found by Kritter, Fade]
 - http://www.phat.uklinux.net/cgi-bin/crash.cgi doesn't generate a return [Found by Kritter]
 

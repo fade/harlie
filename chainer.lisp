@@ -92,7 +92,8 @@ the chain, and also the number of trials before finding it."
 	(if (= 0 (query (:select (:raw "count(*)") :from 'words :where (:= 'context-id readconid)) :single))
 	    (progn
 	      (format t "Your words database is empty.  There are no trigger words.")
-	      (return-from random-words nil))))
+	      (return-from random-words nil))
+	    (push readconid *words-safe*)))
       (let ((table-length (query
 			   (:select
 			    (:raw "max(row_num)")
@@ -105,8 +106,7 @@ the chain, and also the number of trials before finding it."
 					     context-id 100 table-length))))
 		into rwords
 	      until (>= (length rwords) n)
-	      finally (return (subseq rwords 0 n)))))    )
-  )
+	      finally (return (subseq rwords 0 n)))))))
 
 (defun chain-next (context word1 word2)
   "Retrieve a random word to go next in the chain."

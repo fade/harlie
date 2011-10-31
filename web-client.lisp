@@ -76,7 +76,7 @@ Only the first match is returned."
 (defun fetch-title (url)
   "Extract the title from a Web page."
   (multiple-value-bind (webtext status) (webget url :redirect 10)
-    (if (< status 400)
+    (if (and webtext status (< status 400))
 	(let* ((document (chtml:parse webtext (chtml:make-lhtml-builder)))
 	       (title (find-title document)))
 	  (if title
@@ -107,7 +107,7 @@ Only the first match is returned."
     (declare (ignorable page status headers uri stream winky nod))
     (if (every #'identity (list page status headers uri winky nod))
 	(values page status headers uri winky nod)
-	nil)))
+	(values nil nil))))
 
 
 

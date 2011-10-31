@@ -74,7 +74,10 @@ Only the first match is returned."
   (extract-from-html tree 'forex-anchor 'forex-extractor))
 
 (defun fetch-title (url)
-  "Extract the title from a Web page."
+  "Extract the title from a Web page.  Return two values: the first, if not nil,
+is the title string to be used on the Web index page and on IRC.  If the first
+argument is nil, that indicates that a title couldn't be extracted, and the
+second return value should be used on IRC."
   (multiple-value-bind (webtext status) (webget url :accept "text/html" :redirect 10)
     (if (and webtext status (< status 400))
 	(if (stringp webtext)

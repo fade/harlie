@@ -10,7 +10,12 @@
     be in order, not a freeze.
 - Support for following nick changes
 - Event logging
-- Don't try to extract titles from binary files.
+- Don't try to extract titles from binary files. [DONE, Tuxedo]
+- Do full RFC 2616 comparisons of URLs in the shortener
+  - scheme name, host name are case-insensitive
+  - empty path == "/"
+  - do lookups on raw IP addrs?
+- Count plugin usage to see what's popular?
 
 Major Refactoring for Contexts/Multiheaded [Tuxedo]
 
@@ -21,7 +26,7 @@ names, names/IPs, base URIs, etc.
 Also, get the bots to get more of their configuration out of
 the database rather than half from the config file.
 
-* (Fade)
+* [Fade]
 - YACLML for all HTML generation
   - Looks like we're using cl-who for this.
 - Convert other bot commands
@@ -30,7 +35,7 @@ the database rather than half from the config file.
 - Get full host string w/Web request
 - Smart rejoin
 
-- Wrap HTTP GETs in trivial-timeout
+- Wrap HTTP GETs in trivial-timeout [DONE, Fade]
 - !conv: detect failed return?
 - Limit length of title strings
 - Paginate full-page URL listing
@@ -80,3 +85,5 @@ Issues
   chainer.lisp:random-words
    - If none of the words in the DB match the predicate, we'll loop forever.
      It's a pathological case, but it should be addressed.
+   - The guard in random-words should index on both the context ID
+     and the predicate.

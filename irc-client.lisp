@@ -274,13 +274,15 @@ the output.  If not, return nil."
 				      (qmess connection reply-to
 					     (format nil "[ ~A ] Couldn't fetch this page." url)))))))
 
-			   (t (let ((trigger-tokens (triggered context token-text-list sender channel)))
-				(chain-in context token-text-list)
-				(when trigger-tokens
-				  (let ((outgoing (chain context (first trigger-tokens) (second trigger-tokens))))
-				    (unless (not (mismatch trigger-tokens outgoing :test #'string-equal))
-				      (qmess connection reply-to
-					     (format nil "~{~A~^ ~}" outgoing))))))))))))
+			   (channel
+			    (let ((trigger-tokens (triggered context token-text-list sender channel)))
+			      (chain-in context token-text-list)
+			      (when trigger-tokens
+				(let ((outgoing (chain context (first trigger-tokens) (second trigger-tokens))))
+				  (unless (not (mismatch trigger-tokens outgoing :test #'string-equal))
+				    (qmess connection reply-to
+					   (format nil "~{~A~^ ~}" outgoing)))))))
+			   (t nil))))))
 
 (defun threaded-byebye-hook (message)
   "Handle a quit or part message."

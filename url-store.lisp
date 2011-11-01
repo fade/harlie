@@ -106,16 +106,19 @@
 )))
 
 (defmethod lookup-url ((store postmodern-url-store) context url nick)
+  (format t "url-write-context-id: ~A~%" (url-write-context-id context))
   (let ((result (with-connection (readwrite-url-db store)
 		  (query (:order-by
 			  (:select 'short-url 'title
-			   :from 'urls
-			   :where (:= 'input-url url))
+				   :from 'urls
+				   :where (:= 'input-url url))
 			  (:raw "tstamp desc"))))))
+    (format t "Result: ~A~%" result)
     (if result
 	(destructuring-bind (short title) (first result)
 	  (values (make-short-url-string context short) title))
 	(multiple-value-bind (title message) (fetch-title url)
+	  (format t "Title: ~A    Message: ~A~%" title message)
 	  (cond (title
 		 (let ((short (make-unique-shortstring store url)))
 		   (with-connection (readwrite-url-db store)

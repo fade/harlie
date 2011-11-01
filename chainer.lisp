@@ -9,7 +9,8 @@
    (word2 :col-type string :initarg :word2 :accessor word2)
    (word3 :col-type string :initarg :word3 :accessor word3)
    (incidence :col-type integer :initform 1 :accessor incidence)
-   (row-num :col-type integer :accessor row-num))
+   (row-num :col-type integer :accessor row-num)
+   (context-id :col-type integer :initarg :word-context-id :accessor word-context-id))
   (:metaclass dao-class)
   (:keys row-num))
 
@@ -24,7 +25,7 @@
 	(insert-dao (make-instance 'words :word1 word1
 					  :word2 (if word2 word2 *sentinel*)
 					  :word3 (if word3 word3 *sentinel*)
-					  :context-id context-id))))))
+					  :word-context-id context-id))))))
 
 (defun count-phrases (context)
   "Return the number of entries in the words table."

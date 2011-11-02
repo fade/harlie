@@ -41,6 +41,7 @@
    (title :col-type string :initarg :title :accessor title)
    (from-nick :col-type string :initarg :from-nick :accessor from-nick)
    (tstamp :col-type integer :initform (timestamp-to-unix (now)) :accessor tstamp)
+   (dead :col-type boolean :initform nil :accessor url-dead-p)
    (context-id :col-type integer :initarg :context-id :accessor context-id))
   (:metaclass dao-class)
   (:keys url-id))
@@ -157,7 +158,9 @@
     (query (:order-by
 	    (:select 'input-url 'title
 		     :from 'urls
-		     :where (:= 'context-id (url-read-context-id context)))
+		     :where (:and
+			     (:= 'context-id (url-read-context-id context))
+			     (:not 'dead)) )
 	    (:raw "tstamp desc")))))
 
 (defparameter *suppress-url-encoding* t)

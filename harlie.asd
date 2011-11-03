@@ -4,20 +4,21 @@
   :serial t
   :depends-on (#:sb-concurrency
 	       #:bordeaux-threads
+	       #:cl-fad
 	       #:cl-irc
+	       #:cl-log
 	       #:cl-ppcre
+	       #:cl-who
 	       #:closure-html
 	       #:cxml-stp
-	       #:yaclml
 	       #:drakma
 	       #:hunchentoot
-	       #:cl-who
-	       #:postmodern
 	       #:local-time
-	       #:split-sequence
-	       #:cl-fad
 	       #:parse-number
-	       #:trivial-timeout)
+	       #:postmodern
+	       #:split-sequence
+	       #:trivial-timeout
+	       #:yaclml)
 
   :components ((:file "package")
 	       (:file "config")

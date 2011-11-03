@@ -53,11 +53,11 @@
   "return a list of urls dao objects, one for each url in the
    shortener db."
   (let ((dbconn (readwrite-url-db *the-url-store*)))
-    (with-connection dbconn (select-dao 'urls))))
+    (with-connection dbconn (select-dao 'urls "true order by random()"))))
 
 (defun list-n-urls (n &key (urls (list-all-urls)))
-  "take the first n urls from the urlstore. primarily to limit for
-   testing other janitorial features."
+  "take the first n urls retrieved from the urlstore. primarily to
+   limit for testing other janitorial features."
   (loop for i to (1- n) ;; indexes start at 0. ask for 12, get 12.
 	for url in urls
 	:collect url))

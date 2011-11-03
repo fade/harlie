@@ -287,13 +287,15 @@
 (define-condition unrecognized-operator-error (error)
   ((unrecognized-operator :initarg :unrecognized-operator :initform nil :reader unrecognized-operator)))
 
-(defun rpn (l)
+(defun rpn-calculator (l)
   (let ((stack nil))
     (handler-case
 	(progn
 	  (mapcar #'(lambda (x)
 		      (cond ((scan "^[0-9]+$" x)
 			     (push (parse-integer x) stack))
+			    ((scan "^[0-9]*[.][0-9]+$" x)
+			     (push (read-from-string x) stack))
 			    ((scan "^[+*/-]$" x)
 			     (push (funcall (intern x) (pop stack) (pop stack)) stack))
 			    (t (error 'unrecognized-operator-error
@@ -304,6 +306,12 @@
 	      (format nil "Stack (top): [~{~A~^ ~}]" stack)))
       (simple-type-error () (format nil "Stack underflow."))
       (unrecognized-operator-error (x) (format nil "Unrecognized operator: ~A" (unrecognized-operator x))))))
+
+(defplugin rpn (plug-request)
+  (case (plugin-action plug-request)
+    (:docstring (format nil "Do a little arithmetic in reverse Polish notation"))
+    (:priority 3.0)
+    (:run (rpn-calculator (rest (plugin-token-text-list plug-request))))))
 
 ;; ftoc
 

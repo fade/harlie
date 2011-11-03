@@ -46,6 +46,82 @@
   (:metaclass dao-class)
   (:keys url-id))
 
+;;; some janitorial functions to mark urls that 404 'dead' in the
+;;; database, and to try to ensure a title for each url.
+
+(defun list-all-urls ()
+  "return a list of urls dao objects, one for each url in the
+   shortener db."
+  (let ((dbconn (readwrite-url-db *the-url-store*)))
+    (with-connection dbconn (select-dao 'urls "true order by random()"))))
+
+(defun list-n-urls (n &key (urls (list-all-urls)))
+  "take the first n urls retrieved from the urlstore. primarily to
+   limit for testing other janitorial features."
+  (loop for i to (1- n) ;; indexes start at 0. ask for 12, get 12.
+	for url in urls
+	:collect url))
+
+(defun scan-urls-with-fn (fn &key (urls (list-all-urls)))
+  "forex: (scan-urls-with-fn #'url-resolves-p :urls (list-n-urls 10))
+   => (#<URLS {1015DBA7B1}> #<URLS {1015DBD461}>)
+   (#<URLS {1015DB9BC1}> #<URLS {1015DBBC81}> #<URLS {1015DBC871}>
+   #<URLS {1015DBE051}> #<URLS {1015DBEC41}> #<URLS {1015DBFCA1}>
+   #<URLS {1008D19D81}> #<URLS {1008D19DA1}>)[at time of this
+   writing.] ... the first value is the list of 'bad' urls. the
+   second, the ones with status returns < 400."
+  (loop for url in urls
+	:if (funcall fn url)
+	:collect url into good
+	:else
+	:collect url into bad
+	:finally (return (values bad good))))
+
+(defun url-resolves-p (urlobj)
+  "the url resolves if the get status is not in the 400 range. If it
+   resolves, return T, else return NIL"
+  (multiple-value-bind (stream status) (webget (input-url urlobj) :want-stream t)
+    (unwind-protect
+	 (cond
+	   ((and status (< status 400))
+	    (format t "~&URL GOOD: [~A]" (input-url urlobj))
+	    t)
+	   (t
+	    (format t "~&URL BAD: [~A]" (input-url urlobj))
+	    nil))
+      (when stream
+	(close stream)))))
+
+(defun bad-url-indexes (&key (urls (list-n-urls 10)))
+  (let ((urls (scan-urls-with-fn #'url-resolves-p :urls urls)))
+    (loop for i in urls
+	  :do (format t "~&([~0,6D]~%[~A]~%[~A]~%[Dead? ~A])~%~%"
+		      (url-id i) (input-url i) (title i) (url-dead-p i)))))
+
+(defmethod set-dead ((url urls))
+  (setf (url-dead-p url) t))
+
+(defmethod reset-title ((url urls))
+  (if (string-equal (title url) "Can not downconvert to ascii.")
+      (let ((new-title (fetch-title (input-url url))))
+	(when new-title
+	  (progn
+	    (format t "~&~%>>old: ~A~%>>new: ~A" (title url) new-title)
+	    (setf (title url) new-title))))))
+
+(defun url-janitor (&key (urls (list-all-urls)))
+  (let ((dbconn (readwrite-url-db *the-url-store*)))
+    (multiple-value-bind (badurls goodurls) (scan-urls-with-fn #'url-resolves-p :urls urls)
+      (with-connection dbconn
+	(loop for url in badurls :do (progn
+				       (set-dead url)
+				       (update-dao url)))
+	(loop for url in goodurls :do (progn
+					(reset-title url)
+					(update-dao url)))))))
+
+
+
 (defparameter *letterz* "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 
 (defparameter *how-short* 5)

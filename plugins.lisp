@@ -308,7 +308,9 @@
 			    ((scan "^SIN|COS|TAN|ASIN|ACOS|ATAN|SQRT|EXP$" opname)
 			     (push (funcall (intern opname) (pop stack)) stack))
 			    ((scan "^GCD|LCM$" opname)
-			     (push (funcall (intern opname) (pop stack) (pop stack)) stack))
+			     (handler-case
+				 (push (funcall (intern opname) (pop stack) (pop stack)) stack)
+			       (type-error () (return-from rpn-calculator "Type error: expected integer."))))
 			    ((scan "^RAND(OM)?$" opname)
 			     (push (random (pop stack)) stack))
 			    ((scan "^LN$" opname)
@@ -321,7 +323,9 @@
 		  (format nil "~A" (car stack))
 		  (format nil "~F" (car stack)))
 	      (format nil "Stack (top): [~{~A~^ ~}]" stack)))
-      (simple-type-error () (format nil "Stack underflow."))
+      (simple-type-error () (if (= (length stack) 0)
+				 (format nil "Stack underflow.")
+				 (format nil "Type error.")))
       (unrecognized-operator-error (x) (format nil "Unrecognized operator: ~A" (unrecognized-operator x))))))
 
 (defplugin rpn (plug-request)

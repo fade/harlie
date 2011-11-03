@@ -64,19 +64,40 @@
 
 (defun scan-urls-with-fn (fn &key (urls (list-all-urls)))
   "forex: (scan-urls-with-fn #'url-resolves-p :urls (list-n-urls 10))
-   => (#<URLS {10045ED5A1}> #<URLS {10045EE191}> #<URLS {10045EF1F1}>
-   #<URLS {10045EFDE1}> #<URLS {10131745F1}> 6 7 8 #<URLS
-   {1013174671}> #<URLS {1013174691}>) [at time of this writing.]"
-  (mapcar fn urls))
+   => (#<URLS {1015DBA7B1}> #<URLS {1015DBD461}>)
+   (#<URLS {1015DB9BC1}> #<URLS {1015DBBC81}> #<URLS {1015DBC871}>
+   #<URLS {1015DBE051}> #<URLS {1015DBEC41}> #<URLS {1015DBFCA1}>
+   #<URLS {1008D19D81}> #<URLS {1008D19DA1}>)[at time of this
+   writing.] ... the first value is the list of 'bad' urls. the
+   second, the ones with status returns < 400."
+  (loop for url in urls
+	:if (funcall fn url)
+	:collect url into good
+	:else
+	:collect url into bad
+	:finally (return (values bad good))))
 
 (defun url-resolves-p (urlobj)
-  "the url resolves is the get status is not in the 400 range. If it
-   resolves, return the url object, if it does not, return the url-id."
-  (multiple-value-bind (page status) (webget (input-url urlobj))
-    (declare (ignorable page))
-    (cond
-      ((and status (< status 400)) urlobj)
-      (t (url-id urlobj)))))
+  "the url resolves if the get status is not in the 400 range. If it
+   resolves, return T, else return NIL"
+  (multiple-value-bind (stream status) (webget (input-url urlobj) :want-stream t)
+    (unwind-protect
+	 (cond
+	   ((and status (< status 400))
+	    t)
+	   (t
+	    nil))
+      (when stream
+	(close stream)))))
+
+(defun bad-url-indexes (&key (urls (list-n-urls 10)))
+  (let ((urls (scan-urls-with-fn #'url-resolves-p :urls urls)))
+    (loop for i in urls
+	  :do (format t "~&([~0,6D]~%[~A]~%[~A]~%[Dead? ~A])~%~%"
+		      (url-id i) (input-url i) (title i) (url-dead-p i)))))
+
+(defun url-janitor ()
+  )
 
 
 

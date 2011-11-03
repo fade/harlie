@@ -46,6 +46,40 @@
   (:metaclass dao-class)
   (:keys url-id))
 
+;;; some janitorial functions to mark urls that 404 'dead' in the
+;;; database, and to try to ensure a title for each url.
+
+(defun list-all-urls ()
+  "return a list of urls dao objects, one for each url in the
+   shortener db."
+  (let ((dbconn (readwrite-url-db *the-url-store*)))
+    (with-connection dbconn (select-dao 'urls))))
+
+(defun list-n-urls (n &key (urls (list-all-urls)))
+  "take the first n urls from the urlstore. primarily to limit for
+   testing other janitorial features."
+  (loop for i to (1- n) ;; indexes start at 0. ask for 12, get 12.
+	for url in urls
+	:collect url))
+
+(defun scan-urls-with-fn (fn &key (urls (list-all-urls)))
+  "forex: (scan-urls-with-fn #'url-resolves-p :urls (list-n-urls 10))
+   => (#<URLS {10045ED5A1}> #<URLS {10045EE191}> #<URLS {10045EF1F1}>
+   #<URLS {10045EFDE1}> #<URLS {10131745F1}> 6 7 8 #<URLS
+   {1013174671}> #<URLS {1013174691}>) [at time of this writing.]"
+  (mapcar fn urls))
+
+(defun url-resolves-p (urlobj)
+  "the url resolves is the get status is not in the 400 range. If it
+   resolves, return the url object, if it does not, return the url-id."
+  (multiple-value-bind (page status) (webget (input-url urlobj))
+    (declare (ignorable page))
+    (cond
+      ((and status (< status 400)) urlobj)
+      (t (url-id urlobj)))))
+
+
+
 (defparameter *letterz* "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 
 (defparameter *how-short* 5)

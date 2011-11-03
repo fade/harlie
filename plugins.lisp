@@ -285,10 +285,7 @@
     (:run (find-doomsday (fetch-formatted-url "http://www.thebulletin.org/")))))
 
 (define-condition unrecognized-operator-error (error)
-  ((operator-error-text :initarg operator-error-text :accessor operator-error-text)
-   (unrecognized-operator :initarg unrecognized-operator :accessor unrecognized-operator))
-  (:report (lambda (condition stream) (format stream "Operator error: ~A" (unrecognized-operator condition))))
-  )
+  ((unrecognized-operator :initarg :unrecognized-operator :initform nil :reader unrecognized-operator)))
 
 (defun rpn (l)
   (let ((stack nil))
@@ -300,7 +297,6 @@
 			    ((scan "^[+*/-]$" x)
 			     (push (funcall (intern x) (pop stack) (pop stack)) stack))
 			    (t (error 'unrecognized-operator-error
-				      :operator-error-text "Graco fulg now!"
 				      :unrecognized-operator x))))
 		  l)
 	  (if (= (length stack) 1)

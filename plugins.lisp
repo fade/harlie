@@ -287,7 +287,7 @@
 (define-condition unrecognized-operator-error (error)
   ((operator-error-text :initarg operator-error-text :accessor operator-error-text)
    (unrecognized-operator :initarg unrecognized-operator :accessor unrecognized-operator))
-  (:report (lambda (condition stream) (format stream "Operator error: ~A" (unrecognized-operator-error-unrecognized-operator condition))))
+  (:report (lambda (condition stream) (format stream "Operator error: ~A" (unrecognized-operator condition))))
   )
 
 (defun rpn (l)

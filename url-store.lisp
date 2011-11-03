@@ -84,8 +84,10 @@
     (unwind-protect
 	 (cond
 	   ((and status (< status 400))
+	    (format t "~&URL GOOD: [~A]" (input-url urlobj))
 	    t)
 	   (t
+	    (format t "~&URL BAD: [~A]" (input-url urlobj))
 	    nil))
       (when stream
 	(close stream)))))
@@ -96,8 +98,27 @@
 	  :do (format t "~&([~0,6D]~%[~A]~%[~A]~%[Dead? ~A])~%~%"
 		      (url-id i) (input-url i) (title i) (url-dead-p i)))))
 
-(defun url-janitor ()
-  )
+(defmethod set-dead ((url urls))
+  (setf (url-dead-p url) t))
+
+(defmethod reset-title ((url urls))
+  (if (string-equal (title url) "Can not downconvert to ascii.")
+      (let ((new-title (fetch-title (input-url url))))
+	(when new-title
+	  (progn
+	    (format t "~&~%>>old: ~A~%>>new: ~A" (title url) new-title)
+	    (setf (title url) new-title))))))
+
+(defun url-janitor (&key (urls (list-all-urls)))
+  (let ((dbconn (readwrite-url-db *the-url-store*)))
+    (multiple-value-bind (badurls goodurls) (scan-urls-with-fn #'url-resolves-p :urls urls)
+      (with-connection dbconn
+	(loop for url in badurls :do (progn
+				       (set-dead url)
+				       (update-dao url)))
+	(loop for url in goodurls :do (progn
+					(reset-title url)
+					(update-dao url)))))))
 
 
 

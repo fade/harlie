@@ -78,26 +78,26 @@ Only the first match is returned."
 is the title string to be used on the Web index page and on IRC.  If the first
 argument is nil, that indicates that a title couldn't be extracted, and the
 second return value should be used on IRC."
-  (format t "URL: |~A|~%" url)
-  (format t "(length url) ~A~%" (length url))
+  ;; (format t "URL: |~A|~%" url)
+  ;; (format t "(length url) ~A~%" (length url))
   (multiple-value-bind (webtext status) (webget url :accept "text/html" :redirect 10)
-    (format t "length(webtext) = ~A, status = ~A~%" (length webtext) status)
+    ;; (format t "length(webtext) = ~A, status = ~A~%" (length webtext) status)
     (if (and webtext status (< status 400))
 	(if (stringp webtext)
 	    (let* ((document (chtml:parse webtext (chtml:make-lhtml-builder)))
 		   (title (cleanup-title (find-title document))))
 	      (if title
 		  (progn
-		    (format t "Returning from fetch-title #1 title = ~A~%" title)
+		    ;; (format t "Returning from fetch-title #1 title = ~A~%" title)
 		    (values title title))
 		  (progn
-		    (format t "Returning from fetch-title #2 message = No title found~%")
+		    ;; (format t "Returning from fetch-title #2 message = No title found~%")
 		    (values nil "No title found"))))
 	    (progn
-	      (format t "Returning from fetch-title #3 message = Binary data~%")
+	      ;; (format t "Returning from fetch-title #3 message = Binary data~%")
 	      (values nil "Binary data")))
 	(progn
-	  (format t "Returning from fetch-title #4 nil nil.~%")
+	  ;; (format t "Returning from fetch-title #4 nil nil.~%")
 	  (values nil nil)))))
 
 ;;; alternative scraping system which uses an STP document structure
@@ -112,7 +112,7 @@ second return value should be used on IRC."
   (multiple-value-bind
 	(page status headers uri stream winky nod)
       (handler-case
-	  (trivial-timeout:with-timeout (45)
+	  (trivial-timeout:with-timeout (15)
 	    (ignore-errors
 	     (let ((flexi-streams:*substitution-char* #\?))
 	       (apply #'drakma:http-request url

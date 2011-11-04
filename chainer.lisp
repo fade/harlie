@@ -47,14 +47,33 @@
 		       (:= 'context-id (chain-read-context-id context))))
 	 :single))
 
+(defun brute-force-fetch-start (context)
+  "When Monte Carlo methods fail, determinism must follow."
+  (query
+   (:limit
+    (:order-by
+     (:select 'word3
+      :from 'words
+      :where (:and (:= 'word1 *sentinel*)
+		   (:= 'word2 *sentinel*)
+		   (:= 'context-id (chain-read-context-id context))))
+     (:raw "random()"))
+    1)
+   :single))
+
 (defun random-start (context)
   "Find a random starting point for a chain.  Return the word which starts
 the chain, and also the number of trials before finding it."
-  (let ((numrows (query (:select (:raw "max(row_num)") :from 'words) :single)))
-    (do* ((rownum (random (1+ numrows)) (random (1+ numrows)))
-	  (r (fetch-start context rownum) (fetch-start context rownum))
-	  (n 1 (1+ n)))
-	 (r (values r n)))))
+  (handler-case
+      (with-timeout (3)
+      (let ((numrows (query (:select (:raw "max(row_num)") :from 'words) :single)))
+	(do* ((rownum (random (1+ numrows)) (random (1+ numrows)))
+	      (r (fetch-start context rownum) (fetch-start context rownum))
+	      (n 1 (1+ n)))
+	     (r (values r n)))))
+    (timeout-error (c)
+      (declare (ignore c))
+      (brute-force-fetch-start context))))
 
 (defun fetch-row (rownum)
   "Select an entry from the words table by row number, and return word2."

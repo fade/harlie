@@ -112,7 +112,7 @@ second return value should be used on IRC."
   (multiple-value-bind
 	(page status headers uri stream winky nod)
       (handler-case
-	  (trivial-timeout:with-timeout (45)
+	  (trivial-timeout:with-timeout (15)
 	    (ignore-errors
 	     (let ((flexi-streams:*substitution-char* #\?))
 	       (apply #'drakma:http-request url

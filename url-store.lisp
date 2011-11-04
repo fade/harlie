@@ -102,7 +102,8 @@
   (setf (url-dead-p url) t))
 
 (defmethod reset-title ((url urls))
-  (if (string-equal (title url) "Can not downconvert to ascii.")
+  (if (or (string-equal (title url) "Can not downconvert to ascii.")
+	  (string-equal (title url) "None"))
       (let ((new-title (fetch-title (input-url url))))
 	(when new-title
 	  (progn

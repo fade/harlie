@@ -158,32 +158,35 @@ second return value should be used on IRC."
 			    (second tree))))))
 
 (defun cleanup-calc-string (s)
-  (substitute #\Space #\NO-BREAK_SPACE
-	      (substitute #\x #\MULTIPLICATION_SIGN s)))
+  (string-strip-surrounding-whitespace
+   (substitute #\Space #\NO-BREAK_SPACE
+	       (substitute #\x #\MULTIPLICATION_SIGN s))))
 
 (defun calc-extractor (tree)
   "Extract the result from a Google Calc query."
-  (let ((mantissa (cleanup-calc-string (third (third tree)))))
-    (if (and (> (length (third tree)) 3) (eq (car (fourth (third tree))) :SUP))
-	(let ((exponent (third (fourth (third tree))))
-	      (trailing-units (fifth (third tree))))
-	  (list (concatenate 'string
-			     (make-string (length mantissa) :initial-element #\Space) exponent)
-		(concatenate 'string
-			     mantissa
-			     (make-string (length exponent) :initial-element #\Space)
-			     trailing-units))
-	  )
-	mantissa)))
+  (let* ((payload (subseq tree 2))
+	 (pivot (position #\= (car payload)))
+	 (lhs (cleanup-calc-string (subseq (car payload) 0 pivot)))
+	 (mantissa (cleanup-calc-string (subseq (car payload) (1+ pivot))))
+	 (exponent (if (> (length payload) 1)
+		       (third (second payload))
+		       nil))
+	 (trailer (if (> (length payload) 1)
+		      (concatenate 'string " " (cleanup-calc-string (third payload))) 
+		      nil)))
+    (if exponent
+	(list (concatenate 'string (make-string (+ (length lhs) (length " = ") (length mantissa)) :initial-element #\Space) exponent)
+	      (concatenate 'string lhs " = " mantissa (make-string (length exponent) :initial-element #\Space) trailer))
+	(concatenate 'string lhs " = " mantissa))))
 
 (defun find-calc (tree)
   "Take the result in a Google Calc page."
-  (let ((result   (extract-from-html tree 'calc-anchor 'calc-extractor)))
+  (let ((result (extract-from-html tree 'calc-anchor 'calc-extractor)))
     (if result result
 	"Your query did not return any meaningful data.")))
 
 (defun retrieve-calc (search-tokens)
-  (do* ((stream (third (http-get (format nil "http://www.google.com/search?q=~{~A~^+~}&client=ubuntu&channel=fs" search-tokens))))
+  (do* ((stream (third (http-request (format nil "http://www.google.com/search?q=~{~A~^+~}&client=ubuntu&channel=fs" search-tokens))))
 	(line (read-line stream) (read-line stream nil 'eof))
 	(lines (list line) (cons line lines)))
        ((eq line 'eof) (apply 'concatenate 'string (reverse (cdr lines))))

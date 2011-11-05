@@ -10,6 +10,7 @@
 	       #:cl-ppcre
 	       #:cl-who
 	       #:closure-html
+	       #:colorize
 	       #:cxml-stp
 	       #:drakma
 	       #:hunchentoot

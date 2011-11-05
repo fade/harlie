@@ -74,11 +74,10 @@ or an error message, as appropriate."
 				  (make-pathname
 				   :directory
 				   (pathname-directory (user-homedir-pathname))))))
-	(gfulg nil)
-	)
+	(gfulg nil))
     (with-open-file (stream (constant-file fpath))
       (do* ((line (read-line stream) (read-line stream nil 'eof))
-	    (lines (list (format nil "<html><head><title>~A</title></head><body><pre>~%" fname)) (cons (format nil "~A~%" line) lines)))
+	    (lines (list (format nil "<html><head><title>~A</title></head><body><pre>~%" fname)) (cons (if (eq 'eof line) "" (format nil "~A~%" (escape-string line))) lines)))
 	   ((eq line 'eof) (setf gfulg (apply 'concatenate 'string (reverse (cdr lines))))))
       (setf gfulg (format nil "~A</pre></body></html>" gfulg)) 
       (format t "~A" gfulg)

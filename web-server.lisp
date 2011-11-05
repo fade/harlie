@@ -67,7 +67,7 @@ or an error message, as appropriate."
   "Dispatcher for the help page served by the bot."
   (html-help))
 
-(defun fotch-file (fname)
+(defun fetch-file (fname)
   (let ((fpath (merge-pathnames fname
 				 (merge-pathnames
 				  "SourceCode/lisp/harlie/"
@@ -75,19 +75,20 @@ or an error message, as appropriate."
 				   :directory
 				   (pathname-directory (user-homedir-pathname))))))
 	(s2 (make-string-output-stream)))
-    (if (scan "[.]lisp$" fname)
+    (if (scan "[.]lisp|asd$" fname)
 	(progn
 	  (colorize::colorize-file-to-stream :common-lisp fpath s2)
 	  (get-output-stream-string s2))
 	(let ((gfulg nil))
 	  (with-open-file (stream (constant-file fpath))
 	    (do* ((line (read-line stream) (read-line stream nil 'eof))
-		  (lines (list (format nil "<html><head><title>~A</title></head><body><pre>~%" fname)) (cons (if (eq 'eof line) "" (format nil "~A~%" (escape-string line))) lines)))
+		  (lines (list line (format nil "<html><head><title>~A</title></head><body><pre>~%" fname))
+			 (cons (if (eq 'eof line) "" (format nil "~A~%" (escape-string line))) lines)))
 		 ((eq line 'eof) (setf gfulg (apply 'concatenate 'string (reverse (cdr lines))))))
 	    (format t "~A" gfulg)
 	    gfulg)))))
 
-(defun fotch-source-dir ()
+(defun fetch-source-dir ()
   (let ((fotchery (directory
 		   (merge-pathnames
 		    "SourceCode/lisp/harlie/*.*"
@@ -112,9 +113,9 @@ or an error message, as appropriate."
 
 (defun redirect-source-dispatch ()
   "Dispatcher for a brane-dead file server out of the bot."
-  (if (not (string= (request-uri*) "/source/")) 
-      (fotch-file (subseq (request-uri*) 8))
-      (fotch-source-dir)))
+  (if (not (scan "^/source/?$" (request-uri*)))
+      (fetch-file (subseq (request-uri*) 8))
+      (fetch-source-dir)))
 
 (defun start-web-servers ()
   "Initialize and start the web server subsystem."
@@ -122,7 +123,7 @@ or an error message, as appropriate."
     (push (make-instance 'hunchentoot:acceptor :port port) *acceptors*)
     (push (hunchentoot:create-prefix-dispatcher "/" 'redirect-shortener-dispatch) *dispatch-table*)
     (push (hunchentoot:create-prefix-dispatcher "/help" 'redirect-help-dispatch) *dispatch-table*)
-    (push (hunchentoot:create-prefix-dispatcher "/source/" 'redirect-source-dispatch) *dispatch-table*)
+    (push (hunchentoot:create-prefix-dispatcher "/source" 'redirect-source-dispatch) *dispatch-table*)
     (hunchentoot:start (car *acceptors*))))
 
 (defun stop-web-servers ()

@@ -67,13 +67,60 @@ or an error message, as appropriate."
   "Dispatcher for the help page served by the bot."
   (html-help))
 
+(defun fotch-file (fname)
+  (let ((fpath (merge-pathnames fname
+				 (merge-pathnames
+				  "SourceCode/lisp/harlie/"
+				  (make-pathname
+				   :directory
+				   (pathname-directory (user-homedir-pathname))))))
+	(gfulg nil)
+	)
+    (with-open-file (stream (constant-file fpath))
+      (do* ((line (read-line stream) (read-line stream nil 'eof))
+	    (lines (list (format nil "<html><head><title>~A</title></head><body><pre>~%" fname)) (cons (format nil "~A~%" line) lines)))
+	   ((eq line 'eof) (setf gfulg (apply 'concatenate 'string (reverse (cdr lines))))))
+      (setf gfulg (format nil "~A</pre></body></html>" gfulg)) 
+      (format t "~A" gfulg)
+      gfulg)))
+
+(defun fotch-source-dir ()
+  (let ((fotchery (directory
+		   (merge-pathnames
+		    "SourceCode/lisp/harlie/*.*"
+		    (make-pathname
+		     :directory
+		     (pathname-directory (user-homedir-pathname))))))
+	(url-context (make-instance 'bot-context :bot-web-port (acceptor-port (request-acceptor *request*)))))
+    (format nil "~{~A~^~%~}~%"
+	    (append
+	     '("<html><head><title>Bot Source</title></head><body><ul>")
+	     (mapcar
+	      #'(lambda (x)
+		  (let ((fname (subseq (scan-to-strings "[/]([^/]*)$" (sb-ext:native-namestring x)) 1))) 
+		    (format nil "<li><a href=\"~A~A\"><h2>~A</h2></a></li>~%"
+			    (make-short-url-string url-context "source/") fname fname)))
+	      (remove-if
+	       #'(lambda (x)
+		   (scan "[/][.]|[/]$"
+			 (sb-ext:native-namestring x)))
+	       fotchery)) 
+	     '("</ul></body></html>")))))
+
+(defun redirect-source-dispatch ()
+  "Dispatcher for a brane-dead file server out of the bot."
+  (if (not (string= (request-uri*) "/source/")) 
+      (fotch-file (subseq (request-uri*) 8))
+      (fotch-source-dir)))
+
 (defun start-web-servers ()
   "Initialize and start the web server subsystem."
   (dolist (port (config-web-server-ports *bot-config*))
     (push (make-instance 'hunchentoot:acceptor :port port) *acceptors*)
-    (hunchentoot:start (car *acceptors*))
-    (push (create-prefix-dispatcher "/" 'redirect-shortener-dispatch) *dispatch-table*)
-    (push (create-prefix-dispatcher "/help" 'redirect-help-dispatch) *dispatch-table*)))
+    (push (hunchentoot:create-prefix-dispatcher "/" 'redirect-shortener-dispatch) *dispatch-table*)
+    (push (hunchentoot:create-prefix-dispatcher "/help" 'redirect-help-dispatch) *dispatch-table*)
+    (push (hunchentoot:create-prefix-dispatcher "/source/" 'redirect-source-dispatch) *dispatch-table*)
+    (hunchentoot:start (car *acceptors*))))
 
 (defun stop-web-servers ()
   "Shut down the web server subsystem."

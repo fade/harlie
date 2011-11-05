@@ -107,26 +107,31 @@ the chain, and also the number of trials before finding it."
   "Return n random words from the chaining db, filtering with predicate wordp."
   (let ((readcreds (chain-read-credentials context))
 	(readconid (chain-read-context-id context)))
-    (with-connection readcreds
-      (unless (member readconid *words-safe*)
-	(if (= 0 (query (:select (:raw "count(*)") :from 'words :where (:= 'context-id readconid)) :single))
-	    (progn
-	      (format t "Your words database is empty.  There are no trigger words.")
-	      (return-from random-words nil))
-	    (push readconid *words-safe*)))
-      (let ((table-length (query
-			   (:select
-			    (:raw "max(row_num)")
-			    :from 'words) :single))
-	    (context-id readconid))
-	(loop appending
-	      (remove-if-not wordp
-			     (mapcar #'car
-				     (query (make-random-words-query
-					     context-id 100 table-length))))
-		into rwords
-	      until (>= (length rwords) n)
-	      finally (return (subseq rwords 0 n)))))))
+    (handler-case
+	(trivial-timeout:with-timeout (3)
+	  (with-connection readcreds
+	    (unless (member readconid *words-safe*)
+	      (if (= 0 (query (:select (:raw "count(*)") :from 'words :where (:= 'context-id readconid)) :single))
+		  (progn
+		    (format t "Your words database is empty.  There are no trigger words.")
+		    (return-from random-words nil))
+		  (push readconid *words-safe*)))
+	    (let ((table-length (query
+				 (:select
+				  (:raw "max(row_num)")
+				  :from 'words) :single))
+		  (context-id readconid))
+	      (loop appending
+		    (remove-if-not wordp
+				   (mapcar #'car
+					   (query (make-random-words-query
+						   context-id 100 table-length))))
+		      into rwords
+		    until (>= (length rwords) n)
+		    finally (return (subseq rwords 0 n)))))		  )
+      (trivial-timeout:timeout-error (c)
+	(declare (ignore c))
+	nil))))
 
 (defun chain-next (context word1 word2)
   "Retrieve a random word to go next in the chain."

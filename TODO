@@ -16,6 +16,7 @@
   - empty path == "/"
   - do lookups on raw IP addrs?
 - Count plugin usage to see what's popular?
+- Serve HyperSpec from the bot's Web server?
 
 Major Refactoring for Contexts/Multiheaded [Tuxedo]
 

@@ -1,9 +1,6 @@
 (in-package :harlie)
 
-(defparameter *constants* (merge-pathnames  "SourceCode/lisp/harlie/constants/"
-					    (make-pathname :directory
-							   (pathname-directory
-							    (user-homedir-pathname)))))
+(defparameter *constants* (make-pathname-in-lisp-subdir "harlie/constants/"))
 
 ;;; constants in the form of airport and country codes, areacodes, etc.
 

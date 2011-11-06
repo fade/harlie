@@ -59,3 +59,15 @@
       (format nil "http://~A:~A/"
 	      server-name
 	      server-port)))
+
+(defun make-pathname-in-homedir (fname)
+  (merge-pathnames
+   fname
+   (make-pathname :directory
+		  (pathname-directory
+		   (user-homedir-pathname)))))
+
+(defun make-pathname-in-lisp-subdir (fname)
+  (merge-pathnames
+   fname
+   (make-pathname-in-homedir "SourceCode/lisp/")))

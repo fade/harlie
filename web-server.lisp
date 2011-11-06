@@ -68,12 +68,10 @@ or an error message, as appropriate."
   (html-help))
 
 (defun fetch-file (fname)
-  (let ((fpath (merge-pathnames fname
-				 (merge-pathnames
-				  "SourceCode/lisp/harlie/"
-				  (make-pathname
-				   :directory
-				   (pathname-directory (user-homedir-pathname))))))
+  (let ((fpath
+	  (merge-pathnames
+	   fname
+	   (make-pathname-in-lisp-subdir "harlie/")))
 	(s2 (make-string-output-stream)))
     (if (scan "[.]lisp|asd$" fname)
 	(progn
@@ -89,13 +87,10 @@ or an error message, as appropriate."
 	    gfulg)))))
 
 (defun fetch-source-dir ()
-  (let ((fotchery (directory
-		   (merge-pathnames
-		    "SourceCode/lisp/harlie/*.*"
-		    (make-pathname
-		     :directory
-		     (pathname-directory (user-homedir-pathname))))))
-	(url-context (make-instance 'bot-context :bot-web-port (acceptor-port (request-acceptor *request*)))))
+  (let ((fotchery
+	  (directory (make-pathname-in-lisp-subdir "harlie/*.*")))
+	(url-context
+	  (make-instance 'bot-context :bot-web-port (acceptor-port (request-acceptor *request*)))))
     (format nil "~{~A~^~%~}~%"
 	    (append
 	     '("<html><head><title>Bot Source</title></head><body><ul>")
@@ -119,6 +114,8 @@ or an error message, as appropriate."
 
 (defun start-web-servers ()
   "Initialize and start the web server subsystem."
+  (setf clhs-lookup::*hyperspec-map-file*
+	(make-pathname-in-lisp-subdir "HyperSpec/Data/Map_Sym.txt"))
   (dolist (port (config-web-server-ports *bot-config*))
     (push (make-instance 'hunchentoot:acceptor :port port) *acceptors*)
     (push (hunchentoot:create-prefix-dispatcher "/" 'redirect-shortener-dispatch) *dispatch-table*)

@@ -16,7 +16,6 @@
   - empty path == "/"
   - do lookups on raw IP addrs?
 - Count plugin usage to see what's popular?
-- Serve HyperSpec from the bot's Web server?
 
 Major Refactoring for Contexts/Multiheaded [Tuxedo]
 
@@ -88,3 +87,6 @@ Issues
      It's a pathological case, but it should be addressed.
    - The guard in random-words should index on both the context ID
      and the predicate.
+
+  Why's the assignment to clhs-lookup::*hyperspec-root* in fetch-file not always going
+  through as it should?

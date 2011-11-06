@@ -118,6 +118,11 @@ or an error message, as appropriate."
   (let* ((url-context (make-instance 'bot-context :bot-web-port (acceptor-port (request-acceptor *request*)))))
     (redirect (make-short-url-string url-context "HyperSpec/Front/index.htm"))))
 
+(defun gitrepo-base-dispatch ()
+  "Dispatcher for the Git repo."
+  (let* ((url-context (make-instance 'bot-context :bot-web-port (acceptor-port (request-acceptor *request*)))))
+    (redirect (concatenate 'string (make-short-url-string url-context "gitrepo/") (subseq (request-uri*) 12)))))
+
 (defun start-web-servers ()
   "Initialize and start the web server subsystem."
   (setf clhs-lookup::*hyperspec-map-file*
@@ -132,6 +137,8 @@ or an error message, as appropriate."
     (push (hunchentoot:create-prefix-dispatcher "/Hyper" 'hyperspec-base-dispatch) *dispatch-table*)
     (push (hunchentoot:create-prefix-dispatcher "/hyper" 'hyperspec-base-dispatch) *dispatch-table*)
     (push (hunchentoot:create-folder-dispatcher-and-handler "/HyperSpec/" (make-pathname-in-lisp-subdir "HyperSpec/")) *dispatch-table*)
+    (push (hunchentoot:create-folder-dispatcher-and-handler "/gitrepo/" (make-pathname-in-lisp-subdir "harlie/.git/")) *dispatch-table*)
+    (push (hunchentoot:create-prefix-dispatcher "/harlie.git" 'gitrepo-base-dispatch) *dispatch-table*)
     (hunchentoot:start (car *acceptors*))))
 
 (defun stop-web-servers ()

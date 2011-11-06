@@ -53,6 +53,7 @@
 	(loop for i in quote :collect (remove #\" i)))))
 
 (defun make-url-prefix (server-name server-port)
+  "Compose the portion of an URL encoding the server name and server port."
   (if (eql 80 server-port)
       (format nil "http://~A/"
 	      server-name)
@@ -61,6 +62,7 @@
 	      server-port)))
 
 (defun make-pathname-in-homedir (fname)
+  "Return a pathname relative to the user's home directory."
   (merge-pathnames
    fname
    (make-pathname :directory
@@ -68,6 +70,7 @@
 		   (user-homedir-pathname)))))
 
 (defun make-pathname-in-lisp-subdir (fname)
+  "Return a pathname relative to the Lisp source code subtree in the user's home directory."
   (merge-pathnames
    fname
    (make-pathname-in-homedir "SourceCode/lisp/")))

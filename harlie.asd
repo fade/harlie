@@ -18,6 +18,7 @@
 	       #:parse-number
 	       #:postmodern
 	       #:split-sequence
+	       #:trivial-shell
 	       #:trivial-timeout
 	       #:yaclml)
 

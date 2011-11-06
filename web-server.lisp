@@ -120,6 +120,7 @@ or an error message, as appropriate."
 
 (defun gitrepo-base-dispatch ()
   "Dispatcher for the Git repo."
+  (trivial-shell:shell-command (make-pathname-in-lisp-subdir "harlie/git-update-server-info.sh"))
   (let* ((url-context (make-instance 'bot-context :bot-web-port (acceptor-port (request-acceptor *request*)))))
     (redirect (concatenate 'string (make-short-url-string url-context "gitrepo/") (subseq (request-uri*) 12)))))
 

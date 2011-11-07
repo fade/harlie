@@ -129,7 +129,9 @@ or an error message, as appropriate."
   (setf clhs-lookup::*hyperspec-map-file*
 	(make-pathname-in-lisp-subdir "HyperSpec/Data/Map_Sym.txt"))
   (dolist (port (config-web-server-ports *bot-config*))
-    (push (make-instance 'hunchentoot:acceptor :port port) *acceptors*)
+    (if (find-symbol "EASY-ACCEPTOR" :hunchentoot)
+	(push (make-instance 'hunchentoot:easy-acceptor :port port) *acceptors*)
+	(push (make-instance 'hunchentoot:acceptor :port port) *acceptors*))
     (push (hunchentoot:create-prefix-dispatcher "/" 'redirect-shortener-dispatch) *dispatch-table*)
     (push (hunchentoot:create-prefix-dispatcher "/help" 'help-dispatch) *dispatch-table*)
     (push (hunchentoot:create-prefix-dispatcher "/source" 'source-dispatch) *dispatch-table*)

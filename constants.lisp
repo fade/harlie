@@ -1,4 +1,4 @@
-(in-package :harlie)
+(in-package #:harlie)
 
 (defparameter *constants* (make-pathname-in-lisp-subdir "harlie/constants/"))
 

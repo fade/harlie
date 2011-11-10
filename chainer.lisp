@@ -1,6 +1,6 @@
 ;;;; chainer.lisp
 
-(in-package :harlie)
+(in-package #:harlie)
 
 (defparameter *sentinel* (string #\Newline))
 
@@ -89,8 +89,7 @@ the chain, and also the number of trials before finding it."
 (defun make-random-words-query (context-id n range)
   (let* ((query-head '(:select 'word2 :from 'words :where))
 	 (indices (random-numbers n range))
-	 (clauses (loop for x in indices collecting (list ':= 'row-num x)))
-	 )
+	 (clauses (loop for x in indices collecting (list ':= 'row-num x))))
     (sql-compile
      (append query-head (list (list ':and
 				    (cons ':or clauses)

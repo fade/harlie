@@ -1,6 +1,6 @@
 ;;;; url-store.lisp
 
-(in-package :harlie)
+(in-package #:harlie)
 
 (defclass url-store () ())
 
@@ -193,9 +193,7 @@
 		   (sb-ext:with-locked-hash-table ((url->headline store))
 		     (setf (gethash url (url->headline store)) (format nil "~A: ~A" message url)))
 		   (values short message)))
-		(t (values nil nil)))
-	  )
-)))
+		(t (values nil nil)))))))
 
 (defmethod lookup-url ((store postmodern-url-store) context url nick)
   (format t "url-write-context-id: ~A~%" (url-write-context-id context))
@@ -251,7 +249,7 @@
 		     :from 'urls
 		     :where (:and
 			     (:= 'context-id (url-read-context-id context))
-			     (:not 'dead)) )
+			     (:not 'dead)))
 	    (:raw "tstamp desc")))))
 
 (defparameter *suppress-url-encoding* t)

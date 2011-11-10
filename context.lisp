@@ -1,6 +1,6 @@
 ;;;; context.lisp
 
-(in-package :harlie)
+(in-package #:harlie)
 
 (defclass bot-context ()
   ((bot-nick :initarg :bot-nick :initform nil :accessor bot-nick)
@@ -17,8 +17,7 @@
 		   (first (query (:select 'irc-server 'irc-channel 'web-server
 					  'web-port 'web-uri-prefix
 				  :from 'contexts
-				  :where (:= (:raw "lower(context_name)") (string-downcase (bot-nick context))))))
-))
+				  :where (:= (:raw "lower(context_name)") (string-downcase (bot-nick context))))))))
 	     (setf (bot-nick context) (string-downcase (bot-nick context)))
 	     (setf (bot-irc-server context) (first conlist))
 	     (setf (bot-irc-channel context) (second conlist))

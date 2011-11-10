@@ -132,8 +132,8 @@ or an error message, as appropriate."
     (push (make-instance 'hunchentoot:easy-acceptor
 			 :port port
 			 :access-log-destination (make-pathname-in-lisp-subdir "harlie/logs/http-access.log")
-			 :message-log-destination (make-pathname-in-lisp-subdir "harlie/logs/http-error.log")
-			 ) *acceptors*)
+			 :message-log-destination (make-pathname-in-lisp-subdir "harlie/logs/http-error.log"))
+	  *acceptors*)
     (push (hunchentoot:create-prefix-dispatcher "/" 'redirect-shortener-dispatch) *dispatch-table*)
     (push (hunchentoot:create-prefix-dispatcher "/help" 'help-dispatch) *dispatch-table*)
     (push (hunchentoot:create-prefix-dispatcher "/source" 'source-dispatch) *dispatch-table*)

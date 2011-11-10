@@ -2,7 +2,7 @@
 
 ;; With respect to David Gerrold's _When HARLIE Was One_
 
-(in-package :harlie)
+(in-package #:harlie)
 
 (defstruct config
   irc-server-name

@@ -190,8 +190,7 @@ second return value should be used on IRC."
 	(line (read-line stream) (read-line stream nil 'eof))
 	(lines (list line) (cons line lines)))
        ((eq line 'eof) (apply 'concatenate 'string (reverse (cdr lines))))
-    (format t "~A~%" line)
-    ))
+    (format t "~A~%" line)))
 
 (defun doomsday-anchor (tree)
   "Predicate which detects the result in a Doomsday lookup."

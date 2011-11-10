@@ -29,7 +29,7 @@
 ;;; SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
-(in-package :drakma)
+(in-package #:drakma)
 
 (defun http-request (uri &rest args
                          &key (protocol :http/1.1)
@@ -392,8 +392,7 @@ only available on CCL 1.2 and later."
 			     (append (dissect-query (uri-query uri))
 				     (and (not parameters-used-p) parameters)))
 		    (setf (uri-query uri)
-			  (alist-to-url-encoded-string all-get-parameters external-format-out)))
-		  )
+			  (alist-to-url-encoded-string all-get-parameters external-format-out))))
               (when (eq method :options*)
                 ;; special pseudo-method
                 (setf method :options

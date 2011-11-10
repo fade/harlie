@@ -340,8 +340,7 @@ the output.  If not, return nil."
 	   (add-hook connection 'irc::irc-join-message #'intercept-join-message)
 	   (read-message-loop connection))
        :name (format nil "IRC Client thread: server ~A, nick ~A"
-		     ircserver nickname)))    )
-  )
+		     ircserver nickname)))))
 
 (defun stop-threaded-irc-client-instance ()
   "Shut down a session with an IRC server, and clean up."

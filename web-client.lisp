@@ -80,7 +80,7 @@ argument is nil, that indicates that a title couldn't be extracted, and the
 second return value should be used on IRC."
   ;; (format t "URL: |~A|~%" url)
   ;; (format t "(length url) ~A~%" (length url))
-  (multiple-value-bind (webtext status) (webget url :accept "text/html" :redirect 10)
+  (multiple-value-bind (webtext status) (webget url :redirect 10)
     ;; (format t "length(webtext) = ~A, status = ~A~%" (length webtext) status)
     (if (and webtext status (< status 400))
 	(if (stringp webtext)

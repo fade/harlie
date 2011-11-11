@@ -46,6 +46,15 @@
   (:metaclass dao-class)
   (:keys url-id))
 
+(defgeneric spin-date (url)
+  (:documentation
+   "take the tstamp value from an urls object and return a human
+   consumable date string."))
+
+(defmethod spin-date ((url urls))
+  (let ((utime (tstamp url)))
+    (local-time:unix-to-timestamp utime)))
+
 ;;; some janitorial functions to mark urls that 404 'dead' in the
 ;;; database, and to try to ensure a title for each url.
 

@@ -1,4 +1,17 @@
-* Chainer (Tuxedo)
+- add config option for non-babbling bot instances
+- paste bin
+- user profiles/auth
+  - two levels: easy, depending on host/ident, and hard, using dcc/https
+- shore up config, context, db schemas, db initialization
+  - contexts finer-grained than per-nick
+  - many-to-one IRC:Web context mappings?
+  - migrate DB credentials out of context system?
+- enable plugins selectively on a contextual basis
+- create a REPL context for testing
+  - also make it easier to run other contexts from the REPL
+- Pre-reserve short URL hashes corresponding to Web service names
+- Starting an instance with an empty DB should just work.
+
 
 - Logarithmic probabilities in chainer
 - Coalesce entries in chain DB
@@ -10,7 +23,6 @@
     be in order, not a freeze.
 - Support for following nick changes
 - Event logging
-- Don't try to extract titles from binary files. [DONE, Tuxedo]
 - Do full RFC 2616 comparisons of URLs in the shortener
   - scheme name, host name are case-insensitive
   - empty path == "/"
@@ -26,24 +38,16 @@ names, names/IPs, base URIs, etc.
 Also, get the bots to get more of their configuration out of
 the database rather than half from the config file.
 
-* [Fade]
-- YACLML for all HTML generation
-  - Looks like we're using cl-who for this.
-- Convert other bot commands
-  - Are we about done?
-
 - Get full host string w/Web request
 - Smart rejoin
 
-- Wrap HTTP GETs in trivial-timeout [DONE, Fade]
 - !conv: detect failed return?
 - Limit length of title strings
 - Paginate full-page URL listing
-- Get redirected URIs
+- Get redirected URIs [DONE]
 - Smarter chaining: punctuation, better endings
 
-- Unit conversion. [DONE]
-  - Do some locally
+- Do some unit conversion locally
 - Test that short URLs won't collide
 - Implement transactions in DB
 - Read Web pages for chaining data
@@ -52,13 +56,11 @@ the database rather than half from the config file.
 
 - Make short URLs longer when table > high water mark
 - Auth module
-- Contexts for chaining [BEGUN]
 - Twitter plug-in, SMS gateway
 - More back-end Web stuff
 
 BUGS
 
-- Something was weird with chtml-matcher.
 - Drakma needs an option to avoid URL-encoding the URL
   - We have a fix in our tree
   - The RFCs support Drakma's interpretation
@@ -68,25 +70,9 @@ BUGS
 - Should https:// links be shortened? [Found by Kritter, Fade]
 - http://www.phat.uklinux.net/cgi-bin/crash.cgi doesn't generate a return [Found by Kritter]
 
-- URL http://dl.dropbox.com/u/27845290/object_oriented_programming_in_common_lisp.djvu
-  results in this error:
-  Corrupted UTF-8 input (initial byte was #b10100110)
-     [Condition of type RUNES-ENCODING:ENCODING-ERROR]
-  We need to catch that or otherwise work around it.  It happens with other non-HTML payloads,
-  too.
-
 Issues
-  cl-irc:connection initializes (channels connection) as a hash table
-  without :synchronize t.  We could override that, and perhaps should.
-
   irc-client.lisp:start-ignoring
    - Replace the test somehow and push with pushnew?
-
-  chainer.lisp:random-words
-   - If none of the words in the DB match the predicate, we'll loop forever.
-     It's a pathological case, but it should be addressed.
-   - The guard in random-words should index on both the context ID
-     and the predicate.
 
   Why's the assignment to clhs-lookup::*hyperspec-root* in fetch-file not always going
   through as it should?

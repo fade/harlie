@@ -46,6 +46,15 @@
   (:metaclass dao-class)
   (:keys url-id))
 
+(defgeneric spin-date (url)
+  (:documentation
+   "take the tstamp value from an urls object and return a human
+   consumable date string."))
+
+(defmethod spin-date ((url urls))
+  (let ((utime (tstamp url)))
+    (local-time:unix-to-timestamp utime)))
+
 ;;; some janitorial functions to mark urls that 404 'dead' in the
 ;;; database, and to try to ensure a title for each url.
 
@@ -61,6 +70,18 @@
   (loop for i to (1- n) ;; indexes start at 0. ask for 12, get 12.
 	for url in urls
 	:collect url))
+
+(defun none-title-urls ()
+  "This query will select for a condition that only happens in a
+   url-shortener database that was inherited from the original bot
+   code."
+  (select-dao 'urls (:= 'title "None")))
+
+(defun not-ascii-urls ()
+  "This query will select for a condition that only happens in a
+   url-shortener database that was inherited from the original bot
+   code."  
+  (select-dao 'urls (:= 'title "Can not downconvert to ascii.")))
 
 (defun scan-urls-with-fn (fn &key (urls (list-all-urls)))
   "forex: (scan-urls-with-fn #'url-resolves-p :urls (list-n-urls 10))
@@ -99,16 +120,18 @@
 		      (url-id i) (input-url i) (title i) (url-dead-p i)))))
 
 (defmethod set-dead ((url urls))
+  (format t "dead:: ~A~%" (title url))
   (setf (url-dead-p url) t))
 
 (defmethod reset-title ((url urls))
   (if (or (string-equal (title url) "Can not downconvert to ascii.")
 	  (string-equal (title url) "None"))
       (let ((new-title (fetch-title (input-url url))))
-	(when new-title
+	(if new-title
 	  (progn
 	    (format t "~&~%>>old: ~A~%>>new: ~A" (title url) new-title)
-	    (setf (title url) new-title))))))
+	    (setf (title url) new-title))
+	  (format t "~&~%NO title for Old url:: ~A" (input-url url))))))
 
 (defun url-janitor (&key (urls (list-all-urls)))
   (let ((dbconn (readwrite-url-db *the-url-store*)))

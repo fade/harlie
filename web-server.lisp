@@ -109,6 +109,7 @@ or an error message, as appropriate."
 
 (defun source-dispatch ()
   "Dispatcher for a brane-dead file server out of the bot."
+  (format t "~A" (request-uri*))
   (if (not (scan "^/source/?$" (request-uri*)))
       (fetch-file (subseq (request-uri*) 8))
       (fetch-source-dir)))

@@ -76,26 +76,30 @@ Only the first match is returned."
 (defparameter *user-agents* '("Mozilla/5.0 (X11; Linux x86_64; rv:7.0.1) Gecko/20100101 Firefox/7.0.1" "Bite Me"))
 
 (defun fetch-title (url)
-  "Extract the title from a Web page.  Return two values: the first, if not nil,
-is the title string to be used on the Web index page and on IRC.  If the first
-argument is nil, that indicates that a title couldn't be extracted, and the
-second return value should be used on IRC."
-  (let ((title "No title found")
-	(page-exists-p nil)
+"Extract the title from a Web page.  Return three values.
+If the first value is nil, then no actual title could be found.  If non-nil,
+then this value will be the title scraped from the page.
+The second value is identical to the first if a title was found.  If not, then
+the second value is an informative message to be posted in IRC.
+The third value is the redirected URI for the page retrieved, if the page
+was retrieved.  If the page couldn't be retrieved, the third value is nil.
+This is a very confusing API."
+  (let ((page-exists-p nil)
 	(store-redirect-uri nil))
     (dolist (user-agent *user-agents*)
       (multiple-value-bind (webtext status nonsense redirect-uri) (webget url :redirect 10 :user-agent user-agent)
 	(declare (ignore nonsense))
 	(when (and webtext status (< status 400))
-	  (setf page-exists-p t)
-	  (setf store-redirect-uri redirect-uri)
+	  (setf page-exists-p t
+		store-redirect-uri redirect-uri)
 	  (if (stringp webtext)
 	      (let* ((document (chtml:parse webtext (chtml:make-lhtml-builder)))
 		     (title (cleanup-title (find-title document))))
 		(when title
 		  (return-from fetch-title (values title title redirect-uri))))
 	      (return-from fetch-title (values nil "Binary data" redirect-uri))))))
-    (values page-exists-p (if page-exists-p title nil) store-redirect-uri)))
+    (values nil (if page-exists-p "No title found" nil) store-redirect-uri)
+    ))
 
 ;;; alternative scraping system which uses an STP document structure
 ;;; to do a recursive search on the target document for various

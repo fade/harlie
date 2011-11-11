@@ -215,7 +215,7 @@
 
 (defmethod get-url-from-shortstring ((store postmodern-url-store) short)
   (with-connection (readwrite-url-db store)
-    (caar (query (:select 'input-url :from 'urls :where (:= 'short-url short))))))
+    (caar (query (:select 'redirected-url :from 'urls :where (:= 'short-url short))))))
 
 (defgeneric get-urls-and-headlines (store context)
   (:documentation "Get a list of URLs and headlines from an URL store."))

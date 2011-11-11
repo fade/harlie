@@ -102,7 +102,7 @@ or an error message, as appropriate."
 			    (make-short-url-string url-context "source/") fname fname)))
 	      (remove-if
 	       #'(lambda (x)
-		   (scan "[/][.]|[/]$"
+		   (scan "[/][.]|[/]$|[.]fasl$|^[#]|[#]$"
 			 (sb-ext:native-namestring x)))
 	       fotchery)) 
 	     '("</ul></body></html>")))))

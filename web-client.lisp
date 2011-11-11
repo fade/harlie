@@ -81,18 +81,21 @@ is the title string to be used on the Web index page and on IRC.  If the first
 argument is nil, that indicates that a title couldn't be extracted, and the
 second return value should be used on IRC."
   (let ((title "No title found")
-	(page-exists-p nil))
+	(page-exists-p nil)
+	(store-redirect-uri nil))
     (dolist (user-agent *user-agents*)
       (multiple-value-bind (webtext status nonsense redirect-uri) (webget url :redirect 10 :user-agent user-agent)
+	(declare (ignore nonsense))
 	(when (and webtext status (< status 400))
 	  (setf page-exists-p t)
+	  (setf store-redirect-uri redirect-uri)
 	  (if (stringp webtext)
 	      (let* ((document (chtml:parse webtext (chtml:make-lhtml-builder)))
 		     (title (cleanup-title (find-title document))))
 		(when title
 		  (return-from fetch-title (values title title redirect-uri))))
 	      (return-from fetch-title (values nil "Binary data" redirect-uri))))))
-    (values page-exists-p (if page-exists-p title nil) redirect-uri)))
+    (values page-exists-p (if page-exists-p title nil) store-redirect-uri)))
 
 ;;; alternative scraping system which uses an STP document structure
 ;;; to do a recursive search on the target document for various

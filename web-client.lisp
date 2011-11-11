@@ -73,6 +73,8 @@ Only the first match is returned."
   "Plunder a nested list for XE.com's forex information."
   (extract-from-html tree 'forex-anchor 'forex-extractor))
 
+(defparameter *user-agents* '("Mozilla/5.0 (X11; Linux x86_64; rv:7.0.1) Gecko/20100101 Firefox/7.0.1" "Bite Me"))
+
 (defun fetch-title (url)
   "Extract the title from a Web page.  Return two values: the first, if not nil,
 is the title string to be used on the Web index page and on IRC.  If the first
@@ -80,25 +82,19 @@ argument is nil, that indicates that a title couldn't be extracted, and the
 second return value should be used on IRC."
   ;; (format t "URL: |~A|~%" url)
   ;; (format t "(length url) ~A~%" (length url))
-  (multiple-value-bind (webtext status) (webget url :redirect 10)
-    ;; (format t "length(webtext) = ~A, status = ~A~%" (length webtext) status)
-    (if (and webtext status (< status 400))
-	(if (stringp webtext)
-	    (let* ((document (chtml:parse webtext (chtml:make-lhtml-builder)))
-		   (title (cleanup-title (find-title document))))
-	      (if title
-		  (progn
-		    ;; (format t "Returning from fetch-title #1 title = ~A~%" title)
-		    (values title title))
-		  (progn
-		    ;; (format t "Returning from fetch-title #2 message = No title found~%")
-		    (values nil "No title found"))))
-	    (progn
-	      ;; (format t "Returning from fetch-title #3 message = Binary data~%")
-	      (values nil "Binary data")))
-	(progn
-	  ;; (format t "Returning from fetch-title #4 nil nil.~%")
-	  (values nil nil)))))
+  (let ((title "No title found")
+	(page-exists-p nil))
+    (dolist (user-agent *user-agents*)
+      (multiple-value-bind (webtext status) (webget url :redirect 10 :user-agent user-agent)
+	(when (and webtext status (< status 400))
+	  (setf page-exists-p t)
+	  (if (stringp webtext)
+	      (let* ((document (chtml:parse webtext (chtml:make-lhtml-builder)))
+		     (title (cleanup-title (find-title document))))
+		(when title
+		  (return-from fetch-title (values title title))))
+	      (return-from fetch-title (values nil "Binary data"))))))
+    (values page-exists-p (if page-exists-p title nil))))
 
 ;;; alternative scraping system which uses an STP document structure
 ;;; to do a recursive search on the target document for various
@@ -109,6 +105,9 @@ second return value should be used on IRC."
    resource. Return this html to the caller as a string. In the event
    of a network error from drakma, the return of this function is
    NIL. Should not throw to the debugger."
+  (format t "url=~A  args=~A~%" url args)
+  (unless (member :user-agent args)
+    (setf args (append args (list :user-agent (car *user-agents*)))))
   (multiple-value-bind
 	(page status headers uri stream winky nod)
       (handler-case
@@ -116,16 +115,12 @@ second return value should be used on IRC."
 	    (ignore-errors
 	     (let ((flexi-streams:*substitution-char* #\?))
 	       (apply #'drakma:http-request url
-		      :user-agent
-		      "Mozilla/5.0 (X11; Linux x86_64; rv:7.0.1) Gecko/20100101 Firefox/7.0.1"
 		      args))))
 	(trivial-timeout:timeout-error (c) (declare (ignore c)) nil))
     (declare (ignorable page status headers uri stream winky nod))
     (if (every #'identity (list page status headers uri winky nod))
 	(values page status headers uri winky nod)
 	(values nil nil))))
-
-
 
 (defun clean-html (string)
   "take a shot at repairing broken html. This won't work in the

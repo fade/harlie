@@ -80,8 +80,6 @@ Only the first match is returned."
 is the title string to be used on the Web index page and on IRC.  If the first
 argument is nil, that indicates that a title couldn't be extracted, and the
 second return value should be used on IRC."
-  ;; (format t "URL: |~A|~%" url)
-  ;; (format t "(length url) ~A~%" (length url))
   (let ((title "No title found")
 	(page-exists-p nil))
     (dolist (user-agent *user-agents*)
@@ -105,7 +103,6 @@ second return value should be used on IRC."
    resource. Return this html to the caller as a string. In the event
    of a network error from drakma, the return of this function is
    NIL. Should not throw to the debugger."
-  (format t "url=~A  args=~A~%" url args)
   (unless (member :user-agent args)
     (setf args (append args (list :user-agent (car *user-agents*)))))
   (multiple-value-bind

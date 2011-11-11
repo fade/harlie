@@ -196,28 +196,27 @@
 		(t (values nil nil)))))))
 
 (defmethod lookup-url ((store postmodern-url-store) context url nick)
-  (format t "url-write-context-id: ~A~%" (url-write-context-id context))
   (let ((result (with-connection (readwrite-url-db store)
 		  (query (:order-by
 			  (:select 'short-url 'title
 				   :from 'urls
-				   :where (:= 'input-url url))
+				   :where (:or (:= 'input-url url)
+					       (:= 'redirected-url url)))
 			  (:raw "tstamp desc"))))))
-    (format t "Result: ~A~%" result)
     (if result
 	(destructuring-bind (short title) (first result)
 	  (values (make-short-url-string context short) title))
-	(multiple-value-bind (title message) (fetch-title url)
-	  (format t "Title: ~A    Message: ~A~%" title message)
+	(multiple-value-bind (title message redirect-uri) (fetch-title url)
+	  (setf redirect-uri (format nil "~A" redirect-uri))
 	  (cond (title
 		 (let ((short (make-unique-shortstring store url)))
 		   (with-connection (readwrite-url-db store)
-		     (insert-dao (make-instance 'urls :input-url url :redirected-url url :short-url short :title title :from-nick nick :context-id (url-write-context-id context)))
+		     (insert-dao (make-instance 'urls :input-url url :redirected-url redirect-uri :short-url short :title title :from-nick nick :context-id (url-write-context-id context)))
 		     (values (make-short-url-string context short) title))))
 		(message
 		 (let ((short (make-unique-shortstring store url)))
 		   (with-connection (readwrite-url-db store)
-		     (insert-dao (make-instance 'urls :input-url url :redirected-url url :short-url short :title (format nil "~A: ~A" message url) :from-nick nick :context-id (url-write-context-id context)))
+		     (insert-dao (make-instance 'urls :input-url url :redirected-url redirect-uri :short-url short :title (format nil "~A: ~A" message url) :from-nick nick :context-id (url-write-context-id context)))
 		     (values (make-short-url-string context short) message))))
 		(t (values nil nil)))))))
 
@@ -230,7 +229,7 @@
 
 (defmethod get-url-from-shortstring ((store postmodern-url-store) short)
   (with-connection (readwrite-url-db store)
-    (caar (query (:select 'input-url :from 'urls :where (:= 'short-url short))))))
+    (caar (query (:select 'redirected-url :from 'urls :where (:= 'short-url short))))))
 
 (defgeneric get-urls-and-headlines (store context)
   (:documentation "Get a list of URLs and headlines from an URL store."))
@@ -245,7 +244,7 @@
 (defmethod get-urls-and-headlines ((store postmodern-url-store) (context bot-context))
   (with-connection (readwrite-url-db store)
     (query (:order-by
-	    (:select 'input-url 'title
+	    (:select 'redirected-url 'title
 		     :from 'urls
 		     :where (:and
 			     (:= 'context-id (url-read-context-id context))

@@ -11,32 +11,25 @@
    (bot-uri-prefix :initarg :bot-uri-prefix :initform nil :accessor bot-uri-prefix)))
 
 (defmethod initialize-instance :after ((context bot-context) &key)
-  (cond ((bot-nick context)
-	 (with-connection (config-psql-context-credentials *bot-config*)
-	   (let ((conlist
-		   (first (query (:select 'irc-server 'irc-channel 'web-server
-					  'web-port 'web-uri-prefix
-				  :from 'contexts
-				  :where (:= (:raw "lower(context_name)") (string-downcase (bot-nick context))))))))
-	     (setf (bot-nick context) (string-downcase (bot-nick context)))
-	     (setf (bot-irc-server context) (first conlist))
-	     (setf (bot-irc-channel context) (second conlist))
-	     (setf (bot-web-server context) (third conlist))
-	     (setf (bot-web-port context) (fourth conlist))
-	     (setf (bot-uri-prefix context) (fifth conlist)))))
-	((bot-web-port context)
-	 (with-connection (config-psql-context-credentials *bot-config*)
-	   (let ((conlist
-		   (first (query (:select 'context-name 'irc-server 'irc-channel 'web-server
-					  'web-uri-prefix
-				  :from 'contexts
-				  :where (:= 'web-port (bot-web-port context)))))))
-	     (setf (bot-nick context) (string-downcase (first conlist)))
-	     (setf (bot-irc-server context) (second conlist))
-	     (setf (bot-irc-channel context) (third conlist))
-	     (setf (bot-web-server context) (fourth conlist))
-	     (setf (bot-uri-prefix context) (fifth conlist)))))
-	(t nil)))
+  (with-connection (config-psql-context-credentials *bot-config*)
+    (let* ((context-query-head '(:select 'context-name 'irc-server 'irc-channel
+				         'web-server 'web-port 'web-uri-prefix
+				 :from 'contexts))
+	   (context-query (cond ((bot-nick context)
+				 (append context-query-head
+					 `(:where (:= (:raw "lower(context_name)")
+						      ,(string-downcase (bot-nick context))))))
+				((bot-web-port context)
+				 (append context-query-head
+					 `(:where (:= 'web-port ,(bot-web-port context)))))
+				(t nil))))
+      (let ((conlist (first (query (sql-compile context-query)))))
+	(setf (bot-nick context) (string-downcase (first conlist)))
+	(setf (bot-irc-server context) (second conlist))
+	(setf (bot-irc-channel context) (third conlist))
+	(setf (bot-web-server context) (fourth conlist))
+	(setf (bot-web-port context) (fifth conlist))
+	(setf (bot-uri-prefix context) (sixth conlist))))))
 
 (defgeneric chain-read-credentials (context)
   (:documentation "Returns the database credentials to read the chaining DB in a given context."))

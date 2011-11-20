@@ -333,9 +333,12 @@ the output.  If not, return nil."
 		    *irc-connections*) connection))
 	   (dolist (channel channels)
 	     (if (listp channel)
-		 (cl-irc:join connection (first channel) :password (second channel))
-		 (cl-irc:join connection channel))
-	     (privmsg connection channel (format nil "NOTIFY:: Help, I'm a bot!")))
+		 (progn
+		   (cl-irc:join connection (first channel) :password (second channel))
+		   (privmsg connection (first channel) (format nil "NOTIFY:: Help, I'm a bot!")))
+		 (progn
+		   (cl-irc:join connection channel)
+		   (privmsg connection channel (format nil "NOTIFY:: Help, I'm a bot!")))))
 	   (add-hook connection 'irc::irc-privmsg-message #'threaded-msg-hook)
 	   (add-hook connection 'irc::irc-quit-message #'threaded-byebye-hook)
 	   (add-hook connection 'irc::irc-part-message #'threaded-byebye-hook)

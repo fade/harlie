@@ -224,7 +224,7 @@ the output.  If not, return nil."
 				    :bot-nick (nickname (user connection))
 				    :bot-irc-server (server-name connection)
 				    :bot-irc-channel channel))
-			  (urls (all-matches-as-strings "((ftp|http|https)://[^\\s]+)|(www[.][^\\s]+)" text)))
+			  (urls (all-matches-as-strings "((ftp|http|https)://[^\\s]+)|(www[.][^\\s.][^\\s]*[.][^\\s.][^\\s]*)" text)))
 
 		     (setf (last-message connection) message)
 		     (format t "Message: ~A~%" (raw-message-string message))

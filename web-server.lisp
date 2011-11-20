@@ -73,19 +73,22 @@ or an error message, as appropriate."
 	   fname
 	   (make-pathname-in-lisp-subdir "harlie/")))
 	(s2 (make-string-output-stream)))
-    (if (scan "[.]lisp|asd$" fname)
-	(let ((url-context (make-instance 'bot-context :bot-web-port (acceptor-port (request-acceptor *request*)))))
-	  (setf clhs-lookup::*hyperspec-root* (make-short-url-string url-context "HyperSpec/"))
-	  (colorize::colorize-file-to-stream :common-lisp fpath s2)
-	  (get-output-stream-string s2))
-	(let ((gfulg nil))
-	  (with-open-file (stream (constant-file fpath))
-	    (do* ((line (read-line stream) (read-line stream nil 'eof))
-		  (lines (list line (format nil "<html><head><title>~A</title></head><body><pre>~%" fname))
-			 (cons (if (eq 'eof line) "" (format nil "~A~%" (escape-string line))) lines)))
-		 ((eq line 'eof) (setf gfulg (apply 'concatenate 'string (reverse (cdr lines))))))
-	    (format t "~A" gfulg)
-	    gfulg)))))
+    (cond ((scan "config.lisp" fname)
+	   (format nil "<html><head><title>File Unavailable</title></head><body><p>We're sorry, but that file is not available.</body></html>"))
+	  ((scan "[.]lisp|asd$" fname)
+	   (let ((url-context (make-instance 'bot-context :bot-web-port (acceptor-port (request-acceptor *request*)))))
+	     (setf clhs-lookup::*hyperspec-root* (make-short-url-string url-context "HyperSpec/"))
+	     (colorize::colorize-file-to-stream :common-lisp fpath s2)
+	     (get-output-stream-string s2)))
+	  (t
+	   (let ((gfulg nil))
+	     (with-open-file (stream (constant-file fpath))
+	       (do* ((line (read-line stream) (read-line stream nil 'eof))
+		     (lines (list line (format nil "<html><head><title>~A</title></head><body><pre>~%" fname))
+			    (cons (if (eq 'eof line) "" (format nil "~A~%" (escape-string line))) lines)))
+		    ((eq line 'eof) (setf gfulg (apply 'concatenate 'string (reverse (cdr lines))))))
+	       (format t "~A" gfulg)
+	       gfulg))))))
 
 (defun fetch-source-dir ()
   (let ((fotchery
@@ -102,7 +105,7 @@ or an error message, as appropriate."
 			    (make-short-url-string url-context "source/") fname fname)))
 	      (remove-if
 	       #'(lambda (x)
-		   (scan "[/][.]|[/]$|[.]fasl$|^[#]|[#]$"
+		   (scan "config.lisp|[/][.]|[/]$|[.]fasl$|^[#]|[#]$"
 			 (sb-ext:native-namestring x)))
 	       fotchery)) 
 	     '("</ul></body></html>")))))

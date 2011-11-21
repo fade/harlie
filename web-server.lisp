@@ -23,10 +23,10 @@
 	       (:a :href target (str (escape-string link-description))))))))))
       s)))
 
-(defun bug (store)
-  (dolist (link (get-urls-and-headlines store))
-    ;(format t "~&~A: ~A~&~A: ~A" (type-of (car link)) (car link) (type-of (cadr link)) (cadr link))
-    (format t "~%** ~A~%=> ~A~%" (car link) (escape-string (cadr link)))))
+;; (defun bug (store)
+;;   (dolist (link (get-urls-and-headlines store))
+;;     ;(format t "~&~A: ~A~&~A: ~A" (type-of (car link)) (car link) (type-of (cadr link)) (cadr link))
+;;     (format t "~%** ~A~%=> ~A~%" (car link) (escape-string (cadr link)))))
 
 (defun html-apology ()
   "Return HTML for a page explaining that a browser has struck out."

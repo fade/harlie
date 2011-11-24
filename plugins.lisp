@@ -336,12 +336,15 @@
     (:priority 3.0)
     (:run (rpn-calculator (rest (plugin-token-text-list plug-request))))))
 
-(defun metar-temp-value (s)
-  (if (scan "^M" s)
-      (- (parse-integer (subseq s 1))) 
-      (parse-integer s)))
+(defun metar-temp-value (s &optional (units :Centigrade))
+  (let ((centigrade (if (scan "^M" s)
+			(- (parse-integer (subseq s 1))) 
+			(parse-integer s))))
+    (cond ((eq units :Fahrenheit) (format nil "~,1F F" (+ 32 (* (/ 9 5) centigrade))))
+	  ((eq units :Kelvin) (format nil "~,1F K" (+ 273.15 centigrade)))
+	  (t (format nil "~A C" centigrade)))))
 
-(defun read-metar-data (regex)
+(defun read-metar-data (regex &optional (units :Centigrade))
   (multiple-value-bind (ns sec min hour) (decode-timestamp (now) :timezone +utc-zone+)
     (declare (ignore ns sec min))
     (do* ((n 0 (1+ n))
@@ -361,21 +364,32 @@
 	    (multiple-value-bind (wholematch2 dew-temp) (scan-to-strings "[/](M?[0-9]+)\\s" metar-line)
 	      (declare (ignore wholematch2))
 	      (return-from read-metar-data
-		(format nil "Current temperature ~A C, dewpoint ~A C"
-			(metar-temp-value (aref cur-temp 0))
-			(metar-temp-value (aref dew-temp 0)))))))))))
+		(format nil "Current temperature ~A, dewpoint ~A"
+			(metar-temp-value (aref cur-temp 0) units)
+			(metar-temp-value (aref dew-temp 0) units))))))))))
+
+(defun metar-units-symbol (s)
+  (cond ((scan "^[kK]" s) :Kelvin)
+	((scan "^[fFiI]" s) :Fahrenheit)
+	(t :Centigrade)))
 
 (defplugin metar (plug-request)
   (case (plugin-action plug-request)
     (:docstring (format nil "Print a human-readable weather report based on METAR data"))
     (:priority 2.0)
     (:run
-     (let ((regex (if (<= 2 (length (plugin-token-text-list plug-request)))
-		      (if (< (length (second (plugin-token-text-list plug-request))) 4)
-			  (format nil "^[^\\s]~A" (string-upcase (second (plugin-token-text-list plug-request))))
-			  (format nil "^~A" (string-upcase (second (plugin-token-text-list plug-request)))))
-		      "^CYYZ")))
-       (read-metar-data regex)))))
+     (format t "~{~^~A ~}~%" (plugin-token-text-list plug-request))
+     (let* ((tokens (plugin-token-text-list plug-request))
+	    (location (if (<= 2 (length tokens))
+			  (string-upcase (second tokens))
+			  "CYYZ"))
+	    (units (if (<= 3 (length tokens))
+		       (metar-units-symbol (third tokens))
+		       :Centigrade))
+	    (regex (if (< (length location) 4)
+		       (format nil "^[^\\s]~A" location)
+		       (format nil "^~A" location))))
+       (read-metar-data regex units)))))
 
 ;; ftoc
 

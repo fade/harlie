@@ -11,7 +11,10 @@
   - also make it easier to run other contexts from the REPL
 - Pre-reserve short URL hashes corresponding to Web service names
 - Starting an instance with an empty DB should just work.
+- Harden the /source service against fetching forbidden or nonexistent files.
 
+BUG: Why does the en dash in the title of http://www.vulva-original.com/home-en.htm
+not get correctly decoded from UTF-8?
 
 - Logarithmic probabilities in chainer
 - Coalesce entries in chain DB
@@ -28,6 +31,9 @@
   - empty path == "/"
   - do lookups on raw IP addrs?
 - Count plugin usage to see what's popular?
+
+- Calendars, reminders within the bot
+  - Hook into Google Calendar/iCal/other services for same
 
 Major Refactoring for Contexts/Multiheaded [Tuxedo]
 

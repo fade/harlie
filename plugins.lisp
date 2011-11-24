@@ -336,6 +336,47 @@
     (:priority 3.0)
     (:run (rpn-calculator (rest (plugin-token-text-list plug-request))))))
 
+(defun metar-temp-value (s)
+  (if (scan "^M" s)
+      (- (parse-integer (subseq s 1))) 
+      (parse-integer s)))
+
+(defun read-metar-data (regex)
+  (multiple-value-bind (ns sec min hour) (decode-timestamp (now) :timezone +utc-zone+)
+    (declare (ignore ns sec min))
+    (do* ((n 0 (1+ n))
+	  (zulu hour (mod (1- zulu) 24)))
+	 ((> n 6) "Temperature data not available.")
+      (let* ((flexi-streams:*substitution-char* #\?)
+	     (metar-stream (http-request
+			    (format nil "http://weather.noaa.gov/pub/data/observations/metar/cycles/~2,'0dZ.TXT" zulu)
+			    :want-stream t))
+	     (metar-line (do* ((l (read-line metar-stream) (read-line metar-stream nil 'eof))
+			       (payload nil))
+			      ((or (eq l 'eof) payload) payload)
+			   (when (scan regex l) (setf payload l)))))
+	(when metar-line
+	  (multiple-value-bind (wholematch1 cur-temp) (scan-to-strings "\\s(M?[0-9]+)[/]" metar-line)
+	    (declare (ignore wholematch1))
+	    (multiple-value-bind (wholematch2 dew-temp) (scan-to-strings "[/](M?[0-9]+)\\s" metar-line)
+	      (declare (ignore wholematch2))
+	      (return-from read-metar-data
+		(format nil "Current temperature ~A C, dewpoint ~A C"
+			(metar-temp-value (aref cur-temp 0))
+			(metar-temp-value (aref dew-temp 0)))))))))))
+
+(defplugin metar (plug-request)
+  (case (plugin-action plug-request)
+    (:docstring (format nil "Print a human-readable weather report based on METAR data"))
+    (:priority 2.0)
+    (:run
+     (let ((regex (if (<= 2 (length (plugin-token-text-list plug-request)))
+		      (if (< (length (second (plugin-token-text-list plug-request))) 4)
+			  (format nil "^[^\\s]~A" (string-upcase (second (plugin-token-text-list plug-request))))
+			  (format nil "^~A" (string-upcase (second (plugin-token-text-list plug-request)))))
+		      "^CYYZ")))
+       (read-metar-data regex)))))
+
 ;; ftoc
 
 ;; ctof

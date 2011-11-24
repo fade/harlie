@@ -199,6 +199,84 @@ the output.  If not, return nil."
 	     token-list))
 	  (t nil))))
 
+(defun msg-hook (message)
+  "Handle an incoming message."
+  (let* ((connection (connection message))
+	 (channel-name (car (arguments message)))
+	 (channel (sb-ext:with-locked-hash-table
+		      ((channels connection))
+		    (gethash channel-name (channels connection) nil)))
+	 (sender (source message))
+	 (text (second (arguments message)))
+	 (token-text-list (split "\\s+" text))
+	 (command (string-upcase (first token-text-list)))
+	 (reply-to channel-name)
+	 (context (make-instance
+		   'bot-context
+		   :bot-nick (nickname (user connection))
+		   :bot-irc-server (server-name connection)
+		   :bot-irc-channel channel))
+	 (urls (all-matches-as-strings "((http|https)://[^\\s]+)|(www[.][^\\s.][^\\s]*[.][^\\s.][^\\s]*)" text)))
+
+    (setf (last-message connection) message)
+    (format t "Message: ~A~%" (raw-message-string message))
+    (format t "   connection=~A channel=~A~%" connection channel-name)
+
+    (when (string-equal channel-name (bot-nick context))
+      (setf reply-to sender))
+
+    (cond ((scan "^NOTIFY:: Help, I'm a bot!" text)
+	   (when (start-ignoring connection sender)
+	     (qmess connection sender "NOTIFY:: Help, I'm a bot!")))
+
+	  ((string= "!IGNOREME" command)
+	   (if (or
+		(< (length token-text-list) 2)
+		(not (string= "OFF" (string-upcase (second token-text-list)))))
+	       (when (start-ignoring connection sender)
+		 (qmess connection reply-to
+			(format nil
+				"Now ignoring ~A.  Use !IGNOREME OFF when you want me to hear you again." sender)))
+	       (if (stop-ignoring connection sender)
+		   (qmess connection reply-to
+			  (format nil "No longer ignoring ~A." sender))
+		   (qmess connection reply-to
+			  (format nil "I wasn't ignoring you, ~A." sender)))))
+	  
+	  ((member sender (ignore-list connection) :test #'string-equal) nil)
+
+	  ((scan "^![^!]" command)
+	   (run-plugin (make-instance
+			'plugin-request :botcmd command
+			:plugin-context context
+			:connection connection
+			:channel-name channel-name
+			:reply-to reply-to
+			:token-text-list token-text-list)))
+	  (urls
+	   (dolist (url urls)
+	     (unless (or (scan (make-short-url-string context "") url)
+			 (scan "127.0.0.1" url))
+	       (when (scan "^www" url)
+		 (setf url (format nil "http://~A" url)))
+	       (multiple-value-bind (short title) (lookup-url *the-url-store* context url sender)
+		 (if (and short title)
+		     (qmess connection reply-to
+			    (format nil "[ ~A ] [ ~A ]" short title))
+		     (qmess connection reply-to
+			    (format nil "[ ~A ] Couldn't fetch this page." url)))))))
+
+	  (channel
+	   (let ((trigger-tokens (triggered context token-text-list sender channel)))
+	     (chain-in context token-text-list)
+	     (when trigger-tokens
+	       (let ((outgoing (chain context (first trigger-tokens) (second trigger-tokens))))
+		 (unless (not (mismatch trigger-tokens outgoing :test #'string-equal))
+		   (qmess connection reply-to
+			  (format nil "~{~A~^ ~}" outgoing)))))))
+	  (t nil))))
+
+
 ; Why do we fork another thread just to run this lambda, you may ask?
 ; Because the thread that the network event loop runs in keeps getting
 ; killed every time there's an error in any of this code, and then
@@ -207,82 +285,9 @@ the output.  If not, return nil."
 ; (well, hardly anyone) will miss.
 
 (defun threaded-msg-hook (message)
-  "Handle an incoming message."
+  "Dispatch a thread to handle an incoming message."
   (make-thread #'(lambda ()
-		   (let* ((connection (connection message))
-			  (channel-name (car (arguments message)))
-			  (channel (sb-ext:with-locked-hash-table
-				       ((channels connection))
-				     (gethash channel-name (channels connection) nil)))
-			  (sender (source message))
-			  (text (second (arguments message)))
-			  (token-text-list (split "\\s+" text))
-			  (command (string-upcase (first token-text-list)))
-			  (reply-to channel-name)
-			  (context (make-instance
-				    'bot-context
-				    :bot-nick (nickname (user connection))
-				    :bot-irc-server (server-name connection)
-				    :bot-irc-channel channel))
-			  (urls (all-matches-as-strings "((http|https)://[^\\s]+)|(www[.][^\\s.][^\\s]*[.][^\\s.][^\\s]*)" text)))
-
-		     (setf (last-message connection) message)
-		     (format t "Message: ~A~%" (raw-message-string message))
-		     (format t "   connection=~A channel=~A~%" connection channel-name)
-
-		     (when (string-equal channel-name (bot-nick context))
-		       (setf reply-to sender))
-
-		     (cond ((scan "^NOTIFY:: Help, I'm a bot!" text)
-			    (when (start-ignoring connection sender)
-			      (qmess connection sender "NOTIFY:: Help, I'm a bot!")))
-
-			   ((string= "!IGNOREME" command)
-			    (if (or
-				 (< (length token-text-list) 2)
-				 (not (string= "OFF" (string-upcase (second token-text-list)))))
-				(when (start-ignoring connection sender)
-				  (qmess connection reply-to
-					 (format nil
-						 "Now ignoring ~A.  Use !IGNOREME OFF when you want me to hear you again." sender)))
-				(if (stop-ignoring connection sender)
-				    (qmess connection reply-to
-					   (format nil "No longer ignoring ~A." sender))
-				    (qmess connection reply-to
-					   (format nil "I wasn't ignoring you, ~A." sender)))))
-			   
-			   ((member sender (ignore-list connection) :test #'string-equal) nil)
-
-			   ((scan "^![^!]" command)
-			    (run-plugin (make-instance
-					 'plugin-request :botcmd command
-					                 :plugin-context context
-							 :connection connection
-					                 :channel-name channel-name
-							 :reply-to reply-to
-							 :token-text-list token-text-list)))
-			   (urls
-			    (dolist (url urls)
-			      (unless (or (scan (make-short-url-string context "") url)
-					  (scan "127.0.0.1" url))
-				(when (scan "^www" url)
-				  (setf url (format nil "http://~A" url)))
-				(multiple-value-bind (short title) (lookup-url *the-url-store* context url sender)
-				  (if (and short title)
-				      (qmess connection reply-to
-					     (format nil "[ ~A ] [ ~A ]" short title))
-				      (qmess connection reply-to
-					     (format nil "[ ~A ] Couldn't fetch this page." url)))))))
-
-			   (channel
-			    (let ((trigger-tokens (triggered context token-text-list sender channel)))
-			      (chain-in context token-text-list)
-			      (when trigger-tokens
-				(let ((outgoing (chain context (first trigger-tokens) (second trigger-tokens))))
-				  (unless (not (mismatch trigger-tokens outgoing :test #'string-equal))
-				    (qmess connection reply-to
-					   (format nil "~{~A~^ ~}" outgoing)))))))
-			   (t nil))))))
+		   (msg-hook message))))
 
 (defun threaded-byebye-hook (message)
   "Handle a quit or part message."
@@ -290,8 +295,8 @@ the output.  If not, return nil."
 		   (let* ((connection (connection message))
 			  (sender (source message)))
 		     (setf (last-message connection) message)
-		     (format t "In threaded-byebye-hook, sender = ~A~%" sender)
 		     (stop-ignoring connection sender)))))
+
 (defun nick-change-hook (message)
   "Handle a nick message."
   
@@ -299,7 +304,6 @@ the output.  If not, return nil."
 		   (let* ((connection (connection message))
 			  (sender (source message)))
 		     (setf (last-message connection) message)
-		     (format t "In threaded-byebye-hook, sender = ~A~%" sender)
 		     (stop-ignoring connection sender)))))
 
 (defun stop-irc-client-instance ()

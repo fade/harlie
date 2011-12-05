@@ -212,6 +212,39 @@ This is a very confusing API."
   "Find how many minutes to midnight according to the Bulletin of the Atomic Scientists."
   (extract-from-html tree 'doomsday-anchor 'doomsday-extractor))
 
+(defun twitter-extractor (tree)
+  "Extract the text of a Twitter posting."
+  (let ((tweet (last tree)))
+    (if tweet
+	(car tweet)
+	nil)))
+
+(defun twitter-anchor (tree)
+  "Locate the text of a Twitter posting within the lhtml returned by fetching it."
+  (and (equal (car tree) :SPAN)
+       (listp (second tree))
+       (equal "status"
+	      (some #'identity
+		    (mapcar #'(lambda (proplist)
+				(getf proplist :CLASS))
+			    (second tree))))))
+
+(defun find-twitter (tree url)
+  "Format the message for printing a precis of a Twitter posting."
+  (multiple-value-bind (whole username) (scan-to-strings "[^/]/([^/]+)/" url)
+    (declare (ignore whole))
+    (format nil "[ @~A ~A ]"  (elt username 0) (extract-from-html tree 'twitter-anchor 'twitter-extractor))))
+
+(defun twitter-payload (url)
+  "If the URL is at twitter.com, scrape the text of the tweet and return it.  Otherwise return nil."
+  (if (scan "^[^/]*//[^/]*twitter.com/" url)
+      (find-twitter
+       (chtml:parse
+	(webget url :redirect 10 :user-agent (car *user-agents*))
+	(chtml:make-lhtml-builder))
+       url) 
+      nil))
+
 ;; drakma is very thorough in checking the correctness of the HTML
 ;; it fetches.  Unfortunately, it wants to see a newline character
 ;; at the end-of-file.  The Hacker News website doesn't provide one.

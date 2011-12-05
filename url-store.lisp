@@ -221,13 +221,13 @@
 		 (let ((short (make-unique-shortstring store url)))
 		   (with-connection (readwrite-url-db store)
 		     (insert-dao (make-instance 'urls :input-url url :redirected-url redirect-uri :short-url short :title title :from-nick nick :context-id (url-write-context-id context)))
-		     (values (make-short-url-string context short) title))))
+		     (values (make-short-url-string context short) title (twitter-payload url)))))
 		(message
 		 (let ((short (make-unique-shortstring store url)))
 		   (with-connection (readwrite-url-db store)
 		     (insert-dao (make-instance 'urls :input-url url :redirected-url redirect-uri :short-url short :title (format nil "~A: ~A" message url) :from-nick nick :context-id (url-write-context-id context)))
-		     (values (make-short-url-string context short) message))))
-		(t (values nil nil)))))))
+		     (values (make-short-url-string context short) message (twitter-payload url)))))
+		(t (values nil nil nil)))))))
 
 (defgeneric get-url-from-shortstring (store short)
   (:documentation "Return the full URL associated with a given short string."))

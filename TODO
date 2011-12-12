@@ -82,3 +82,7 @@ Issues
 
   Why's the assignment to clhs-lookup::*hyperspec-root* in fetch-file not always going
   through as it should?
+
+ Every use of flexi-streams is going to need wrapped with that *substitution-char* bullshit.
+
+ Apparently the METAR data handed out by NOAA is garbage.

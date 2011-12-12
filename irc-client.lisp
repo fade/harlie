@@ -324,10 +324,10 @@ the output.  If not, return nil."
 
 (defun start-threaded-irc-client-instance ()
   "Spawn a thread to run a session with an IRC server."
-  (dolist (nickchans (config-irc-nickchannels *bot-config*))
+  (dolist (nickchans (irc-nickchannels *bot-config*))
     (let* ((nickname (car nickchans))
 	   (channels (cadr nickchans))
-	   (ircserver (config-irc-server-name *bot-config*))
+	   (ircserver (irc-server-name *bot-config*))
 	   (connection (connect :nickname nickname
 				:server ircserver
 				:connection-type 'bot-irc-connection)))

@@ -132,7 +132,7 @@ or an error message, as appropriate."
   "Initialize and start the web server subsystem."
   (setf clhs-lookup::*hyperspec-map-file*
 	(make-pathname-in-lisp-subdir "HyperSpec/Data/Map_Sym.txt"))
-  (dolist (port (config-web-server-ports *bot-config*))
+  (dolist (port (web-server-ports *bot-config*))
     (push (make-instance 'hunchentoot:easy-acceptor
 			 :port port
 			 :access-log-destination (make-pathname-in-lisp-subdir "harlie/logs/http-access.log")

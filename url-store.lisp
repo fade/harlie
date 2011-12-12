@@ -10,15 +10,15 @@
    (url->headline :initform (make-hash-table :test 'equal :synchronized t) :accessor url->headline)))
 
 (defclass postmodern-url-store (url-store)
-  ((readonly-url-dbs :initform (config-psql-old-credentials *bot-config*) :accessor readonly-url-dbs)
-   (readwrite-url-db :initform (config-psql-url-new-credentials *bot-config*) :accessor readwrite-url-db)))
+  ((readonly-url-dbs :initform (psql-old-credentials *bot-config*) :accessor readonly-url-dbs)
+   (readwrite-url-db :initform (psql-url-new-credentials *bot-config*) :accessor readwrite-url-db)))
 
 (defvar *hash-url-store* (make-instance 'hash-url-store))
 
 (defvar *pomo-url-store* (make-instance 'postmodern-url-store))
 
 (defvar *the-url-store*
-  (case (config-url-store-type *bot-config*)
+  (case (url-store-type *bot-config*)
     (:psql *pomo-url-store*)
     (:hash *hash-url-store*)
     (otherwise *hash-url-store*)))

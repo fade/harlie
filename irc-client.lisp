@@ -10,6 +10,14 @@
   "Sometimes you just want to grab a connection object from the REPL."
   (car (loop for conn being the hash-values in *irc-connections* collecting conn)))
 
+(defun troubleshoot-queues ()
+  (mapc #'(lambda (x)
+	    (format t "~A ~A~%" x (sb-ext:timer-scheduled-p (message-timer (gethash x *irc-connections*))))
+	    (format t "~{~A~^~%~}" (sb-concurrency:list-queue-contents (message-q (gethash x *irc-connections*))))
+	    )
+	(loop for conn-key being the hash-keys in *irc-connections* collecting conn-key))
+  nil)
+
 ;; We subclass cl-irc:connection and cl-irc:channel so we can store per-connection
 ;; and per-channel data here.
 

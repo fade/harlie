@@ -63,7 +63,7 @@
   (case (plugin-action plug-request)
     (:docstring (format nil "Give the count of phrases in the chaining database"))
     (:priority 1.0)
-    (:run (format nil "I know ~A phrases."
+    (:run (format nil "I know ~:D phrases."
 		  (count-phrases (plugin-context plug-request))))))
 
 (defplugin conv (plug-request)

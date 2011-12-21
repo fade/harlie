@@ -67,6 +67,10 @@ the database rather than half from the config file.
 
 BUGS
 
+- The timers are still wedging.
+
+- Rebuild the triggerlist stuff to always attempt to refill to the low water mark
+
 - Drakma needs an option to avoid URL-encoding the URL
   - We have a fix in our tree
   - The RFCs support Drakma's interpretation

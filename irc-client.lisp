@@ -120,7 +120,7 @@
 
 (defmethod qmess ((connection bot-irc-connection) reply-to message)
   (let* ((count (incf *mess-count*))
-	 (message (format nil "~:D :: ~A" count message)))
+	 (message (format nil "[~:D] ~A" count message)))
     (enqueue (list reply-to message) (message-q connection))))
 
 (defmethod dqmess ((connection bot-irc-connection))
@@ -241,7 +241,7 @@ the output.  If not, return nil."
 
     (cond ((scan "^NOTIFY:: Help, I'm a bot!" text)
 	   (when (start-ignoring connection sender)
-	     (qmess connection sender "NOTIFY:: Help, I'm a bot!")))
+	     (privmsg connection sender "NOTIFY:: Help, I'm a bot!")))
 
 	  ((string= "!IGNOREME" command)
 	   (if (or

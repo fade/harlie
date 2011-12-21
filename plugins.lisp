@@ -95,6 +95,11 @@
 		 (quote (loop for i in (get-stock-values symbol)
 			      :collect (parse-stock i))))
 	    (if (every #'identity quote)
+		;; if you're reading this and you're new to lisp, this
+		;; is possibly confusing, but lisp has namespaces for
+		;; functions as well as symbols, and many other
+		;; things, which allows them to share names that are
+		;; disambiguated by context.
 		(format nil "Issue: ~A last traded for $~$ at ~A on ~A, ~A changed on the day. Opened at $~$ with a high of $~$ and a low of $~$. ~:D shares traded."
 			(first quote) (second quote) (fourth quote) (third quote)
 			(fifth quote) (sixth quote) (seventh quote) (eighth quote) (ninth quote))

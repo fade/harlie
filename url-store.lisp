@@ -10,15 +10,15 @@
    (url->headline :initform (make-hash-table :test 'equal :synchronized t) :accessor url->headline)))
 
 (defclass postmodern-url-store (url-store)
-  ((readonly-url-dbs :initform (config-psql-old-credentials *bot-config*) :accessor readonly-url-dbs)
-   (readwrite-url-db :initform (config-psql-url-new-credentials *bot-config*) :accessor readwrite-url-db)))
+  ((readonly-url-dbs :initform (psql-old-credentials *bot-config*) :accessor readonly-url-dbs)
+   (readwrite-url-db :initform (psql-url-new-credentials *bot-config*) :accessor readwrite-url-db)))
 
 (defvar *hash-url-store* (make-instance 'hash-url-store))
 
 (defvar *pomo-url-store* (make-instance 'postmodern-url-store))
 
 (defvar *the-url-store*
-  (case (config-url-store-type *bot-config*)
+  (case (url-store-type *bot-config*)
     (:psql *pomo-url-store*)
     (:hash *hash-url-store*)
     (otherwise *hash-url-store*)))
@@ -45,15 +45,6 @@
    (context-id :col-type integer :initarg :context-id :accessor context-id))
   (:metaclass dao-class)
   (:keys url-id))
-
-(defgeneric spin-date (url)
-  (:documentation
-   "take the tstamp value from an urls object and return a human
-   consumable date string."))
-
-(defmethod spin-date ((url urls))
-  (let ((utime (tstamp url)))
-    (local-time:unix-to-timestamp utime)))
 
 ;;; some janitorial functions to mark urls that 404 'dead' in the
 ;;; database, and to try to ensure a title for each url.

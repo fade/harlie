@@ -23,6 +23,7 @@
 	       #:yaclml)
 
   :components ((:file "package")
+	       (:file "confobjects")
 	       (:file "config")
 	       (:file "context")
 	       (:file "util")

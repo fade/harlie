@@ -4,20 +4,6 @@
 
 (in-package #:harlie)
 
-(defstruct config
-  irc-server-name
-  irc-nick ;Deprecated
-  irc-channel-names ;Deprecated
-  irc-nickchannels
-  web-server-name
-  web-server-port ; Deprecated
-  web-server-ports
-  url-store-type
-  psql-old-credentials
-  psql-url-new-credentials
-  psql-chain-credentials
-  psql-context-credentials)
-
 (defparameter *harlie-config*
   (make-config :irc-server-name "irc.srh.org"
 	       :irc-nickchannels '(("Harlie" ("#trinity")))

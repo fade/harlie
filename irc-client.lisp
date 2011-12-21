@@ -99,7 +99,9 @@
   #'(lambda ()
       (when (not (queue-empty-p (message-q connection)))
 	(dqmess connection))
-      (sb-ext:schedule-timer (message-timer connection) (max 1.5 (random 2.5)))))
+      (format t "Rescheduling the q runner...")
+      (sb-ext:schedule-timer (message-timer connection) (max 1.5 (random 2.5)))
+      (format t " [Done :: ~A]~&" (get-universal-time))))
 
 (defun start-irc-message-queue (connection)
   "A convenience function to regenerate the queue flusher and restart it."
@@ -114,8 +116,12 @@
 (defgeneric dqmess (connection)
   (:documentation "dequeue a message to send."))
 
+(defparameter *mess-count* 0)
+
 (defmethod qmess ((connection bot-irc-connection) reply-to message)
-  (enqueue (list reply-to message) (message-q connection)))
+  (let* ((count (incf *mess-count*))
+	 (message (format nil "~:D :: ~A" count message)))
+    (enqueue (list reply-to message) (message-q connection))))
 
 (defmethod dqmess ((connection bot-irc-connection))
   (let* ((mobj (dequeue (message-q connection)))
@@ -332,10 +338,10 @@ the output.  If not, return nil."
 
 (defun start-threaded-irc-client-instance ()
   "Spawn a thread to run a session with an IRC server."
-  (dolist (nickchans (config-irc-nickchannels *bot-config*))
+  (dolist (nickchans (irc-nickchannels *bot-config*))
     (let* ((nickname (car nickchans))
 	   (channels (cadr nickchans))
-	   (ircserver (config-irc-server-name *bot-config*))
+	   (ircserver (irc-server-name *bot-config*))
 	   (connection (connect :nickname nickname
 				:server ircserver
 				:connection-type 'bot-irc-connection)))

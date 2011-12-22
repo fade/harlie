@@ -64,15 +64,18 @@
 			 :topic topic
 			 :modes modes
 			 :user-count user-count
-			 :trigger-list (random-words
-					(make-instance 'bot-context
-						       :bot-nick (nickname (user connection))
-						       :bot-irc-server (server-name connection)
-						       :bot-irc-channel name)
-					10 #'acceptable-word-p))))
+			 :trigger-list '("sparrow" "likes" "whiskey"))))
     (dolist (user users)
       (cl-irc:add-user channel user))
     channel))
+
+;; :trigger-list
+;; (random-words
+;;  (make-instance 'bot-context
+;; 		:bot-nick (nickname (user connection))
+;; 		:bot-irc-server (server-name connection)
+;; 		:bot-irc-channel name)
+;;  10 #'acceptable-word-p)
 
 (defun intercept-join-message (message)
   "The other half of the hook for insinuating bot-irc-channel into cl-irc."

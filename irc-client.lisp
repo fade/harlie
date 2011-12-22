@@ -119,6 +119,7 @@
   (let* ((mobj (dequeue (message-q connection)))
 	 (reply-to (first mobj))
 	 (message (second mobj)))
+    (format t "replying to: ~A~& with: ~A~%" reply-to message)
     (privmsg connection reply-to message)))
 
 (defmethod initialize-instance :after ((connection bot-irc-connection) &key)

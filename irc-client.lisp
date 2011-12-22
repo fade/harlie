@@ -10,6 +10,14 @@
   "Sometimes you just want to grab a connection object from the REPL."
   (car (loop for conn being the hash-values in *irc-connections* collecting conn)))
 
+(defun troubleshoot-queues ()
+  (mapc #'(lambda (x)
+	    (format t "~A ~A~%" x (sb-ext:timer-scheduled-p (message-timer (gethash x *irc-connections*))))
+	    (format t "~{~A~^~%~}" (sb-concurrency:list-queue-contents (message-q (gethash x *irc-connections*))))
+	    )
+	(loop for conn-key being the hash-keys in *irc-connections* collecting conn-key))
+  nil)
+
 ;; We subclass cl-irc:connection and cl-irc:channel so we can store per-connection
 ;; and per-channel data here.
 
@@ -112,7 +120,7 @@
 
 (defmethod qmess ((connection bot-irc-connection) reply-to message)
   (let* ((count (incf *mess-count*))
-	 (message (format nil "~:D :: ~A" count message)))
+	 (message (format nil "[~:D] ~A" count message)))
     (enqueue (list reply-to message) (message-q connection))))
 
 (defmethod dqmess ((connection bot-irc-connection))
@@ -234,7 +242,7 @@ the output.  If not, return nil."
 
     (cond ((scan "^NOTIFY:: Help, I'm a bot!" text)
 	   (when (start-ignoring connection sender)
-	     (qmess connection sender "NOTIFY:: Help, I'm a bot!")))
+	     (privmsg connection sender "NOTIFY:: Help, I'm a bot!")))
 
 	  ((string= "!IGNOREME" command)
 	   (if (or

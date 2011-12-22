@@ -23,4 +23,6 @@
   (:shadowing-import-from :cl-irc :connect)
   (:shadowing-import-from :cl-who :with-html-output)
   (:shadowing-import-from :drakma :header-value)
-  (:shadowing-import-from :cl-log :log-message :make-timestamp :timestamp))
+  (:shadowing-import-from :cl-log :log-message :make-timestamp :timestamp)
+  (:export #:run-bot
+	   #:kill-bot))

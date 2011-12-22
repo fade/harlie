@@ -352,40 +352,43 @@
 
 (defun read-metar-data (regex &optional (units :Centigrade))
   "Grovel through up to 6 METAR data files to find a matching line, and return its meterological description."
-  (multiple-value-bind (ns sec min hour) (decode-timestamp (now) :timezone +utc-zone+)
-    (declare (ignore ns sec min))
-    (do* ((n 0 (1+ n))
-	  (zulu hour (mod (1- zulu) 24)))
-	 ((> n 6) "Temperature data not available.")
-      (let* ((flexi-streams:*substitution-char* #\?)
-	     (metar-stream (http-request
-			    (format nil "http://weather.noaa.gov/pub/data/observations/metar/cycles/~2,'0dZ.TXT" zulu)
-			    :want-stream t))
-	     (metar-line (do* ((l (read-line metar-stream) (read-line metar-stream nil 'eof))
-			       (payload nil))
-			      ((or (eq l 'eof) payload) payload)
-			   (when (scan regex l) (setf payload l)))))
-	(when metar-line
-	  (multiple-value-bind (wholematch1 station-name) (scan-to-strings "^([^\\s]*)" metar-line)
-	    (declare (ignore wholematch1))
-	    (multiple-value-bind (wholematch2 time-string) (scan-to-strings "\\s([0-9]+[Z])\\s" metar-line)
-	      (declare (ignore wholematch2))
-	      (multiple-value-bind (wholematch3 cur-temp) (scan-to-strings "\\s(M?[0-9]+)[/]" metar-line)
-		(declare (ignore wholematch3))
-		(multiple-value-bind (wholematch4 dew-temp) (scan-to-strings "[/](M?[0-9]+)\\s" metar-line)
-		  (declare (ignore wholematch4))
-		  (return-from read-metar-data
-		    (format nil "~A ~A   Current temperature ~A, dewpoint ~A"
-			    (aref station-name 0)
-			    (aref time-string 0)
-			    (metar-temp-value (aref cur-temp 0) units)
-			    (metar-temp-value (aref dew-temp 0) units))))))))))))
+  (let ((flexi-streams:*substitution-char* #\?))
+    (multiple-value-bind (ns sec min hour) (decode-timestamp (now) :timezone +utc-zone+)
+      (declare (ignore ns sec min))
+      (do* ((n 0 (1+ n))
+	    (zulu hour (mod (1- zulu) 24)))
+	   ((> n 6) "Temperature data not available.")
+	(let* ((flexi-streams:*substitution-char* #\?)
+	       (metar-stream (http-request
+			      (format nil "http://weather.noaa.gov/pub/data/observations/metar/cycles/~2,'0dZ.TXT" zulu)
+			      :want-stream t))
+	       (metar-line (do* ((l (read-line metar-stream) (read-line metar-stream nil 'eof))
+				 (payload nil))
+				((or (eq l 'eof) payload) payload)
+			     (when (scan regex l) (setf payload l)))))
+	  (when metar-line
+	    (multiple-value-bind (wholematch1 station-name) (scan-to-strings "^([^\\s]*)" metar-line)
+	      (declare (ignore wholematch1))
+	      (multiple-value-bind (wholematch2 time-string) (scan-to-strings "\\s([0-9]+[Z])\\s" metar-line)
+		(declare (ignore wholematch2))
+		(multiple-value-bind (wholematch3 cur-temp) (scan-to-strings "\\s(M?[0-9]+)[/]" metar-line)
+		  (declare (ignore wholematch3))
+		  (multiple-value-bind (wholematch4 dew-temp) (scan-to-strings "[/](M?[0-9]+)\\s" metar-line)
+		    (declare (ignore wholematch4))
+		    (return-from read-metar-data
+		      (format nil "~A ~A   Current temperature ~A, dewpoint ~A"
+			      (aref station-name 0)
+			      (aref time-string 0)
+			      (metar-temp-value (aref cur-temp 0) units)
+			      (metar-temp-value (aref dew-temp 0) units)))))))))))))
 
 (defun metar-units-symbol (s)
   "Return the temperature-scale-name symbol corresponding to the specified string."
   (cond ((scan "^[kK]" s) :Kelvin)
 	((scan "^[fFiI]" s) :Fahrenheit)
 	(t :Centigrade)))
+
+; http://www.avcodes.co.uk/aptcodesearch.asp
 
 (defplugin metar (plug-request)
   (case (plugin-action plug-request)

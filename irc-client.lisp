@@ -122,15 +122,14 @@
 (defparameter *mess-count* 0)
 
 (defmethod qmess ((connection bot-irc-connection) reply-to message)
-  (let* ((count (incf *mess-count*))
-	 (message (format nil "[~:D] ~A" count message)))
+  (let* ((count (incf *mess-count*))) ;; (message (format nil "[~:D] ~A" count message))
     (enqueue (list reply-to message) (message-q connection))))
 
 (defmethod dqmess ((connection bot-irc-connection))
   (let* ((mobj (dequeue (message-q connection)))
 	 (reply-to (first mobj))
 	 (message (second mobj)))
-    (format t "replying to: ~A~& with: ~A~%" reply-to message)
+    (format t "replying to: ~A~& with [~:D]: ~A~%" reply-to message *mess-count*)
     (privmsg connection reply-to message)))
 
 (defmethod initialize-instance :after ((connection bot-irc-connection) &key)

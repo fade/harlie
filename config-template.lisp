@@ -9,7 +9,7 @@
 	       :irc-nickchannels '(("Harlie" ("#trinity")))
 	       :irc-channel-names '("#trinity")
 	       :web-server-name "coruscant.deepsky.com"
-	       :web-server-port '(5791)
+	       :web-server-ports '(5791)
 	       :url-store-type :psql
 	       :psql-old-credentials '(("botdb" "semaphor" nil :unix)
 				       ("bootsydb" "semaphor" nil :unix)

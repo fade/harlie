@@ -367,20 +367,19 @@
 				((or (eq l 'eof) payload) payload)
 			     (when (scan regex l) (setf payload l)))))
 	  (when metar-line
-	    (multiple-value-bind (wholematch1 station-name) (scan-to-strings "^([^\\s]*)" metar-line)
-	      (declare (ignore wholematch1))
-	      (multiple-value-bind (wholematch2 time-string) (scan-to-strings "\\s([0-9]+[Z])\\s" metar-line)
-		(declare (ignore wholematch2))
-		(multiple-value-bind (wholematch3 cur-temp) (scan-to-strings "\\s(M?[0-9]+)[/]" metar-line)
-		  (declare (ignore wholematch3))
-		  (multiple-value-bind (wholematch4 dew-temp) (scan-to-strings "[/](M?[0-9]+)\\s" metar-line)
-		    (declare (ignore wholematch4))
-		    (return-from read-metar-data
-		      (format nil "~A ~A   Current temperature ~A, dewpoint ~A"
-			      (aref station-name 0)
-			      (aref time-string 0)
-			      (metar-temp-value (aref cur-temp 0) units)
-			      (metar-temp-value (aref dew-temp 0) units)))))))))))))
+	    (multiple-value-bind (station-name time-string cur-temp dew-temp) (metar-extract-data metar-line)
+	      (when (not (null station-name))
+		(return-from read-metar-data
+		  (format nil "~A ~A   Current temperature ~A, dewpoint ~A" station-name time-string
+			  (metar-temp-value cur-temp units) (metar-temp-value dew-temp units)))))))))))
+
+(defun metar-extract-data (metar-line &optional (units :Centigrade))
+  (declare (ignore units))
+  (multiple-value-bind (tempnonce temp-substrings) (scan-to-strings "^([^\\s]*)\\s*([0-9]+[Z])\\s.*\\s(M?[0-9]+)[/](M?[0-9]+)\\s" metar-line)
+    (declare (ignore tempnonce))
+    (if (not (null temp-substrings))
+	(values (aref temp-substrings 0) (aref temp-substrings 1) (aref temp-substrings 2) (aref temp-substrings 3))
+	nil)))
 
 (defun metar-units-symbol (s)
   "Return the temperature-scale-name symbol corresponding to the specified string."

@@ -74,8 +74,6 @@
       (cl-irc:add-user channel user))
     channel))
 
-;; :trigger-list
-
 (defun intercept-join-message (message)
   "The other half of the hook for insinuating bot-irc-channel into cl-irc."
   (with-slots

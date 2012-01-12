@@ -1,0 +1,45 @@
+HARLIE
+
+Operator's Manual
+
+1. Adding a new channel
+
+The bot gets its information on how to start up instances from two
+places: from the config.lisp source file, and also from the database.
+
+First, edit config.lisp to add a new instance there.  There should be
+one defparameter form calling make-config to define all the bot
+instances.  Each new nick should be added as a form within
+irc-nickchannels, and a new web-server-port should be added to
+web-server-ports.
+
+But this doesn't tell the bot which web server port should be
+associated with which nickname, and it also doesn't create a context.
+Contexts are stored in the database's contexts table:
+
+botdb=# select * from contexts;
+ context_id | context_name | irc_server  | irc_channel |     web_server     | web_port | web_uri_prefix 
+------------+--------------+-------------+-------------+--------------------+----------+----------------
+          3 | shogun       | irc.srh.org | #walled     | 127.0.0.1          |     9099 | /
+          4 | thugster     | irc.srh.org | #wallednoc  | 127.0.0.1          |     7080 | /
+          2 | SR-4         | irc.srh.org | #fanoogle   | localhost          |     5801 | /
+          6 | Shrtmegister | irc.srh.org | #blowme     | blowme.deepsky.com |     6969 | /
+          1 | harlot       | irc.srh.org | #trinity    | 10.0.1.3           |     5791 | /
+(5 rows)
+
+When adding a new nickname, you'll also need to add an entry to this
+table.
+
+Access the database ("psql botdb") and enter a command of the
+following form:
+
+botdb=# INSERT INTO contexts (context_name, irc_server, irc_channel,
+web_server, web_port, web_uri_prefix) VALUES ('newbotnick',
+'irc.srh.org', '#channelname', 'coruscant.deepsky.com', 8188, '/');
+
+NOTA BENE: The web_port value is an *integer*, not a string.  All the
+other values are strings.
+
+Once you've edited config.lisp and added the row to the contexts
+table, you should restart the bot.  There is as yet no good way to add
+a bot instance on the fly.

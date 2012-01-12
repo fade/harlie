@@ -341,14 +341,21 @@
     (:priority 3.0)
     (:run (rpn-calculator (rest (plugin-token-text-list plug-request))))))
 
-(defun metar-temp-value (s &optional (units :Centigrade))
-  "Convert from METAR's ridiculous temperature encoding to a human-readable temperature in specified units."
-  (let ((centigrade (if (scan "^M" s)
-			(- (parse-integer (subseq s 1))) 
-			(parse-integer s))))
+(defun metar-temp-value (centigrade &optional (units :Centigrade))
     (cond ((eq units :Fahrenheit) (format nil "~,1F F" (+ 32 (* (/ 9 5) centigrade))))
 	  ((eq units :Kelvin) (format nil "~,1F K" (+ 273.15 centigrade)))
-	  (t (format nil "~A C" centigrade)))))
+	  (t (format nil "~,1F C" centigrade))))
+
+(defun metar-temp-to-c (s)
+  (let ((centigrade (if (scan "^M" s)
+			(- (parse-integer (subseq s 1)))
+			(parse-integer s))))
+    centigrade))
+
+(defun metar-windspeed-to-kmh (windspeed units)
+  (cond ((string= units "KT") (* 1.852 windspeed))
+	((string= units "MPS") (* 3.6 windspeed))
+	(t nil)))
 
 (defun read-metar-data (regex &optional (units :Centigrade))
   "Grovel through up to 6 METAR data files to find a matching line, and return its meterological description."
@@ -367,20 +374,35 @@
 				((or (eq l 'eof) payload) payload)
 			     (when (scan regex l) (setf payload l)))))
 	  (when metar-line
-	    (multiple-value-bind (wholematch1 station-name) (scan-to-strings "^([^\\s]*)" metar-line)
-	      (declare (ignore wholematch1))
-	      (multiple-value-bind (wholematch2 time-string) (scan-to-strings "\\s([0-9]+[Z])\\s" metar-line)
-		(declare (ignore wholematch2))
-		(multiple-value-bind (wholematch3 cur-temp) (scan-to-strings "\\s(M?[0-9]+)[/]" metar-line)
-		  (declare (ignore wholematch3))
-		  (multiple-value-bind (wholematch4 dew-temp) (scan-to-strings "[/](M?[0-9]+)\\s" metar-line)
-		    (declare (ignore wholematch4))
-		    (return-from read-metar-data
-		      (format nil "~A ~A   Current temperature ~A, dewpoint ~A"
-			      (aref station-name 0)
-			      (aref time-string 0)
-			      (metar-temp-value (aref cur-temp 0) units)
-			      (metar-temp-value (aref dew-temp 0) units)))))))))))))
+	    (multiple-value-bind (station-name time-string windspeed cur-temp dew-temp) (metar-extract-data metar-line)
+	      (when (not (null station-name))
+		(let ((windchill (calculate-wind-chill cur-temp windspeed)))
+		  (return-from read-metar-data
+		    (if windchill
+			(format nil "~A ~A   Current temperature ~A, wind chill ~A, dewpoint ~A" station-name time-string
+				(metar-temp-value cur-temp units) (metar-temp-value windchill units)
+				(metar-temp-value dew-temp units))			
+			(format nil "~A ~A   Current temperature ~A, dewpoint ~A" station-name time-string
+				(metar-temp-value cur-temp units) (metar-temp-value dew-temp units)))))))))))))
+
+(defun metar-extract-data (metar-line &optional (units :Centigrade))
+  (declare (ignore units))
+  (multiple-value-bind (tempnonce temp-substrings)
+      (scan-to-strings "^([^\\s]*)\\s*([0-9]+[Z])\\s*[0-9][0-9][0-9]([0-9]+)(G[0-9]+)?([A-Z]+).*\\s(M?[0-9]+)[/](M?[0-9]+)\\s" metar-line)
+    (declare (ignore tempnonce))
+    (if (not (null temp-substrings))
+	(values (aref temp-substrings 0) (aref temp-substrings 1)
+		(metar-windspeed-to-kmh (parse-integer (aref temp-substrings 2)) (aref temp-substrings 4)) 
+		(metar-temp-to-c (aref temp-substrings 5)) 
+		(metar-temp-to-c (aref temp-substrings 6)))
+	nil)))
+
+(defun calculate-wind-chill (ambient windspeed)
+  (if (or (not windspeed) (> ambient 10 ) (< windspeed 4.8))
+      nil
+      (let* ((windpow (expt windspeed 0.16))
+	     (windchill (+ 13.12 (* 0.6215 ambient) (* -11.37 windpow) (* 0.3965 ambient windpow))))
+	windchill)))
 
 (defun metar-units-symbol (s)
   "Return the temperature-scale-name symbol corresponding to the specified string."

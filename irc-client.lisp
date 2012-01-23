@@ -296,6 +296,10 @@ the output.  If not, return nil."
 			  (format nil "~{~A~^ ~}" outgoing)))))))
 	  (t nil))))
 
+(defun nye-hack ()
+  (mapc #'(lambda (conn)
+	    (loop for k being the hash-keys in (channels conn) do (privmsg conn k "Test test alkahest")))
+	(loop for conn being the hash-values in *irc-connections* collecting conn)))
 
 ; Why do we fork another thread just to run this lambda, you may ask?
 ; Because the thread that the network event loop runs in keeps getting

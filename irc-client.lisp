@@ -215,6 +215,9 @@ the output.  If not, return nil."
 	     token-list))
 	  (t nil))))
 
+(defun extract-urls (text)
+  (all-matches-as-strings "((http|https)://[^\\s]+)|(www[.][^\\s.][^\\s]*[.][^\\s.][^\\s]*)" text))
+
 (defun msg-hook (message)
   "Handle an incoming message."
   (let* ((connection (connection message))
@@ -232,7 +235,7 @@ the output.  If not, return nil."
 		   :bot-nick (nickname (user connection))
 		   :bot-irc-server (server-name connection)
 		   :bot-irc-channel channel))
-	 (urls (all-matches-as-strings "((http|https)://[^\\s]+)|(www[.][^\\s.][^\\s]*[.][^\\s.][^\\s]*)" text)))
+	 (urls (extract-urls text)))
 
     (setf (last-message connection) message)
     (format t "Message: ~A~%" (raw-message-string message))

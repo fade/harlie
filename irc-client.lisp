@@ -213,6 +213,9 @@ the output.  If not, return nil."
 	     token-list))
 	  (t nil))))
 
+(defun extract-urls (text)
+  (all-matches-as-strings "((http|https)://[^\\s]+)|(www[.][^\\s.][^\\s]*[.][^\\s.][^\\s]*)" text))
+
 (defun msg-hook (message)
   "Handle an incoming message."
   (let* ((connection (connection message))
@@ -221,7 +224,7 @@ the output.  If not, return nil."
 		      ((channels connection))
 		    (gethash channel-name (channels connection) nil)))
 	 (sender (source message))
-	 (text (second (arguments message)))
+	 (text (regex-replace-all "\\ca" (second (arguments message)) ""))
 	 (token-text-list (split "\\s+" text))
 	 (command (string-upcase (first token-text-list)))
 	 (reply-to channel-name)
@@ -230,7 +233,7 @@ the output.  If not, return nil."
 		   :bot-nick (nickname (user connection))
 		   :bot-irc-server (server-name connection)
 		   :bot-irc-channel channel))
-	 (urls (all-matches-as-strings "((http|https)://[^\\s]+)|(www[.][^\\s.][^\\s]*[.][^\\s.][^\\s]*)" text)))
+	 (urls (extract-urls text)))
 
     (setf (last-message connection) message)
     (format t "Message: ~A~%" (raw-message-string message))
@@ -294,6 +297,10 @@ the output.  If not, return nil."
 			  (format nil "~{~A~^ ~}" outgoing)))))))
 	  (t nil))))
 
+(defun nye-hack ()
+  (mapc #'(lambda (conn)
+	    (loop for k being the hash-keys in (channels conn) do (privmsg conn k "Test test alkahest")))
+	(loop for conn being the hash-values in *irc-connections* collecting conn)))
 
 ; Why do we fork another thread just to run this lambda, you may ask?
 ; Because the thread that the network event loop runs in keeps getting
@@ -362,6 +369,7 @@ the output.  If not, return nil."
 		   (cl-irc:join connection channel)
 		   (privmsg connection channel (format nil "NOTIFY:: Help, I'm a bot!")))))
 	   (add-hook connection 'irc::irc-privmsg-message #'threaded-msg-hook)
+	   (add-hook connection 'irc::ctcp-action-message #'threaded-msg-hook)
 	   (add-hook connection 'irc::irc-quit-message #'threaded-byebye-hook)
 	   (add-hook connection 'irc::irc-part-message #'threaded-byebye-hook)
 	   (add-hook connection 'irc::irc-join-message #'intercept-join-message)

@@ -173,6 +173,7 @@
 		      :collect (format nil "[ ~A ][ ~A ]" a b))
 		(format nil "~A" curr))))))
 
+
 (defplugin rate (plug-request)
   (case (plugin-action plug-request)
     (:docstring (format nil "Look up the conversion rate between two currencies.  Usage: !rate <curr1> <curr2>"))
@@ -430,9 +431,34 @@
 		       (format nil "^~A" location))))
        (read-metar-data regex units)))))
 
+;; temperature conversions
+
+(defun temperature-convert (temp &key (scale :celsius))
+  (let ((tt (parse-number temp)))
+    (assert (numberp tt))
+    (when (numberp tt)
+      (case scale
+	(:celsius (+ (* tt 9/5) 32)) 
+	(:fahrenheit (* (- tt 32) 5/9))))))
+
 ;; ftoc
 
+(defplugin ftoc (plug-request)
+  (case (plugin-action plug-request)
+    (:docstring (format nil "Convert a value in fahrenheit to celsius."))
+    (:priority 3.0)
+    (:run (let ((fahrenheit (second (plugin-token-text-list plug-request))))
+	    (format nil "~0,3f" (temperature-convert fahrenheit :scale :fahrenheit))))))
+
 ;; ctof
+
+(defplugin ctof (plug-request)
+  (case (plugin-action plug-request)
+    (:docstring (format nil "Convert a value in celsius to fahrenheit."))
+    (:priority 3.0)
+    (:run (let ((celsius (second (plugin-token-text-list plug-request))))
+	    (format nil "~0,3f" (temperature-convert celsius))))))
+
 
 ;; ===[ hyperspace motivator follows. ]===
 

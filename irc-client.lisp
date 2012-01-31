@@ -99,9 +99,10 @@
   #'(lambda ()
       (when (not (queue-empty-p (message-q connection)))
 	(dqmess connection))
-      (format t "Rescheduling the q runner...")
+      ;; (format t "Rescheduling the q runner...")
       (sb-ext:schedule-timer (message-timer connection) (max 1.5 (random 2.5)))
-      (format t " [Done :: ~A]~&" (get-universal-time))))
+      ;; (format t " [Done :: ~A]~&" (get-universal-time))
+      ))
 
 (defun start-irc-message-queue (connection)
   "A convenience function to regenerate the queue flusher and restart it."
@@ -188,13 +189,15 @@ allowing for leading and trailing punctuation characters in the match."
 
 (defun triggered (context token-list sender channel)
   "Determine whether to trigger an utterance based on something we heard.
-If so, return the (possibly rewritten) token list against which to chain
-the output.  If not, return nil."
+   If so, return the (possibly rewritten) token list against which to chain
+   the output.  If not, return nil."
   (let ((recognizer (make-name-detector (bot-nick context)))
 	(trigger-word (find-if #'(lambda (s) (member s token-list :test #'string-equal)) (trigger-list channel))))
     (cond ((> 10 (length (trigger-list channel)))
 	   (progn
+	     (format t "[~&in triggered] ~A~%" (trigger-list channel))
 	     (setf (trigger-list channel) (append (trigger-list channel) token-list))
+	     (format t "[~&after append token list in triggered] ~A~%" (trigger-list channel))
 	     (when (< 10 (length (trigger-list channel)))
 	       (setf (trigger-list channel) (subseq (trigger-list channel) 0 10)))
 	     nil)

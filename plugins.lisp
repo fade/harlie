@@ -434,12 +434,13 @@
 ;; temperature conversions
 
 (defun temperature-convert (temp &key (scale :celsius))
-  (let ((tt (parse-number temp)))
-    (assert (numberp tt))
+  (let ((tt (ignore-errors (parse-number temp))))
+    ;; (assert (numberp tt))
     (when (numberp tt)
       (case scale
 	(:celsius (+ (* tt 9/5) 32)) 
-	(:fahrenheit (* (- tt 32) 5/9))))))
+	(:fahrenheit (* (- tt 32) 5/9))
+	))))
 
 ;; ftoc
 
@@ -447,8 +448,11 @@
   (case (plugin-action plug-request)
     (:docstring (format nil "Convert a value in fahrenheit to celsius."))
     (:priority 3.0)
-    (:run (let ((fahrenheit (second (plugin-token-text-list plug-request))))
-	    (format nil "~f F == ~0,3f C" fahrenheit (temperature-convert fahrenheit :scale :fahrenheit))))))
+    (:run (let* ((fahrenheit (second (plugin-token-text-list plug-request)))
+		 (celsius (temperature-convert fahrenheit :scale :fahrenheit)))
+	    (if celsius
+		(format nil "~f F == ~0,3f C" fahrenheit celsius)
+		(format nil "Error in converting unit: ~A" fahrenheit))))))
 
 ;; ctof
 
@@ -456,8 +460,11 @@
   (case (plugin-action plug-request)
     (:docstring (format nil "Convert a value in celsius to fahrenheit."))
     (:priority 3.0)
-    (:run (let ((celsius (second (plugin-token-text-list plug-request))))
-	    (format nil "~f C == ~0,3f F" celsius (temperature-convert celsius))))))
+    (:run (let* ((celsius (second (plugin-token-text-list plug-request)))
+		 (fahrenheit (temperature-convert celsius)))
+	    (if fahrenheit
+		(format nil "~f C == ~0,3f F" celsius (temperature-convert celsius))
+		(format nil "Error in converting unit: ~A" celsius))))))
 
 
 ;; ===[ hyperspace motivator follows. ]===

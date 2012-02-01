@@ -448,7 +448,7 @@
     (:docstring (format nil "Convert a value in fahrenheit to celsius."))
     (:priority 3.0)
     (:run (let ((fahrenheit (second (plugin-token-text-list plug-request))))
-	    (format nil "~0,3f" (temperature-convert fahrenheit :scale :fahrenheit))))))
+	    (format nil "~f F == ~0,3f C" fahrenheit (temperature-convert fahrenheit :scale :fahrenheit))))))
 
 ;; ctof
 
@@ -457,7 +457,7 @@
     (:docstring (format nil "Convert a value in celsius to fahrenheit."))
     (:priority 3.0)
     (:run (let ((celsius (second (plugin-token-text-list plug-request))))
-	    (format nil "~0,3f" (temperature-convert celsius))))))
+	    (format nil "~f C == ~0,3f F" celsius (temperature-convert celsius))))))
 
 
 ;; ===[ hyperspace motivator follows. ]===

@@ -442,7 +442,7 @@
 	(:fahrenheit (* (- tt 32) 5/9))
 	))))
 
-;; ftoc
+;; ftoc fahrenheit -> celsius
 
 (defplugin ftoc (plug-request)
   (case (plugin-action plug-request)
@@ -454,7 +454,7 @@
 		(format nil "~f F == ~0,3f C" fahrenheit celsius)
 		(format nil "Error in converting unit: ~A" fahrenheit))))))
 
-;; ctof
+;; ctof celsius -> fahrenheit
 
 (defplugin ctof (plug-request)
   (case (plugin-action plug-request)

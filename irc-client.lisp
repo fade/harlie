@@ -212,7 +212,10 @@ allowing for leading and trailing punctuation characters in the match."
 	     (setf (trigger-list channel)
 		   (remove trigger-word (trigger-list channel) :test #'string=))
 	     (setf (trigger-list channel)
-		   (append (trigger-list channel) (random-words context (- 10 (length (trigger-list channel))))))
+		   (append (trigger-list channel)
+			   (random-words context
+					 (- 10 (length (trigger-list channel)))
+					 #'acceptable-word-p)))
 	     token-list))
 	  (t nil))))
 

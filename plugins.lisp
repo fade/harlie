@@ -89,7 +89,9 @@
 
 (defplugin stock (plug-request)
   (case (plugin-action plug-request)
-    (:docstring (format nil "Get a vaguely timely appraisal of the trading value of a given stock, by symbol"))
+    (:docstring (format nil "Get a vaguely timely appraisal of the
+    trading value of a given stock, by symbol. Usage: !stock
+    <symbol> (ex: !stock goog)"))
     (:priority 2.0)
     (:run (let* ((symbol (string-upcase (second (plugin-token-text-list plug-request))))
 		 (quote (loop for i in (get-stock-values symbol)
@@ -105,23 +107,23 @@
 			(fifth quote) (sixth quote) (seventh quote) (eighth quote) (ninth quote))
 		(format nil "No quotes for symbole: ~A. Perhaps you mistyped?" symbol))))))
 
-(defplugin jcw (plug-request)
-  (case (plugin-action plug-request)
-    (:docstring (format nil "Address the left/right libertarian/asshole continuum"))
-    (:priority 4.0)
-    (:run (format nil "FUCK YOU, JACKHOLE!"))))
+;; (defplugin jcw (plug-request)
+;;   (case (plugin-action plug-request)
+;;     (:docstring (format nil "Address the left/right libertarian/asshole continuum"))
+;;     (:priority 4.0)
+;;     (:run (format nil "FUCK YOU, JACKHOLE!"))))
 
-(defplugin rally (plug-request)
-  (case (plugin-action plug-request)
-    (:docstring (format nil "Deal with the world of racing"))
-    (:priority 4.0)
-    (:run (format nil "FUCK YOU, HANS!"))))
+;; (defplugin rally (plug-request)
+;;   (case (plugin-action plug-request)
+;;     (:docstring (format nil "Deal with the world of racing"))
+;;     (:priority 4.0)
+;;     (:run (format nil "FUCK YOU, HANS!"))))
 
 (defplugin f1 (plug-request)
   (case (plugin-action plug-request)
     (:docstring (format nil "He's such a fucking nancyboy."))
     (:priority 4.0)
-    (:run (format nil "FUCK YOU, SCHUMACHER!"))))
+    (:run (format nil "FUCK YOU, HAMILTON!"))))
 
 (defplugin spew (plug-request)
   (case (plugin-action plug-request)

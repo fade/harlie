@@ -314,14 +314,25 @@
 			     (push (list (parse-number:parse-number x) nil) stack))
 			    ((scan "^NEG$" opname)
 			     (setf (caar stack) (- (caar stack))))
+			    ; Commutative binary operators
 			    ((scan "^[+*]$" opname)
 			     (push (list (funcall (intern opname) (car (pop stack)) (car (pop stack))) nil) stack))
-			    ((scan "^[/-]|EXPT|LOG$" opname)
+			    ; Non-commutative binary operators
+			    ((scan "^[/-]|EXPT|LOG|MOD$" opname)
 			     (let ((a (car (pop stack)))
 				   (b (car (pop stack))))
 			       (push (list (funcall (intern opname) b a) nil) stack)))
+			    ; Forth-style stack modifying operators
+			    ((scan "^SWAP$" opname)
+			     (setf stack (append (reverse (subseq stack 0 2)) (cddr stack))))
+			    ((scan "^DROP$" opname)
+			     (pop stack))
+			    ((scan "^DUP$" opname)
+			     (push (car stack) stack))
+			    ; Unary operators whose names match those in Common Lisp
 			    ((scan "^SIN|COS|TAN|ASIN|ACOS|ATAN|SQRT|EXP$" opname)
 			     (push (list (funcall (intern opname) (car (pop stack))) nil) stack))
+			    ; Binary operators expecting and requiring integer arguments
 			    ((scan "^GCD|LCM$" opname)
 			     (handler-case
 				 (push (list (funcall (intern opname) (car (pop stack)) (car (pop stack))) nil) stack)

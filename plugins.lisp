@@ -383,7 +383,7 @@
 	       (metar-stream (http-request
 			      (format nil "http://weather.noaa.gov/pub/data/observations/metar/cycles/~2,'0dZ.TXT" zulu)
 			      :want-stream t))
-	       (metar-line (do* ((l (read-line metar-stream) (read-line metar-stream nil 'eof))
+	       (metar-line (do* ((l (read-line metar-stream nil 'eof) (read-line metar-stream nil 'eof))
 				 (payload nil))
 				((or (eq l 'eof) payload) payload)
 			     (when (scan regex l) (setf payload l)))))

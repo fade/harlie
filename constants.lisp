@@ -99,7 +99,7 @@
   "Read the CMU rhyming dictionary and return a hash mapping words to syllable counts."
   (let ((word->syllables (make-hash-table :test 'equal)))
     (with-open-file (instream (constant-file "cmudict.0.6"))
-      (do* ((l (read-line instream) (read-line instream nil 'eof)))
+      (do* ((l (read-line instream nil 'eof) (read-line instream nil 'eof)))
 	   ((eq l 'eof) word->syllables)
 	(let* ((w (remove #\SPACE (scan-to-strings "^(['A-Z]+)\\s" l)))
 	       (count (if w (length (remove-if-not 'digit-char-p l)) 0)))
@@ -110,7 +110,7 @@
 
 (defun read-8ball ()
   (with-open-file (instream (constant-file "8ball_dump"))
-    (do* ((l (read-line instream) (read-line instream nil 'eof))
+    (do* ((l (read-line instream nil 'eof) (read-line instream nil 'eof))
 	  (balls nil))
 	 ((eq l 'eof) balls)
       (push l balls))))

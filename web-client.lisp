@@ -186,7 +186,7 @@ This is a very confusing API."
 
 (defun retrieve-calc (search-tokens)
   (do* ((stream (third (http-request (format nil "http://www.google.com/search?q=~{~A~^+~}&client=ubuntu&channel=fs" search-tokens))))
-	(line (read-line stream) (read-line stream nil 'eof))
+	(line (read-line stream nil 'eof) (read-line stream nil 'eof))
 	(lines (list line) (cons line lines)))
        ((eq line 'eof) (apply 'concatenate 'string (reverse (cdr lines))))
     (format t "~A~%" line)))

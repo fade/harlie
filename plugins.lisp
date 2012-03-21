@@ -356,9 +356,10 @@
     (:run (rpn-calculator (rest (plugin-token-text-list plug-request))))))
 
 (defun metar-temp-value (centigrade &optional (units :Centigrade))
-    (cond ((eq units :Fahrenheit) (format nil "~,1F F" (+ 32 (* (/ 9 5) centigrade))))
-	  ((eq units :Kelvin) (format nil "~,1F K" (+ 273.15 centigrade)))
-	  (t (format nil "~,1F C" centigrade))))
+  (cond ((null centigrade) nil)
+	((eq units :Fahrenheit) (format nil "~,1F F" (+ 32 (* (/ 9 5) centigrade))))
+	((eq units :Kelvin) (format nil "~,1F K" (+ 273.15 centigrade)))
+	(t (format nil "~,1F C" centigrade))))
 
 (defun metar-temp-to-c (s)
   (let ((centigrade (if (scan "^M" s)
@@ -371,39 +372,35 @@
 	((string= units "MPS") (* 3.6 windspeed))
 	(t nil)))
 
-(defun read-metar-data (regex &optional (units :Centigrade))
+(defun current-zulu-hour ()
+  (multiple-value-bind (ns sec min hour) (decode-timestamp (now) :timezone +utc-zone+)
+    (declare (ignore ns sec min))
+    hour))
+
+(defun read-metar-data (regex zulu)
+  (let* ((metar-stream (http-request
+			(format nil "http://weather.noaa.gov/pub/data/observations/metar/cycles/~2,'0dZ.TXT" zulu)
+			:want-stream t)))
+    (do* ((l (read-line metar-stream nil 'eof) (read-line metar-stream nil 'eof))
+	  (payload nil))
+	 ((or (eq l 'eof) payload) payload)
+      (when (scan regex l) (setf payload l)))))
+
+(defun obtain-metar-data (regex &optional (units :Centigrade))
   "Grovel through up to 6 METAR data files to find a matching line, and return its meterological description."
-  (let ((flexi-streams:*substitution-char* #\?))
-    (multiple-value-bind (ns sec min hour) (decode-timestamp (now) :timezone +utc-zone+)
-      (declare (ignore ns sec min))
-      (do* ((n 0 (1+ n))
-	    (zulu hour (mod (1- zulu) 24)))
-	   ((> n 6) "Temperature data not available.")
-	(let* ((flexi-streams:*substitution-char* #\?)
-	       (metar-stream (http-request
-			      (format nil "http://weather.noaa.gov/pub/data/observations/metar/cycles/~2,'0dZ.TXT" zulu)
-			      :want-stream t))
-	       (metar-line (do* ((l (read-line metar-stream nil 'eof) (read-line metar-stream nil 'eof))
-				 (payload nil))
-				((or (eq l 'eof) payload) payload)
-			     (when (scan regex l) (setf payload l)))))
-	  (when metar-line
-	    (multiple-value-bind (station-name time-string windspeed cur-temp dew-temp) (metar-extract-data metar-line)
-	      (when (not (null station-name))
-		(let ((windchill (calculate-wind-chill cur-temp windspeed))
-		      (humidex (calculate-humidex cur-temp dew-temp)))
-		  (return-from read-metar-data
-		    (cond (windchill
-			   (format nil "~A ~A   Current temperature ~A, wind chill ~A, dewpoint ~A" station-name time-string
-				   (metar-temp-value cur-temp units) (metar-temp-value windchill units)
-				   (metar-temp-value dew-temp units)))
-			  (humidex
-			   (format nil "~A ~A   Current temperature ~A, humidex ~A, dewpoint ~A" station-name time-string
-				   (metar-temp-value cur-temp units) (metar-temp-value humidex units)
-				   (metar-temp-value dew-temp units)))
-			  (t
-			   (format nil "~A ~A   Current temperature ~A, dewpoint ~A" station-name time-string
-				   (metar-temp-value cur-temp units) (metar-temp-value dew-temp units))))))))))))))
+  (let* ((flexi-streams:*substitution-char* #\?)
+	 (zulu-hour (current-zulu-hour))
+	 (metar-line (loop for zulu from zulu-hour downto (- zulu-hour 5)
+			   thereis (read-metar-data regex zulu))))
+    (if metar-line
+	(multiple-value-bind (station-name time-string windspeed cur-temp dew-temp) (metar-extract-data metar-line)
+	  (let ((windchill (calculate-wind-chill cur-temp windspeed))
+		(humidex (calculate-humidex cur-temp dew-temp)))
+	      (format nil "~A ~A   Current temperature ~A~@[, wind chill ~A~]~@[, humidex ~A~], dewpoint ~A"
+		      station-name time-string
+		      (metar-temp-value cur-temp units) (metar-temp-value windchill units)
+		      (metar-temp-value humidex units) (metar-temp-value dew-temp units))))
+	"Temperature data not available.")))
 
 (defun metar-extract-data (metar-line &optional (units :Centigrade))
   (declare (ignore units))
@@ -457,7 +454,7 @@
 	    (regex (if (< (length location) 4)
 		       (format nil "^[^\\s]~A" location)
 		       (format nil "^~A" location))))
-       (read-metar-data regex units)))))
+       (obtain-metar-data regex units)))))
 
 ;; temperature conversions
 

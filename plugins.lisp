@@ -390,14 +390,20 @@
 	  (when metar-line
 	    (multiple-value-bind (station-name time-string windspeed cur-temp dew-temp) (metar-extract-data metar-line)
 	      (when (not (null station-name))
-		(let ((windchill (calculate-wind-chill cur-temp windspeed)))
+		(let ((windchill (calculate-wind-chill cur-temp windspeed))
+		      (humidex (calculate-humidex cur-temp dew-temp)))
 		  (return-from read-metar-data
-		    (if windchill
-			(format nil "~A ~A   Current temperature ~A, wind chill ~A, dewpoint ~A" station-name time-string
-				(metar-temp-value cur-temp units) (metar-temp-value windchill units)
-				(metar-temp-value dew-temp units))			
-			(format nil "~A ~A   Current temperature ~A, dewpoint ~A" station-name time-string
-				(metar-temp-value cur-temp units) (metar-temp-value dew-temp units)))))))))))))
+		    (cond (windchill
+			   (format nil "~A ~A   Current temperature ~A, wind chill ~A, dewpoint ~A" station-name time-string
+				   (metar-temp-value cur-temp units) (metar-temp-value windchill units)
+				   (metar-temp-value dew-temp units)))
+			  (humidex
+			   (format nil "~A ~A   Current temperature ~A, humidex ~A, dewpoint ~A" station-name time-string
+				   (metar-temp-value cur-temp units) (metar-temp-value humidex units)
+				   (metar-temp-value dew-temp units)))
+			  (t
+			   (format nil "~A ~A   Current temperature ~A, dewpoint ~A" station-name time-string
+				   (metar-temp-value cur-temp units) (metar-temp-value dew-temp units))))))))))))))
 
 (defun metar-extract-data (metar-line &optional (units :Centigrade))
   (declare (ignore units))
@@ -417,6 +423,15 @@
       (let* ((windpow (expt windspeed 0.16))
 	     (windchill (+ 13.12 (* 0.6215 ambient) (* -11.37 windpow) (* 0.3965 ambient windpow))))
 	windchill)))
+
+(defun calculate-humidex (ambient dewpoint)
+  (let* ((kdewpoint (+ 273.16 dewpoint))
+	 (e (* 6.11 (exp (* 5417.7530 (- (/ 1 273.16) (/ 1 kdewpoint))))))
+	 (h (* 0.5555 (- e 10.0)))
+	 (humidex (+ ambient h)))
+    (if (and (>= ambient 20) (> dewpoint 0) (>= humidex 25))
+	humidex
+	nil)))
 
 (defun metar-units-symbol (s)
   "Return the temperature-scale-name symbol corresponding to the specified string."

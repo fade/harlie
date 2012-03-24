@@ -3,6 +3,7 @@
 (defpackage #:harlie
   (:use #:cl
 	#:sb-concurrency
+	#:alexandria
 	#:bordeaux-threads
 	#:cl-log
 	#:cl-ppcre

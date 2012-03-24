@@ -500,12 +500,12 @@
 
 (defun plugin-docs ()
   "Generate a list-of-lists from the plugin names, doc strings, and priorities."
-  (loop for k being the hash-keys in *plugins*
-	collecting (list k
-			 (funcall (plugin-hook (gethash k *plugins*))
-				  (make-instance 'plugin-request :action :docstring))
-			 (funcall (plugin-hook (gethash k *plugins*))
-				  (make-instance 'plugin-request :action :priority)))))
+  (mapcar #'(lambda (k) (list k
+			      (funcall (plugin-hook (gethash k *plugins*))
+				       (make-instance 'plugin-request :action :docstring))
+			      (funcall (plugin-hook (gethash k *plugins*))
+				       (make-instance 'plugin-request :action :priority))))
+	  (hash-table-keys *plugins*)))
 
 (defun sort-docs (a b)
   "Sort a list-of-lists of plugins by name within priority."

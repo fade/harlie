@@ -8,14 +8,14 @@
 
 (defun some-connection ()
   "Sometimes you just want to grab a connection object from the REPL."
-  (car (loop for conn being the hash-values in *irc-connections* collecting conn)))
+  (car (hash-table-values *irc-connections*)))
 
 (defun troubleshoot-queues ()
-  (mapc #'(lambda (x)
-	    (format t "~A ~A~%" x (sb-ext:timer-scheduled-p (message-timer (gethash x *irc-connections*))))
-	    (format t "~{~A~^~%~}" (sb-concurrency:list-queue-contents (message-q (gethash x *irc-connections*))))
-	    )
-	(loop for conn-key being the hash-keys in *irc-connections* collecting conn-key))
+  (maphash-keys
+   #'(lambda (x)
+       (format t "~A ~A~%" x (sb-ext:timer-scheduled-p (message-timer (gethash x *irc-connections*))))
+       (format t "~{~A~^~%~}" (sb-concurrency:list-queue-contents (message-q (gethash x *irc-connections*)))))
+   *irc-connections*)
   nil)
 
 ;; We subclass cl-irc:connection and cl-irc:channel so we can store per-connection
@@ -161,10 +161,7 @@ sender wasn't being ignored; true otherwise."))
 (defun ignoring-whom ()
   "Convenience function to print out some semblance of who's on the global ignore list."
   (sb-ext:with-locked-hash-table (*irc-connections*)
-    (loop for k being the hash-keys
-	  in *irc-connections*
-	  append (list k (ignore-list
-			  (gethash k *irc-connections*))))))
+    (maphash #'(lambda (k v) (format t "~A ~A~%" k (ignore-list v))) *irc-connections*)))
 
 (defun print-some-random-dots ()
   "An anti-function function."
@@ -305,9 +302,13 @@ allowing for leading and trailing punctuation characters in the match."
 	  (t nil))))
 
 (defun nye-hack ()
-  (mapc #'(lambda (conn)
-	    (loop for k being the hash-keys in (channels conn) do (privmsg conn k "Test test alkahest")))
-	(loop for conn being the hash-values in *irc-connections* collecting conn)))
+  (maphash-values
+   #'(lambda (conn)
+       (maphash-keys
+	#'(lambda (channel)
+	    (privmsg conn channel "Test test alkahest"))
+       (channels conn)))
+   *irc-connections*))
 
 ; Why do we fork another thread just to run this lambda, you may ask?
 ; Because the thread that the network event loop runs in keeps getting
@@ -341,14 +342,13 @@ allowing for leading and trailing punctuation characters in the match."
 (defun stop-irc-client-instance ()
   "Shut down a session with the IRC server."
   (sb-ext:with-locked-hash-table (*irc-connections*)
-    (loop for k being the hash-keys in *irc-connections*
-	  do (let ((connection (sb-ext:with-locked-hash-table (*irc-connections*)
-				 (gethash k *irc-connections*))))
-	       (cl-irc:quit connection  "I'm tired. I'm going home.")
-	       (sb-ext:unschedule-timer (message-timer connection))
-	       (sleep 1)
-	       (bt:destroy-thread (bot-irc-client-thread connection))
-	       (remhash k *irc-connections*)))))
+    (maphash #'(lambda (k conn)
+		   (cl-irc:quit conn  "I'm tired. I'm going home.")
+		   (sb-ext:unschedule-timer (message-timer conn))
+		   (sleep 1)
+		   (bt:destroy-thread (bot-irc-client-thread conn))
+		   (remhash k *irc-connections*))
+	     *irc-connections*)))
 
 (defun start-threaded-irc-client-instance ()
   "Spawn a thread to run a session with an IRC server."

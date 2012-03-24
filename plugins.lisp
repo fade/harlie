@@ -362,22 +362,26 @@
 	(t (format nil "~,1F C" centigrade))))
 
 (defun metar-temp-to-c (s)
+  "Convert a temperature measure to degrees Centigrade."
   (let ((centigrade (if (scan "^M" s)
 			(- (parse-integer (subseq s 1)))
 			(parse-integer s))))
     centigrade))
 
 (defun metar-windspeed-to-kmh (windspeed units)
+  "Convert a given windspeed value to km/h."
   (cond ((string= units "KT") (* 1.852 windspeed))
 	((string= units "MPS") (* 3.6 windspeed))
 	(t nil)))
 
 (defun current-zulu-hour ()
+  "Return the current hour in Zulu time."
   (multiple-value-bind (ns sec min hour) (decode-timestamp (now) :timezone +utc-zone+)
     (declare (ignore ns sec min))
     hour))
 
 (defun read-metar-data (regex zulu)
+  "Fetch one METAR data file, search it for a matching line, and return it if found; return nil otherwise."
   (let* ((metar-stream (http-request
 			(format nil "http://weather.noaa.gov/pub/data/observations/metar/cycles/~2,'0dZ.TXT" zulu)
 			:want-stream t)))
@@ -402,8 +406,8 @@
 		      (metar-temp-value humidex units) (metar-temp-value dew-temp units))))
 	"Temperature data not available.")))
 
-(defun metar-extract-data (metar-line &optional (units :Centigrade))
-  (declare (ignore units))
+(defun metar-extract-data (metar-line)
+  "Extract the values from various fields in a METAR record."
   (multiple-value-bind (tempnonce temp-substrings)
       (scan-to-strings "^([^\\s]*)\\s*([0-9]+[Z])\\s*[0-9][0-9][0-9]([0-9]+)(G[0-9]+)?([A-Z]+).*\\s(M?[0-9]+)[/](M?[0-9]+)\\s" metar-line)
     (declare (ignore tempnonce))

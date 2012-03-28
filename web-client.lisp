@@ -236,14 +236,18 @@ This is a very confusing API."
     (format nil "[ @~A ~A ]"  (elt username 0) (extract-from-html tree 'twitter-anchor 'twitter-extractor))))
 
 (defun twitter-payload (url)
-  "If the URL is at twitter.com, scrape the text of the tweet and return it.  Otherwise return nil."
-  (if (scan "^[^/]*//[^/]*twitter.com/" url)
-      (find-twitter
-       (chtml:parse
-	(webget url :redirect 10 :user-agent (car *user-agents*))
-	(chtml:make-lhtml-builder))
-       url) 
-      nil))
+  "Scraping Tweets turns out to be a bigger PITA than I'd thought, so let's not do it for now."
+  nil)
+
+;; (defun twitter-payload (url)
+;;   "If the URL is at twitter.com, scrape the text of the tweet and return it.  Otherwise return nil."
+;;   (if (scan "^[^/]*//[^/]*twitter.com/" url)
+;;       (find-twitter
+;;        (chtml:parse
+;; 	(webget url :redirect 10 :user-agent (car *user-agents*))
+;; 	(chtml:make-lhtml-builder))
+;;        url) 
+;;       nil))
 
 ;; drakma is very thorough in checking the correctness of the HTML
 ;; it fetches.  Unfortunately, it wants to see a newline character

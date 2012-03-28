@@ -220,7 +220,7 @@ allowing for leading and trailing punctuation characters in the match."
 (defun extract-urls (text)
   (all-matches-as-strings "((http|https)://[^\\s]+)|(www[.][^\\s.][^\\s]*[.][^\\s.][^\\s]*)" text))
 
-(defun msg-hook (message)
+(defun msg-hook (message action)
   "Handle an incoming message."
   (let* ((connection (connection message))
 	 (channel-name (car (arguments message)))
@@ -291,7 +291,7 @@ allowing for leading and trailing punctuation characters in the match."
 		     (qmess connection reply-to
 			    (format nil "[ ~A ] Couldn't fetch this page." url)))))))
 
-	  (channel
+	  ((and channel (not action))
 	   (let ((trigger-tokens (triggered context token-text-list sender channel)))
 	     (chain-in context token-text-list)
 	     (when trigger-tokens
@@ -320,7 +320,12 @@ allowing for leading and trailing punctuation characters in the match."
 (defun threaded-msg-hook (message)
   "Dispatch a thread to handle an incoming message."
   (make-thread #'(lambda ()
-		   (msg-hook message))))
+		   (msg-hook message nil))))
+
+(defun threaded-action-hook (message)
+  "Dispatch a thread to handle an incoming message."
+  (make-thread #'(lambda ()
+		   (msg-hook message T))))
 
 (defun threaded-byebye-hook (message)
   "Handle a quit or part message."
@@ -376,7 +381,7 @@ allowing for leading and trailing punctuation characters in the match."
 		   (cl-irc:join connection channel)
 		   (privmsg connection channel (format nil "NOTIFY:: Help, I'm a bot!")))))
 	   (add-hook connection 'irc::irc-privmsg-message #'threaded-msg-hook)
-	   (add-hook connection 'irc::ctcp-action-message #'threaded-msg-hook)
+	   (add-hook connection 'irc::ctcp-action-message #'threaded-action-hook)
 	   (add-hook connection 'irc::irc-quit-message #'threaded-byebye-hook)
 	   (add-hook connection 'irc::irc-part-message #'threaded-byebye-hook)
 	   (add-hook connection 'irc::irc-join-message #'intercept-join-message)

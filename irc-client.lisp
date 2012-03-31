@@ -35,7 +35,7 @@
 ;; instead of its channel objects.
 ;;
 ;; Our bot-irc-connection class gets used because we can pass a symbol for the
-;; class in to the connect function, which we do in start-threaded-irc-client-instance
+;; class in to the connect function, which we do in make-connection
 ;; below.  But I can't see a simple way to override the creation of channels to
 ;; use our subclass for those instead.
 ;;
@@ -344,51 +344,60 @@ allowing for leading and trailing punctuation characters in the match."
 		     (setf (last-message connection) message)
 		     (stop-ignoring connection sender)))))
 
-(defun stop-irc-client-instance ()
-  "Shut down a session with the IRC server."
+(defun stop-irc-client-instances ()
+  "Shut down all the IRC connections."
   (sb-ext:with-locked-hash-table (*irc-connections*)
     (maphash #'(lambda (k conn)
-		   (cl-irc:quit conn  "I'm tired. I'm going home.")
-		   (sb-ext:unschedule-timer (message-timer conn))
-		   (sleep 1)
-		   (bt:destroy-thread (bot-irc-client-thread conn))
-		   (remhash k *irc-connections*))
+		 (cl-irc:quit conn  "I'm tired. I'm going home.")
+		 (sb-ext:unschedule-timer (message-timer conn))
+		 (sleep 1)
+		 (bt:destroy-thread (bot-irc-client-thread conn))
+		 (remhash k *irc-connections*))
 	     *irc-connections*)))
 
-(defun start-threaded-irc-client-instance ()
+(defun make-irc-client-instance-thunk (nickname channels ircserver connection)
+  "Make the thunk which moves in and instantiates a new IRC connection."
+  (lambda ()
+    (setf (bot-irc-client-thread connection) (bt:current-thread))
+    (dolist (channel channels)
+      (if (listp channel)
+	  (progn
+	    (cl-irc:join connection (first channel) :password (second channel))
+	    (privmsg connection (first channel) (format nil "NOTIFY:: Help, I'm a bot!")))
+	  (progn
+	    (cl-irc:join connection channel)
+	    (privmsg connection channel (format nil "NOTIFY:: Help, I'm a bot!")))))
+    (add-hook connection 'irc::irc-privmsg-message #'threaded-msg-hook)
+    (add-hook connection 'irc::ctcp-action-message #'threaded-action-hook)
+    (add-hook connection 'irc::irc-quit-message #'threaded-byebye-hook)
+    (add-hook connection 'irc::irc-part-message #'threaded-byebye-hook)
+    (add-hook connection 'irc::irc-join-message #'intercept-join-message)
+    (read-message-loop connection)))
+
+(defun make-bot-connection (nickname ircserver)
+  "Make a connection to an IRC server."
+  (let ((connection (connect :nickname nickname
+			     :server ircserver
+			     :connection-type 'bot-irc-connection)))
+    (sb-ext:with-locked-hash-table (*irc-connections*)
+      (setf (gethash
+	     (list (string-upcase ircserver)
+		   (string-upcase nickname))
+	     *irc-connections*) connection))
+    connection))
+
+(defun start-threaded-irc-client-instances ()
   "Spawn a thread to run a session with an IRC server."
   (dolist (nickchans (irc-nickchannels *bot-config*))
     (let* ((nickname (car nickchans))
 	   (channels (cadr nickchans))
 	   (ircserver (irc-server-name *bot-config*))
-	   (connection (connect :nickname nickname
-				:server ircserver
-				:connection-type 'bot-irc-connection)))
+	   (connection (make-bot-connection nickname ircserver)))
       (make-thread
-       #'(lambda ()
-	   (setf (bot-irc-client-thread connection) (bt:current-thread))
-	   (sb-ext:with-locked-hash-table (*irc-connections*)
-	     (setf (gethash
-		    (list (string-upcase ircserver)
-			  (string-upcase nickname))
-		    *irc-connections*) connection))
-	   (dolist (channel channels)
-	     (if (listp channel)
-		 (progn
-		   (cl-irc:join connection (first channel) :password (second channel))
-		   (privmsg connection (first channel) (format nil "NOTIFY:: Help, I'm a bot!")))
-		 (progn
-		   (cl-irc:join connection channel)
-		   (privmsg connection channel (format nil "NOTIFY:: Help, I'm a bot!")))))
-	   (add-hook connection 'irc::irc-privmsg-message #'threaded-msg-hook)
-	   (add-hook connection 'irc::ctcp-action-message #'threaded-action-hook)
-	   (add-hook connection 'irc::irc-quit-message #'threaded-byebye-hook)
-	   (add-hook connection 'irc::irc-part-message #'threaded-byebye-hook)
-	   (add-hook connection 'irc::irc-join-message #'intercept-join-message)
-	   (read-message-loop connection))
+       (make-irc-client-instance-thunk nickname channels ircserver connection)
        :name (format nil "IRC Client thread: server ~A, nick ~A"
 		     ircserver nickname)))))
 
-(defun stop-threaded-irc-client-instance ()
+(defun stop-threaded-irc-client-instances ()
   "Shut down a session with an IRC server, and clean up."
-  (stop-irc-client-instance))
+  (stop-irc-client-instances))

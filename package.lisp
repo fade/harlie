@@ -4,7 +4,7 @@
   (:use #:cl
 	#:sb-concurrency
 	#:alexandria
-	#:bordeaux-threads
+	#:bt
 	#:cl-log
 	#:cl-ppcre
 	#:cl-who
@@ -13,6 +13,7 @@
 	#:drakma
 	#:hunchentoot
 	#:irc
+	#:json
 	#:local-time
 	#:parse-number
 	#:postmodern

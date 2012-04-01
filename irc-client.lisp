@@ -282,12 +282,13 @@ allowing for leading and trailing punctuation characters in the match."
 		 (setf url (format nil "http://~A" url)))
 	       (multiple-value-bind (short title tweet) (lookup-url *the-url-store* context url sender)
 		 (if (and short title)
-		     (progn
-		       (qmess connection reply-to
-			      (format nil "[ ~A ] [ ~A ]" short title))
-		       (when tweet
-			 (qmess connection reply-to
-				(format nil "~A" tweet))))
+		     (let ((twit (twitter-twit url)))
+		       (if (and twit tweet)
+			   (qmess connection reply-to
+				  (format nil "[ ~A ] [ @~A ~A ]" short (twitter-twit url) tweet))			   
+			   
+			   (qmess connection reply-to
+				  (format nil "[ ~A ] [ ~A ]" short title))))
 		     (qmess connection reply-to
 			    (format nil "[ ~A ] Couldn't fetch this page." url)))))))
 

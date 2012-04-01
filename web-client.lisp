@@ -235,9 +235,26 @@ This is a very confusing API."
     (declare (ignore whole))
     (format nil "[ @~A ~A ]"  (elt username 0) (extract-from-html tree 'twitter-anchor 'twitter-extractor))))
 
+(defun twitter-twit (url)
+  "Convenience function to extract the Twitter user name from an URL."
+  (multiple-value-bind (whole parts) (scan-to-strings "twitter.com/#!/([^/]+)/status/([0-9]+)" url)
+    (if whole
+	(elt parts 0)
+	nil)))
+
 (defun twitter-payload (url)
   "Scraping Tweets turns out to be a bigger PITA than I'd thought, so let's not do it for now."
-  nil)
+  (multiple-value-bind (whole parts) (scan-to-strings "twitter.com/#!/([^/]+)/status/([0-9]+)" url)
+    (if whole
+	(let* ((twit (elt parts 0))
+	       (twit-id-string (elt parts 1))
+	       (twitter-spooge (json:decode-json-from-source
+				(drakma:http-request
+				 (format nil "http://search.twitter.com/search.json?q=from:~A" twit)
+				 :want-stream T))))
+	  (cdr (assoc :text (car (remove-if-not #'(lambda (x) (string= (cdr (assoc :id--str x)) twit-id-string))
+						(cdr (assoc :results twitter-spooge)))))))
+	nil)))
 
 ;; (defun twitter-payload (url)
 ;;   "If the URL is at twitter.com, scrape the text of the tweet and return it.  Otherwise return nil."

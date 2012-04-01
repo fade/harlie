@@ -3,10 +3,12 @@
 (asdf:defsystem #:harlie
   :serial t
   :depends-on (#:sb-concurrency
+	       #:alexandria
 	       #:bordeaux-threads
 	       #:cl-fad
 	       #:cl-irc
 	       #:cl-log
+	       #:cl-json
 	       #:cl-ppcre
 	       #:cl-who
 	       #:closure-html

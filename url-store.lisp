@@ -209,9 +209,24 @@
 	(multiple-value-bind (title message redirect-uri) (fetch-title url)
 	  (setf redirect-uri (format nil "~A" redirect-uri))
 	  (cond (title
-		 (let ((short (make-unique-shortstring store url)))
+		 (let ((short (make-unique-shortstring store url))
+		       (tweet (twitter-payload url)))
 		   (with-connection (readwrite-url-db store)
-		     (insert-dao (make-instance 'urls :input-url url :redirected-url redirect-uri :short-url short :title title :from-nick nick :context-id (url-write-context-id context)))
+		     (if tweet
+			   (insert-dao (make-instance 'urls
+						      :input-url url
+						      :redirected-url redirect-uri
+						      :short-url short
+						      :title (format nil "@~A ~A" (twitter-twit url) tweet)
+						      :from-nick nick
+						      :context-id (url-write-context-id context)))
+			   (insert-dao (make-instance 'urls
+						      :input-url url
+						      :redirected-url redirect-uri
+						      :short-url short
+						      :title title
+						      :from-nick nick
+						      :context-id (url-write-context-id context))))
 		     (values (make-short-url-string context short) title (twitter-payload url)))))
 		(message
 		 (let ((short (make-unique-shortstring store url)))

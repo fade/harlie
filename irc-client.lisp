@@ -285,8 +285,7 @@ allowing for leading and trailing punctuation characters in the match."
 		     (let ((twit (twitter-twit url)))
 		       (if (and twit tweet)
 			   (qmess connection reply-to
-				  (format nil "[ ~A ] [ @~A ~A ]" short (twitter-twit url) tweet))			   
-			   
+				  (format nil "[ ~A ] [ @~A ~A ]" short (twitter-twit url) tweet))
 			   (qmess connection reply-to
 				  (format nil "[ ~A ] [ ~A ]" short title))))
 		     (qmess connection reply-to

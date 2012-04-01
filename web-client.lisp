@@ -243,7 +243,7 @@ This is a very confusing API."
 	nil)))
 
 (defun twitter-payload (url)
-  "Scraping Tweets turns out to be a bigger PITA than I'd thought, so let's not do it for now."
+  "Fetch the text from a Twitter posting."
   (multiple-value-bind (whole parts) (scan-to-strings "twitter.com/#!/([^/]+)/status/([0-9]+)" url)
     (if whole
 	(let* ((twit (elt parts 0))

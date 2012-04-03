@@ -113,6 +113,10 @@
 	  (sb-ext:make-timer q-runner :name "queue runner." :thread t))
     (funcall q-runner)))
 
+(defun restart-irc-message-queues ()
+  "An inconvenience function for getting the queues running again when they wedge."
+  (mapcar #'(lambda (x) (sb-ext:schedule-timer x 1)) (sb-ext:list-all-timers)))
+
 (defgeneric qmess (connection reply-to message)
   (:documentation "queue a message for rate-limited sending."))
 

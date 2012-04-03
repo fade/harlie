@@ -12,14 +12,13 @@
     ((listp strings) (mapcar #'string-strip-surrounding-whitespace strings))
     (t (string-strip-surrounding-whitespace strings))))
 
-(defun string-remove-embedded-newlines (str)
-  "Remove newline or carriage return characters from a string."
-  (concatenate 'string (loop for c across str when (not (or (eq c #\Newline) (eq c #\Return))) collecting c)))
-
 (defun cleanup-title (title)
-  "Remove extraneous whitespace characters from within and around a string."
+  "Remove extraneous whitespace characters from within and around a string.
+   Specifically: split the string on newlines, strip leading and trailing
+   whitespace from each substring, compose a new string from the substrings,
+   with single-space separators."
   (if title
-      (string-strip-surrounding-whitespace (string-remove-embedded-newlines title))
+      (format nil "~{~A~^ ~}" (strip-spaces (split-sequence #\Newline title)))
       nil))
 
 (defun float-as-string-p (fstring)

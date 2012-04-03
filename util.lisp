@@ -14,11 +14,15 @@
 
 (defun cleanup-title (title)
   "Remove extraneous whitespace characters from within and around a string.
-   Specifically: split the string on newlines, strip leading and trailing
-   whitespace from each substring, compose a new string from the substrings,
-   with single-space separators."
+   Specifically: split the string on newlines; strip leading and trailing
+   whitespace from each substring; drop empty substrings; compose a new string
+   from the remaining substrings, with single-space separators."
   (if title
-      (format nil "~{~A~^ ~}" (strip-spaces (split-sequence #\Newline title)))
+      (format nil "~{~A~^ ~}"
+	      (remove-if #'(lambda (s)
+			     (string= "" s))
+			 (strip-spaces
+			  (split-sequence #\Newline title))))
       nil))
 
 (defun float-as-string-p (fstring)

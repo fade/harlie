@@ -224,6 +224,25 @@ allowing for leading and trailing punctuation characters in the match."
 (defun extract-urls (text)
   (all-matches-as-strings "((http|https)://[^\\s]+)|(www[.][^\\s.][^\\s]*[.][^\\s.][^\\s]*)" text))
 
+(defun ignoring (connection sender text reply)
+  "Apply commands related to ignoring/not ignoring the speaker.  Return t if
+   the rest of the bot should ignore this utterance; return nil otherwise."
+  (let ((ignore-phrase "NOTIFY:: Help, I'm a bot!"))
+    (cond ((string= ignore-phrase text)
+	   (when (start-ignoring connection sender)
+	     (privmsg connection sender ignore-phrase)))
+	  ((string-equal text "!ignoreme off")
+	   (if (stop-ignoring connection sender)
+	       (funcall reply (format nil "No longer ignoring ~A." sender))
+	       (funcall reply (format nil "I wasn't ignoring you, ~A." sender))))
+	  ((scan (create-scanner "^!ignoreme" :case-insensitive-mode t) text)
+	   (when (start-ignoring connection sender)
+	     (funcall reply (format nil "Now ignoring ~A.  Use !IGNOREME OFF when you want me to hear you again." sender))))
+	  ;; If there wasn't an ignore toggle command, look up the speaker's ignore status and return it.
+	  (t (return-from ignoring (member sender (ignore-list connection) :test #'string-equal))))
+    ;; As there was an ignore toggle command, it's been handled and so should be ignored.
+    t))
+
 (defun msg-hook (message action)
   "Handle an incoming message."
   (let* ((connection (connection message))
@@ -235,75 +254,53 @@ allowing for leading and trailing punctuation characters in the match."
 	 (text (regex-replace-all "\\ca" (second (arguments message)) ""))
 	 (token-text-list (split "\\s+" text))
 	 (command (string-upcase (first token-text-list)))
-	 (reply-to channel-name)
 	 (context (make-instance
 		   'bot-context
 		   :bot-nick (nickname (user connection))
 		   :bot-irc-server (server-name connection)
 		   :bot-irc-channel channel))
-	 (urls (extract-urls text)))
+	 (reply-to (if (string= channel-name (bot-nick context))
+		       sender
+		       channel-name))
+	 (urls (extract-urls text))
+	 (reply (lambda (s) (qmess connection reply-to s))))
 
     (setf (last-message connection) message)
     (format t "Message: ~A~%" (raw-message-string message))
     (format t "   connection=~A channel=~A~%" connection channel-name)
 
-    (when (string-equal channel-name (bot-nick context))
-      (setf reply-to sender))
+    (unless (ignoring connection sender text reply)
+      (cond ((scan "^![^!]" command)
+	     (run-plugin (make-instance
+			  'plugin-request :botcmd command
+					  :plugin-context context
+					  :connection connection
+					  :channel-name channel-name
+					  :reply-to reply-to
+					  :token-text-list token-text-list)))
+	    (urls
+	     (dolist (url urls)
+	       (unless (or (scan (make-short-url-string context "") url)
+			   (scan "127.0.0.1" url))
+		 (when (scan "^www" url)
+		   (setf url (format nil "http://~A" url)))
+		 (multiple-value-bind (short title tweet) (lookup-url *the-url-store* context url sender)
+		   (if (and short title)
+		       (let ((twit (twitter-twit url)))
+			 (if (and twit tweet)
+			     (funcall reply (format nil "[ ~A ] [ @~A ~A ]" short (twitter-twit url) tweet))
+			     (funcall reply (format nil "[ ~A ] [ ~A ]" short title))))
+		       (funcall reply (format nil "[ ~A ] Couldn't fetch this page." url)))))))
 
-    (cond ((scan "^NOTIFY:: Help, I'm a bot!" text)
-	   (when (start-ignoring connection sender)
-	     (privmsg connection sender "NOTIFY:: Help, I'm a bot!")))
+	    ((and channel (not action))
+	     (let ((trigger-tokens (triggered context token-text-list sender channel)))
+	       (chain-in context token-text-list)
+	       (when trigger-tokens
+		 (let ((outgoing (chain context (first trigger-tokens) (second trigger-tokens))))
+		   (unless (not (mismatch trigger-tokens outgoing :test #'string-equal))
+		     (funcall reply (format nil "~{~A~^ ~}" outgoing)))))))
 
-	  ((string= "!IGNOREME" command)
-	   (if (or
-		(< (length token-text-list) 2)
-		(not (string= "OFF" (string-upcase (second token-text-list)))))
-	       (when (start-ignoring connection sender)
-		 (qmess connection reply-to
-			(format nil
-				"Now ignoring ~A.  Use !IGNOREME OFF when you want me to hear you again." sender)))
-	       (if (stop-ignoring connection sender)
-		   (qmess connection reply-to
-			  (format nil "No longer ignoring ~A." sender))
-		   (qmess connection reply-to
-			  (format nil "I wasn't ignoring you, ~A." sender)))))
-	  
-	  ((member sender (ignore-list connection) :test #'string-equal) nil)
-
-	  ((scan "^![^!]" command)
-	   (run-plugin (make-instance
-			'plugin-request :botcmd command
-			:plugin-context context
-			:connection connection
-			:channel-name channel-name
-			:reply-to reply-to
-			:token-text-list token-text-list)))
-	  (urls
-	   (dolist (url urls)
-	     (unless (or (scan (make-short-url-string context "") url)
-			 (scan "127.0.0.1" url))
-	       (when (scan "^www" url)
-		 (setf url (format nil "http://~A" url)))
-	       (multiple-value-bind (short title tweet) (lookup-url *the-url-store* context url sender)
-		 (if (and short title)
-		     (let ((twit (twitter-twit url)))
-		       (if (and twit tweet)
-			   (qmess connection reply-to
-				  (format nil "[ ~A ] [ @~A ~A ]" short (twitter-twit url) tweet))
-			   (qmess connection reply-to
-				  (format nil "[ ~A ] [ ~A ]" short title))))
-		     (qmess connection reply-to
-			    (format nil "[ ~A ] Couldn't fetch this page." url)))))))
-
-	  ((and channel (not action))
-	   (let ((trigger-tokens (triggered context token-text-list sender channel)))
-	     (chain-in context token-text-list)
-	     (when trigger-tokens
-	       (let ((outgoing (chain context (first trigger-tokens) (second trigger-tokens))))
-		 (unless (not (mismatch trigger-tokens outgoing :test #'string-equal))
-		   (qmess connection reply-to
-			  (format nil "~{~A~^ ~}" outgoing)))))))
-	  (t nil))))
+	    (t nil)))))
 
 (defun nye-hack ()
   (maphash-values
@@ -329,7 +326,7 @@ allowing for leading and trailing punctuation characters in the match."
 (defun threaded-action-hook (message)
   "Dispatch a thread to handle an incoming message."
   (make-thread #'(lambda ()
-		   (msg-hook message T))))
+		   (msg-hook message t))))
 
 (defun threaded-byebye-hook (message)
   "Handle a quit or part message."

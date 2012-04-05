@@ -274,13 +274,17 @@ This is a very confusing API."
 ;; this stringent checking.
 
 (defvar *old-bogus-eols* nil)
+(defvar *old-external-format* nil)
 
 (defun start-web-client ()
   "Initialize the system to request Web pages."
   (setf *old-bogus-eols* chunga:*accept-bogus-eols*)
-  (setf chunga:*accept-bogus-eols* t))
+  (setf chunga:*accept-bogus-eols* t)
+  (setf *old-external-format* drakma:*drakma-default-external-format*)
+  (setf drakma:*drakma-default-external-format* :utf-8))
 
 (defun stop-web-client ()
   "Clean up after requesting Web pages."
   (setf chunga:*accept-bogus-eols* *old-bogus-eols*)
-  (setf *old-bogus-eols* nil))
+  (setf *old-bogus-eols* nil)
+  (setf drakma:*drakma-default-external-format* *old-external-format*))

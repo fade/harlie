@@ -77,3 +77,6 @@
   (merge-pathnames
    fname
    (make-pathname-in-homedir "SourceCode/lisp/")))
+
+(defun create-caseless-scanner (s)
+  (create-scanner s :case-insensitive-mode t))

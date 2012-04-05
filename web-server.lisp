@@ -113,7 +113,7 @@ or an error message, as appropriate."
 (defun source-dispatch ()
   "Dispatcher for a brane-dead file server out of the bot."
   (format t "~A" (request-uri*))
-  (if (not (scan "^/source/?$" (request-uri*)))
+  (if (not (scan (create-caseless-scanner "^/source/?$") (request-uri*)))
       (fetch-file (subseq (request-uri*) 8))
       (fetch-source-dir)))
 
@@ -128,6 +128,15 @@ or an error message, as appropriate."
   (let* ((url-context (make-instance 'bot-context :bot-web-port (acceptor-port (request-acceptor *request*)))))
     (redirect (concatenate 'string (make-short-url-string url-context "gitrepo/") (subseq (request-uri*) 12)))))
 
+(defun glom-on-prefix (s thunk)
+  (push (create-prefix-dispatcher s thunk) *dispatch-table*))
+
+(defun glom-on-regex (s thunk)
+  (push (create-regex-dispatcher (create-caseless-scanner s) thunk) *dispatch-table*))
+
+(defun glom-on-folder (s p)
+  (push (create-folder-dispatcher-and-handler s (make-pathname-in-lisp-subdir p)) *dispatch-table*))
+
 (defun start-web-servers ()
   "Initialize and start the web server subsystem."
   (setf clhs-lookup::*hyperspec-map-file*
@@ -138,17 +147,14 @@ or an error message, as appropriate."
 			 :access-log-destination (make-pathname-in-lisp-subdir "harlie/logs/http-access.log")
 			 :message-log-destination (make-pathname-in-lisp-subdir "harlie/logs/http-error.log"))
 	  *acceptors*)
-    (push (hunchentoot:create-prefix-dispatcher "/" 'redirect-shortener-dispatch) *dispatch-table*)
-    (push (hunchentoot:create-prefix-dispatcher "/help" 'help-dispatch) *dispatch-table*)
-    (push (hunchentoot:create-prefix-dispatcher "/source" 'source-dispatch) *dispatch-table*)
-    (push (hunchentoot:create-prefix-dispatcher "/HyperSpec" 'hyperspec-base-dispatch) *dispatch-table*)
-    (push (hunchentoot:create-prefix-dispatcher "/hyperspec" 'hyperspec-base-dispatch) *dispatch-table*)
-    (push (hunchentoot:create-prefix-dispatcher "/Hyper" 'hyperspec-base-dispatch) *dispatch-table*)
-    (push (hunchentoot:create-prefix-dispatcher "/hyper" 'hyperspec-base-dispatch) *dispatch-table*)
-    (push (hunchentoot:create-folder-dispatcher-and-handler "/HyperSpec/" (make-pathname-in-lisp-subdir "HyperSpec/")) *dispatch-table*)
-    (push (hunchentoot:create-folder-dispatcher-and-handler "/gitrepo/" (make-pathname-in-lisp-subdir "harlie/.git/")) *dispatch-table*)
-    (push (hunchentoot:create-prefix-dispatcher "/harlie.git" 'gitrepo-base-dispatch) *dispatch-table*)
-    (hunchentoot:start (car *acceptors*))))
+    (glom-on-prefix "/" 'redirect-shortener-dispatch)
+    (glom-on-regex "^/help/?$" 'help-dispatch)
+    (glom-on-regex "^/source" 'source-dispatch)
+    (glom-on-regex "^/hyper(spec)?/?$" 'hyperspec-base-dispatch)
+    (glom-on-folder "/HyperSpec/" "HyperSpec/")
+    (glom-on-folder "/gitrepo/" "harlie/.git/")
+    (glom-on-prefix "/harlie.git" 'gitrepo-base-dispatch)
+    (start (car *acceptors*))))
 
 (defun stop-web-servers ()
   "Shut down the web server subsystem."

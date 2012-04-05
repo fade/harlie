@@ -98,8 +98,7 @@ This is a very confusing API."
 		(when title
 		  (return-from fetch-title (values title title redirect-uri))))
 	      (return-from fetch-title (values nil "Binary data" redirect-uri))))))
-    (values nil (if page-exists-p "No title found" nil) store-redirect-uri)
-    ))
+    (values nil (if page-exists-p "No title found" nil) store-redirect-uri)))
 
 ;;; alternative scraping system which uses an STP document structure
 ;;; to do a recursive search on the target document for various

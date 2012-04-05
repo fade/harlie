@@ -249,7 +249,7 @@ This is a very confusing API."
 	       (twit-id-string (elt parts 1))
 	       (twitter-spooge (json:decode-json-from-source
 				(drakma:http-request
-				 (format nil "http://search.twitter.com/search.json?q=from:~A" twit)
+				 (format nil "http://search.twitter.com/search.json?q=from:~A&max_id=~A" twit twit-id-string)
 				 :want-stream T))))
 	  (cdr (assoc :text (car (remove-if-not #'(lambda (x) (string= (cdr (assoc :id--str x)) twit-id-string))
 						(cdr (assoc :results twitter-spooge)))))))

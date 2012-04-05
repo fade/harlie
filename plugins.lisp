@@ -382,9 +382,10 @@
 
 (defun read-metar-data (regex zulu)
   "Fetch one METAR data file, search it for a matching line, and return it if found; return nil otherwise."
-  (let* ((metar-stream (http-request
-			(format nil "http://weather.noaa.gov/pub/data/observations/metar/cycles/~2,'0dZ.TXT" zulu)
-			:want-stream t)))
+  (with-open-stream
+      (metar-stream (http-request
+		     (format nil "http://weather.noaa.gov/pub/data/observations/metar/cycles/~2,'0dZ.TXT" zulu)
+		     :want-stream t))
     (do* ((l (read-line metar-stream nil 'eof) (read-line metar-stream nil 'eof))
 	  (payload nil))
 	 ((or (eq l 'eof) payload) payload)

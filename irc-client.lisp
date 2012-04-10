@@ -31,66 +31,20 @@
 (defclass bot-irc-channel (cl-irc:channel)
   ((trigger-list :initarg :trigger-list :initform nil :accessor trigger-list)))
 
-;; A couple of bodges which force cl-irc to instantiate our bot-irc-channel objects
-;; instead of its channel objects.
-;;
-;; Our bot-irc-connection class gets used because we can pass a symbol for the
-;; class in to the connect function, which we do in make-connection
-;; below.  But I can't see a simple way to override the creation of channels to
-;; use our subclass for those instead.
-;;
-;; intercept-join-message is registered as a hook which gets called upon receipt
-;; of join message from the server.  It's a copy of the corresponding
-;; callback from cl-irc, except that we call make-rigged-channel instead of
-;; make-channel.
-;;
-;; make-rigged-channel is likewise a copy of make-channel except that it instantiates
-;; a bot-irc-channel object instead of a channel object.
-;;
-;; Oh, and we have to qualify all kinds of symbols here as being from cl-irc.
+;; Here, we insinuate ourselves into the cl-irc plumbing by subclassing the irc channel
+;; on the fly and setting up the trigger list.
 
-(defun make-rigged-channel (connection
-			    &key (name "")
-			      (topic "")
-			      (modes nil)
-			      (users nil)
-			      (user-count nil))
-  "Half of the hook to ram our bot-irc-channel type into the cl-irc amalgam."
-  (let ((channel
-	  (make-instance 'bot-irc-channel
-			 :name name
-			 :normalized-name
-			 (cl-irc:normalize-channel-name connection name)
-			 :topic topic
-			 :modes modes
-			 :user-count user-count
-			 :trigger-list (random-words
-					(make-instance 'bot-context
-						       :bot-nick (nickname (user connection))
-						       :bot-irc-server (server-name connection)
-						       :bot-irc-channel name)
-					10 #'acceptable-word-p))))
-    (dolist (user users)
-      (cl-irc:add-user channel user))
-    channel))
-
-(defun intercept-join-message (message)
-  "The other half of the hook for insinuating bot-irc-channel into cl-irc."
-  (with-slots
-	(cl-irc:connection cl-irc:source cl-irc:host cl-irc:user cl-irc:arguments)
-      message
-    (destructuring-bind
-        (channel)
-        arguments
-      (let ((user (cl-irc::find-or-make-user cl-irc:connection cl-irc:source
-					     :hostname cl-irc:host
-					     :username cl-irc:user))
-	    (channel (or (cl-irc:find-channel cl-irc:connection channel)
-                         (make-rigged-channel connection :name channel))))
-        (when (cl-irc:self-message-p message)
-          (cl-irc:add-channel cl-irc:connection channel))
-        (cl-irc:add-user cl-irc:connection user)
-        (cl-irc:add-user channel user)))))
+(defmethod cl-irc::default-hook :after ((message cl-irc:irc-join-message))
+  (let* ((connection (cl-irc:connection message))
+	 (channel-name (car (arguments message)))
+	 (channel (find-channel connection channel-name)))
+    (change-class channel 'bot-irc-channel
+		  :trigger-list (random-words
+				 (make-instance 'bot-context
+						:bot-nick (nickname (user connection))
+						:bot-irc-server (server-name connection)
+						:bot-irc-channel channel-name)
+				 10 #'acceptable-word-p))))
 
 ;; The rate-limiting queue structure for the connection to the IRC server.
 
@@ -372,7 +326,6 @@ allowing for leading and trailing punctuation characters in the match."
     (add-hook connection 'irc::ctcp-action-message #'threaded-action-hook)
     (add-hook connection 'irc::irc-quit-message #'threaded-byebye-hook)
     (add-hook connection 'irc::irc-part-message #'threaded-byebye-hook)
-    (add-hook connection 'irc::irc-join-message #'intercept-join-message)
     (read-message-loop connection)))
 
 (defun make-bot-connection (nickname ircserver)

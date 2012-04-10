@@ -2,26 +2,11 @@
 
 (in-package #:harlie)
 
-(defclass url-store () ())
-
-(defclass hash-url-store (url-store)
-  ((url->short :initform (make-hash-table :test 'equal :synchronized t) :accessor url->short)
-   (short->url :initform (make-hash-table :test 'equal :synchronized t) :accessor short->url)
-   (url->headline :initform (make-hash-table :test 'equal :synchronized t) :accessor url->headline)))
-
-(defclass postmodern-url-store (url-store)
+(defclass postmodern-url-store ()
   ((readonly-url-dbs :initform (psql-old-credentials *bot-config*) :accessor readonly-url-dbs)
    (readwrite-url-db :initform (psql-url-new-credentials *bot-config*) :accessor readwrite-url-db)))
 
-(defvar *hash-url-store* (make-instance 'hash-url-store))
-
-(defvar *pomo-url-store* (make-instance 'postmodern-url-store))
-
-(defvar *the-url-store*
-  (case (url-store-type *bot-config*)
-    (:psql *pomo-url-store*)
-    (:hash *hash-url-store*)
-    (otherwise *hash-url-store*)))
+(defvar *the-url-store* (make-instance 'postmodern-url-store))
 
 (defgeneric get-url-from-old-shortstring (store url)
   (:documentation "Check the existing databases for entries corresponding to a given shortstring."))
@@ -135,8 +120,6 @@
 					(reset-title url)
 					(update-dao url)))))))
 
-
-
 (defparameter *letterz* "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 
 (defparameter *how-short* 5)
@@ -150,16 +133,6 @@
 (defgeneric make-unique-shortstring (store url)
   (:documentation "Assign a new short URL string to URL."))
 
-(defmethod make-unique-shortstring ((store hash-url-store) url)
-  (sb-ext:with-locked-hash-table ((short->url store))
-    (sb-ext:with-locked-hash-table ((url->short store))
-      (do ((short (make-shortstring) (make-shortstring)))
-	  ((not (gethash short (short->url store)))
-	   (progn
-	     (setf (gethash short (short->url store)) url)
-	     (setf (gethash url (url->short store)) short)
-	     short))))))
-
 (defmethod make-unique-shortstring ((store postmodern-url-store) url)
   (with-connection (readwrite-url-db store)
     (do ((short (make-shortstring) (make-shortstring)))
@@ -172,28 +145,6 @@
 (defun make-short-url-string (context hash)
   "Compose the short URL string for a given hash in a given context."
   (format nil "~A~A" (make-url-prefix (bot-web-server context) (bot-web-port context)) hash))
-
-(defmethod lookup-url ((store hash-url-store) context url nick)
-  (declare (ignore context nick))
-  (let ((short (sb-ext:with-locked-hash-table ((url->short store))
-		 (gethash url (url->short store)))))
-    (if short
-	(sb-ext:with-locked-hash-table ((url->headline store))
-	  (values short (gethash url (url->headline store))))
-	(multiple-value-bind (title message) (fetch-title url)
-	  (cond (title
-		 (progn
-		   (setf short (make-unique-shortstring store url))
-		   (sb-ext:with-locked-hash-table ((url->headline store))
-		     (setf (gethash url (url->headline store)) title))
-		   (values short title)))
-		(message
-		 (progn
-		   (setf short (make-unique-shortstring store url))
-		   (sb-ext:with-locked-hash-table ((url->headline store))
-		     (setf (gethash url (url->headline store)) (format nil "~A: ~A" message url)))
-		   (values short message)))
-		(t (values nil nil)))))))
 
 (defmethod lookup-url ((store postmodern-url-store) context url nick)
   (let ((result (with-connection (readwrite-url-db store)
@@ -238,23 +189,12 @@
 (defgeneric get-url-from-shortstring (store short)
   (:documentation "Return the full URL associated with a given short string."))
 
-(defmethod get-url-from-shortstring ((store hash-url-store) short)
-  (sb-ext:with-locked-hash-table ((short->url store))
-    (gethash short (short->url store))))
-
 (defmethod get-url-from-shortstring ((store postmodern-url-store) short)
   (with-connection (readwrite-url-db store)
     (caar (query (:select 'redirected-url :from 'urls :where (:= 'short-url short))))))
 
 (defgeneric get-urls-and-headlines (store context)
   (:documentation "Get a list of URLs and headlines from an URL store."))
-
-(defmethod get-urls-and-headlines ((store hash-url-store) (context bot-context))
-  (declare (ignore context))
-  (sb-ext:with-locked-hash-table ((url->headline store))
-    (loop for k being the hash-keys in (url->headline store)
-	  collecting
-	  (list k (gethash k (url->headline store) "Click here for a random link.")))))
 
 (defmethod get-urls-and-headlines ((store postmodern-url-store) (context bot-context))
   (with-connection (readwrite-url-db store)

@@ -228,12 +228,6 @@ This is a very confusing API."
 				(getf proplist :CLASS))
 			    (second tree))))))
 
-(defun find-twitter (tree url)
-  "Format the message for printing a precis of a Twitter posting."
-  (multiple-value-bind (whole username) (scan-to-strings "[^/]/([^/]+)/" url)
-    (declare (ignore whole))
-    (format nil "[ @~A ~A ]"  (elt username 0) (extract-from-html tree 'twitter-anchor 'twitter-extractor))))
-
 (defun twitter-twit (url)
   "Convenience function to extract the Twitter user name from an URL."
   (multiple-value-bind (whole parts) (scan-to-strings "twitter.com/#!/([^/]+)/status/([0-9]+)" url)
@@ -255,16 +249,6 @@ This is a very confusing API."
 	  (cdr (assoc :text (car (remove-if-not #'(lambda (x) (string= (cdr (assoc :id--str x)) twit-id-string))
 						(cdr (assoc :results twitter-spooge)))))))
 	nil)))
-
-;; (defun twitter-payload (url)
-;;   "If the URL is at twitter.com, scrape the text of the tweet and return it.  Otherwise return nil."
-;;   (if (scan "^[^/]*//[^/]*twitter.com/" url)
-;;       (find-twitter
-;;        (chtml:parse
-;; 	(webget url :redirect 10 :user-agent (car *user-agents*))
-;; 	(chtml:make-lhtml-builder))
-;;        url) 
-;;       nil))
 
 ;; drakma is very thorough in checking the correctness of the HTML
 ;; it fetches.  Unfortunately, it wants to see a newline character

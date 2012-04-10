@@ -235,7 +235,7 @@ allowing for leading and trailing punctuation characters in the match."
 	   (if (stop-ignoring connection sender)
 	       (funcall reply (format nil "No longer ignoring ~A." sender))
 	       (funcall reply (format nil "I wasn't ignoring you, ~A." sender))))
-	  ((scan (create-scanner "^!ignoreme" :case-insensitive-mode t) text)
+	  ((scan (create-caseless-scanner "^!ignoreme") text)
 	   (when (start-ignoring connection sender)
 	     (funcall reply (format nil "Now ignoring ~A.  Use !IGNOREME OFF when you want me to hear you again." sender))))
 	  ;; If there wasn't an ignore toggle command, look up the speaker's ignore status and return it.

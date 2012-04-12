@@ -216,45 +216,42 @@ allowing for leading and trailing punctuation characters in the match."
 	 (reply-to (if (string= channel-name (bot-nick context))
 		       sender
 		       channel-name))
-	 (urls (extract-urls text))
-	 (reply (lambda (s) (qmess connection reply-to s))))
+	 (urls (extract-urls text)))
+    (flet ((reply (s) (qmess connection reply-to s)))
+      (setf (last-message connection) message)
+      (format t "Message: ~A~%" (raw-message-string message))
+      (format t "   connection=~A channel=~A~%" connection channel-name)
 
-    (setf (last-message connection) message)
-    (format t "Message: ~A~%" (raw-message-string message))
-    (format t "   connection=~A channel=~A~%" connection channel-name)
-
-    (unless (ignoring connection sender text reply)
-      (cond ((scan "^![^!]" command)
-	     (run-plugin (make-instance
-			  'plugin-request :botcmd command
-					  :plugin-context context
-					  :connection connection
-					  :channel-name channel-name
-					  :reply-to reply-to
-					  :token-text-list token-text-list)))
-	    (urls
-	     (dolist (url urls)
-	       (unless (or (scan (make-short-url-string context "") url)
-			   (scan "127.0.0.1" url))
-		 (when (scan "^www" url)
-		   (setf url (format nil "http://~A" url)))
-		 (multiple-value-bind (short title tweet) (lookup-url *the-url-store* context url sender)
-		   (if (and short title)
-		       (let ((twit (twitter-twit url)))
-			 (if (and twit tweet)
-			     (funcall reply (format nil "[ ~A ] [ @~A ~A ]" short (twitter-twit url) tweet))
-			     (funcall reply (format nil "[ ~A ] [ ~A ]" short title))))
-		       (funcall reply (format nil "[ ~A ] Couldn't fetch this page." url)))))))
-
-	    ((and channel (not action))
-	     (let ((trigger-tokens (triggered context token-text-list sender channel)))
-	       (chain-in context token-text-list)
-	       (when trigger-tokens
-		 (let ((outgoing (chain context (first trigger-tokens) (second trigger-tokens))))
-		   (unless (not (mismatch trigger-tokens outgoing :test #'string-equal))
-		     (funcall reply (format nil "~{~A~^ ~}" outgoing)))))))
-
-	    (t nil)))))
+      (unless (ignoring connection sender text #'reply)
+	(cond ((scan "^![^!]" command)
+	       (run-plugin (make-instance
+			    'plugin-request :botcmd command
+					    :plugin-context context
+					    :connection connection
+					    :channel-name channel-name
+					    :reply-to reply-to
+					    :token-text-list token-text-list)))
+	      (urls
+	       (dolist (url urls)
+		 (unless (or (scan (make-short-url-string context "") url)
+			     (scan "127.0.0.1" url))
+		   (when (scan "^www" url)
+		     (setf url (format nil "http://~A" url)))
+		   (multiple-value-bind (short title tweet) (lookup-url *the-url-store* context url sender)
+		     (if (and short title)
+			 (let ((twit (twitter-twit url)))
+			   (if (and twit tweet)
+			       (reply (format nil "[ ~A ] [ @~A ~A ]" short (twitter-twit url) tweet))
+			       (reply (format nil "[ ~A ] [ ~A ]" short title))))
+			 (reply (format nil "[ ~A ] Couldn't fetch this page." url)))))))
+	      ((and channel (not action))
+	       (let ((trigger-tokens (triggered context token-text-list sender channel)))
+		 (chain-in context token-text-list)
+		 (when trigger-tokens
+		   (let ((outgoing (chain context (first trigger-tokens) (second trigger-tokens))))
+		     (unless (not (mismatch trigger-tokens outgoing :test #'string-equal))
+		       (reply (format nil "~{~A~^ ~}" outgoing)))))))
+	      (t nil))))))
 
 (defun nye-hack ()
   (maphash-values

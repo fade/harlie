@@ -284,7 +284,7 @@
   (case (plugin-action plug-request)
     (:docstring (format nil "Make the dicklicking face again"))
     (:priority 4.0)
-    (:run (format nil "~{~A~^ ~}" (random-choice *bong-noises* (+ 3 (random 8)))))))
+    (:run (format nil "~{~A~^ ~}" (loop for i from 1 to (+ 3 (random 8)) collecting (random-elt *bong-noises*))))))
 
 (defplugin doomsday (plug-request)
   (case (plugin-action plug-request)

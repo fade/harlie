@@ -128,7 +128,7 @@
   "Generate a single random short-URL string."
   (apply #'concatenate 'string
 	 (loop for i from 1 to *how-short* collecting
-					   (string (elt *letterz* (random (length *letterz*)))))))
+					   (string (random-elt *letterz*)))))
 
 (defgeneric make-unique-shortstring (store url)
   (:documentation "Assign a new short URL string to URL."))

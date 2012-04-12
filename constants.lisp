@@ -118,12 +118,7 @@
 (defun consult-8ball ()
   (when (not *8ball-data*)
     (setf *8ball-data* (read-8ball)))
-  (elt *8ball-data* (random (length *8ball-data*))))
-
-(defun random-choice (l &optional (n 1))
-  (loop for i from 1 to n
-	collecting
-	(elt l (random (length l)))))
+  (random-elt *8ball-data*))
 
 (defparameter *bong-noises* '("HOH" "LGAH" "LAUG" "LUAGH" "UALGHA"
 			      "LUAHAGH" "GLUAGH" "HLGHU" "ULGHUG" "MUHLGH"))

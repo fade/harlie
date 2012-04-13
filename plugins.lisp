@@ -63,8 +63,13 @@
   (case (plugin-action plug-request)
     (:docstring (format nil "Give the count of phrases in the chaining database"))
     (:priority 1.0)
-    (:run (format nil "I know ~:D phrases."
-		  (count-phrases (plugin-context plug-request))))))
+    (:run (append (if (and (> (length (plugin-token-text-list plug-request)) 1)
+			   (string-equal (second (plugin-token-text-list plug-request)) "full" ))
+		      (list (format nil "~A running ~A ~A on ~A ~A, ~A ~A.~%"
+				    (machine-instance) (lisp-implementation-type) (lisp-implementation-version)
+				    (software-type) (software-version) (machine-type) (machine-version)))
+		      nil)
+		  (list (format nil "I know ~:D phrases." (count-phrases (plugin-context plug-request))))))))
 
 (defplugin conv (plug-request)
   (case (plugin-action plug-request)

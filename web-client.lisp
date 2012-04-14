@@ -189,13 +189,6 @@ This is a very confusing API."
     (if result result
 	"Your query did not return any meaningful data.")))
 
-(defun retrieve-calc (search-tokens)
-  (do* ((stream (third (http-request (format nil "http://www.google.com/search?q=~{~A~^+~}&client=ubuntu&channel=fs" search-tokens))))
-	(line (read-line stream nil 'eof) (read-line stream nil 'eof))
-	(lines (list line) (cons line lines)))
-       ((eq line 'eof) (apply 'concatenate 'string (reverse (cdr lines))))
-    (format t "~A~%" line)))
-
 (defun doomsday-anchor (tree)
   "Predicate which detects the result in a Doomsday lookup."
   (and (eq (car tree) :DIV)

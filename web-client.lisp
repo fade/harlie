@@ -192,9 +192,9 @@ This is a very confusing API."
 (defun doomsday-anchor (tree)
   "Predicate which detects the result in a Doomsday lookup."
   (and (eq (car tree) :DIV)
+       (>= (length tree) 3)
        (listp (second tree))
        (string= (getf (caadr tree) :CLASS) "module-content")
-       (>= (length tree) 3)
        (listp (third tree))
        (eq (car (third tree)) :H3)))
 

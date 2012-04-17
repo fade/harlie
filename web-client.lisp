@@ -210,23 +210,6 @@ This is a very confusing API."
   "Find how many minutes to midnight according to the Bulletin of the Atomic Scientists."
   (extract-from-html tree 'doomsday-anchor 'doomsday-extractor))
 
-(defun twitter-extractor (tree)
-  "Extract the text of a Twitter posting."
-  (let ((tweet (last tree)))
-    (if tweet
-	(car tweet)
-	nil)))
-
-(defun twitter-anchor (tree)
-  "Locate the text of a Twitter posting within the lhtml returned by fetching it."
-  (and (equal (car tree) :SPAN)
-       (listp (second tree))
-       (equal "status"
-	      (some #'identity
-		    (mapcar #'(lambda (proplist)
-				(getf proplist :CLASS))
-			    (second tree))))))
-
 (defun twitter-twit (url)
   "Convenience function to extract the Twitter user name from an URL."
   (multiple-value-bind (whole parts) (scan-to-strings "twitter.com/#!/([^/]+)/status/([0-9]+)" url)

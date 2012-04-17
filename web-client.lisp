@@ -193,11 +193,7 @@ This is a very confusing API."
   "Predicate which detects the result in a Doomsday lookup."
   (and (eq (car tree) :DIV)
        (listp (second tree))
-       (equal "module-content"
-	      (some #'identity
-		    (mapcar #'(lambda (proplist)
-				(getf proplist :CLASS))
-			    (second tree))))
+       (string= (getf (caadr tree) :CLASS) "module-content")
        (>= (length tree) 3)
        (listp (third tree))
        (eq (car (third tree)) :H3)))

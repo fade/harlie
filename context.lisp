@@ -84,13 +84,13 @@
 	   :single)))
 
 (defgeneric url-write-credentials (context)
-  (:documentation "Returns the database credentials to write to the chaining DB in a given context."))
+  (:documentation "Returns the database credentials to write to the URL DB in a given context."))
 
 (defmethod url-write-credentials ((context bot-context))
   (psql-url-new-credentials *bot-config*))
 
 (defgeneric url-write-context-id (context)
-  (:documentation "Returns the context ID for writing to the chaining DB in a given context."))
+  (:documentation "Returns the context ID for writing to the URL DB in a given context."))
 
 (defmethod url-write-context-id ((context bot-context))
   (with-connection (psql-context-credentials *bot-config*)

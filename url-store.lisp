@@ -3,20 +3,9 @@
 (in-package #:harlie)
 
 (defclass postmodern-url-store ()
-  ((readonly-url-dbs :initform (psql-old-credentials *bot-config*) :accessor readonly-url-dbs)
-   (readwrite-url-db :initform (psql-url-new-credentials *bot-config*) :accessor readwrite-url-db)))
+  ((readwrite-url-db :initform (psql-url-new-credentials *bot-config*) :accessor readwrite-url-db)))
 
 (defvar *the-url-store* (make-instance 'postmodern-url-store))
-
-(defgeneric get-url-from-old-shortstring (store url)
-  (:documentation "Check the existing databases for entries corresponding to a given shortstring."))
-
-(defmethod get-url-from-old-shortstring ((store postmodern-url-store) short)
-  (dolist (db (readonly-url-dbs store))
-    (with-connection db
-      (let ((long
-	      (query (sql (:select 'url :from 'urls :where (:= 'shorturl short))))))
-        (when long (return (caar long)))))))
 
 (defclass urls ()
   ((url-id :col-type integer :accessor url-id)

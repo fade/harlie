@@ -31,13 +31,6 @@
 	(setf (bot-web-port context) (fifth conlist))
 	(setf (bot-uri-prefix context) (sixth conlist))))))
 
-(defgeneric chain-read-credentials (context)
-  (:documentation "Returns the database credentials to read the chaining DB in a given context."))
-
-(defmethod chain-read-credentials ((context bot-context))
-  (declare (ignore context))
-  (psql-botdb-credentials *bot-config*))
-
 (defgeneric chain-read-context-id (context)
   (:documentation "Returns the context ID for reading the chaining DB in a given context."))
 
@@ -49,13 +42,6 @@
 		       (string-downcase (bot-nick context))))
 	   :single)))
 
-(defgeneric chain-write-credentials (context)
-  (:documentation "Returns the database credentials to write to the chaining DB in a given context."))
-
-(defmethod chain-write-credentials ((context bot-context))
-  (declare (ignore context))
-  (psql-botdb-credentials *bot-config*))
-
 (defgeneric chain-write-context-id (context)
   (:documentation "Returns the context ID for writing to the chaining DB in a given context."))
 
@@ -66,12 +52,6 @@
 	    :where (:= (:raw "lower(context_name)")
 		       (string-downcase (bot-nick context))))
 	   :single)))
-
-(defgeneric url-read-credentials (context)
-  (:documentation "Returns the database credentials to read the URL DB in a given context."))
-
-(defmethod url-read-credentials ((context bot-context))
-  (psql-botdb-credentials *bot-config*))
 
 (defgeneric url-read-context-id (context)
   (:documentation "Returns the context ID for reading the URL DB in a given context."))
@@ -85,12 +65,6 @@
 
 (defgeneric url-write-credentials (context)
   (:documentation "Returns the database credentials to write to the URL DB in a given context."))
-
-(defmethod url-write-credentials ((context bot-context))
-  (psql-botdb-credentials *bot-config*))
-
-(defgeneric url-write-context-id (context)
-  (:documentation "Returns the context ID for writing to the URL DB in a given context."))
 
 (defmethod url-write-context-id ((context bot-context))
   (with-connection (psql-botdb-credentials *bot-config*)

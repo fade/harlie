@@ -360,6 +360,28 @@
     (:priority 3.0)
     (:run (rpn-calculator (rest (plugin-token-text-list plug-request))))))
 
+(defparameter *metar-datums* (make-hash-table :test 'equal :size 10000))
+
+(defun scrape-metar-data ()
+  (let ((flexi-streams:*substitution-char* #\?))
+    (with-open-stream
+	(metar-stream (http-request
+		       (format nil "http://weather.noaa.gov/pub/data/observations/metar/cycles/~2,'0dZ.TXT" (current-zulu-hour))
+		       :want-stream t))
+      (do* ((l (read-line metar-stream nil 'eof) (read-line metar-stream nil 'eof))
+	    (payload nil))
+	   ((eq l 'eof) nil)
+	(let ((station (scan-to-strings "^[A-Z]{4}" l)))
+	  (when station (setf (gethash station *metar-datums*) l)))))))
+
+(defun check-metar-data ()
+  (with-connection (psql-botdb-credentials *bot-config*)
+    (loop for k being the hash-keys in *metar-datums*
+	  when (not (query (:select 'icao 'iata 'airport 'location
+				    :from 'icao-code
+				    :where (:= 'icao k))))
+	    collecting k)))
+
 (defun metar-temp-value (centigrade &optional (units :Centigrade))
   (cond ((null centigrade) nil)
 	((eq units :Fahrenheit) (format nil "~,1F F" (+ 32 (* (/ 9 5) centigrade))))

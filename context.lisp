@@ -34,41 +34,38 @@
 (defgeneric chain-read-context-id (context)
   (:documentation "Returns the context ID for reading the chaining DB in a given context."))
 
-(defmethod chain-read-context-id ((context bot-context)) 
+(defun chain-context (nick)
   (with-connection (psql-botdb-credentials *bot-config*)
     (query (:select 'context-id
 	    :from 'contexts
 	    :where (:= (:raw "lower(context_name)")
-		       (string-downcase (bot-nick context))))
+		       (string-downcase nick)))
 	   :single)))
+
+(defmethod chain-read-context-id ((context bot-context)) 
+  (chain-context (bot-nick context)))
 
 (defgeneric chain-write-context-id (context)
   (:documentation "Returns the context ID for writing to the chaining DB in a given context."))
 
 (defmethod chain-write-context-id ((context bot-context)) 
-  (with-connection (psql-botdb-credentials *bot-config*)
-    (query (:select 'context-id
-	    :from 'contexts
-	    :where (:= (:raw "lower(context_name)")
-		       (string-downcase (bot-nick context))))
-	   :single)))
+  (chain-context (bot-nick context)))
 
 (defgeneric url-read-context-id (context)
   (:documentation "Returns the context ID for reading the URL DB in a given context."))
 
-(defmethod url-read-context-id ((context bot-context)) 
+(defun url-context (port)
   (with-connection (psql-botdb-credentials *bot-config*)
     (query (:select 'context-id
 	    :from 'contexts
-	    :where (:= 'web-port (bot-web-port context)))
+	    :where (:= 'web-port port))
 	   :single)))
+
+(defmethod url-read-context-id ((context bot-context)) 
+  (url-context (bot-web-port context)))
 
 (defgeneric url-write-context-id (context)
   (:documentation "Returns the context ID for writing to the URL DB in a given context."))
 
 (defmethod url-write-context-id ((context bot-context))
-  (with-connection (psql-botdb-credentials *bot-config*)
-    (query (:select 'context-id
-	    :from 'contexts
-	    :where (:= 'web-port (bot-web-port context)))
-	   :single)))
+  (url-context (bot-web-port context)))

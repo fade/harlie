@@ -76,11 +76,17 @@
    (psql-old-credentials :initarg :psql-old-credentials :initform nil :accessor psql-old-credentials)
    (psql-url-new-credentials :initarg :psql-url-new-credentials :accessor psql-url-new-credentials)
    (psql-chain-credentials :initarg :psql-chain-credentials :accessor psql-chain-credentials)
-   (psql-context-credentials :initarg :psql-context-credentials :accessor psql-context-credentials)))
+   (psql-context-credentials :initarg :psql-context-credentials :accessor psql-context-credentials)
+   (psql-botdb-credentials :initarg :psql-botdb-credentials :initform nil :accessor psql-botdb-credentials)))
 
 (defun make-config (&rest args)
   (apply #'make-instance 'config args))
 
+(defmethod initialize-instance :after ((conf config) &key)
+  (with-accessors ((botdb psql-botdb-credentials) (ctxt psql-context-credentials))
+      conf
+    (when (not botdb)
+      (setf botdb ctxt))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; confobjects.lisp ends here

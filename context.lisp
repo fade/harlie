@@ -11,7 +11,7 @@
    (bot-uri-prefix :initarg :bot-uri-prefix :initform nil :accessor bot-uri-prefix)))
 
 (defmethod initialize-instance :after ((context bot-context) &key)
-  (with-connection (psql-context-credentials *bot-config*)
+  (with-connection (psql-botdb-credentials *bot-config*)
     (let* ((context-query-head '(:select 'context-name 'irc-server 'irc-channel
 				         'web-server 'web-port 'web-uri-prefix
 				 :from 'contexts))
@@ -36,13 +36,13 @@
 
 (defmethod chain-read-credentials ((context bot-context))
   (declare (ignore context))
-  (psql-chain-credentials *bot-config*))
+  (psql-botdb-credentials *bot-config*))
 
 (defgeneric chain-read-context-id (context)
   (:documentation "Returns the context ID for reading the chaining DB in a given context."))
 
 (defmethod chain-read-context-id ((context bot-context)) 
-  (with-connection (psql-context-credentials *bot-config*)
+  (with-connection (psql-botdb-credentials *bot-config*)
     (query (:select 'context-id
 	    :from 'contexts
 	    :where (:= (:raw "lower(context_name)")
@@ -54,13 +54,13 @@
 
 (defmethod chain-write-credentials ((context bot-context))
   (declare (ignore context))
-  (psql-chain-credentials *bot-config*))
+  (psql-botdb-credentials *bot-config*))
 
 (defgeneric chain-write-context-id (context)
   (:documentation "Returns the context ID for writing to the chaining DB in a given context."))
 
 (defmethod chain-write-context-id ((context bot-context)) 
-  (with-connection (psql-context-credentials *bot-config*)
+  (with-connection (psql-botdb-credentials *bot-config*)
     (query (:select 'context-id
 	    :from 'contexts
 	    :where (:= (:raw "lower(context_name)")
@@ -71,13 +71,13 @@
   (:documentation "Returns the database credentials to read the URL DB in a given context."))
 
 (defmethod url-read-credentials ((context bot-context))
-  (psql-url-new-credentials *bot-config*))
+  (psql-botdb-credentials *bot-config*))
 
 (defgeneric url-read-context-id (context)
   (:documentation "Returns the context ID for reading the URL DB in a given context."))
 
 (defmethod url-read-context-id ((context bot-context)) 
-  (with-connection (psql-context-credentials *bot-config*)
+  (with-connection (psql-botdb-credentials *bot-config*)
     (query (:select 'context-id
 	    :from 'contexts
 	    :where (:= 'web-port (bot-web-port context)))
@@ -87,13 +87,13 @@
   (:documentation "Returns the database credentials to write to the URL DB in a given context."))
 
 (defmethod url-write-credentials ((context bot-context))
-  (psql-url-new-credentials *bot-config*))
+  (psql-botdb-credentials *bot-config*))
 
 (defgeneric url-write-context-id (context)
   (:documentation "Returns the context ID for writing to the URL DB in a given context."))
 
 (defmethod url-write-context-id ((context bot-context))
-  (with-connection (psql-context-credentials *bot-config*)
+  (with-connection (psql-botdb-credentials *bot-config*)
     (query (:select 'context-id
 	    :from 'contexts
 	    :where (:= 'web-port (bot-web-port context)))

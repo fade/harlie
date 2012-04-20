@@ -10,9 +10,7 @@
 	       :web-server-name "127.0.0.1"
 	       :web-server-ports '(5791)
 	       :url-store-type :psql
-	       :psql-url-new-credentials '("botdb" "tuxedo" nil :unix)
-	       :psql-chain-credentials '("botdb" "tuxedo" nil :unix)
-	       :psql-context-credentials '("botdb" "tuxedo" nil :unix)))
+	       :psql-botdb-credentials '("botdb" "tuxedo" nil :unix)))
 
 (defparameter *sr-4-config*
   (make-config :irc-server-name "irc.srh.org"
@@ -20,9 +18,7 @@
 	       :web-server-name "localhost"
 	       :web-server-ports '(5791)
 	       :url-store-type :psql
-	       :psql-url-new-credentials '("botdb" "fade" nil :unix)
-	       :psql-chain-credentials '("botdb" "fade" nil :unix)
-	       :psql-context-credentials '("botdb" "fade" nil :unix)))
+	       :psql-botdb-credentials '("botdb" "fade" nil :unix)))
 
 (defparameter *combined-config*
   (make-config :irc-server-name "irc.srh.org"
@@ -33,8 +29,6 @@
                :web-server-name "coruscant.deepsky.com"
                :web-server-ports '(7080 8080 8090 9099)
                :url-store-type :psql
-               :psql-url-new-credentials '("botdb" "semaphor" nil :unix)
-               :psql-chain-credentials '("botdb" "semaphor" nil :unix)
-               :psql-context-credentials '("botdb" "semaphor" nil :unix)))
+               :psql-botdb-credentials '("botdb" "semaphor" nil :unix)))
 
 (defparameter *bot-config* *combined-config*)

@@ -3,7 +3,7 @@
 (in-package #:harlie)
 
 (defclass postmodern-url-store ()
-  ((readwrite-url-db :initform (psql-url-new-credentials *bot-config*) :accessor readwrite-url-db)))
+  ((readwrite-url-db :initform (psql-botdb-credentials *bot-config*) :accessor readwrite-url-db)))
 
 (defvar *the-url-store* (make-instance 'postmodern-url-store))
 

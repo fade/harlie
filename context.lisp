@@ -63,8 +63,8 @@
 	    :where (:= 'web-port (bot-web-port context)))
 	   :single)))
 
-(defgeneric url-write-credentials (context)
-  (:documentation "Returns the database credentials to write to the URL DB in a given context."))
+(defgeneric url-write-context-id (context)
+  (:documentation "Returns the context ID for writing to the URL DB in a given context."))
 
 (defmethod url-write-context-id ((context bot-context))
   (with-connection (psql-botdb-credentials *bot-config*)

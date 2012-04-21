@@ -80,3 +80,8 @@
 
 (defun create-caseless-scanner (s)
   (create-scanner s :case-insensitive-mode t))
+
+(defun scan-to-substrings (rx s)
+  (multiple-value-bind (whole parts) (scan-to-strings rx s)
+    (declare (ignore whole))
+    parts))

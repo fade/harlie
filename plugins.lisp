@@ -363,16 +363,24 @@
 (defparameter *metar-datums* (make-hash-table :test 'equal :size 10000))
 
 (defun scrape-metar-data ()
-  (let ((flexi-streams:*substitution-char* #\?))
+  (let ((flexi-streams:*substitution-char* #\?)
+	(base-timestamp (timestamp-minimize-part (now) :hour)))
     (with-open-stream
 	(metar-stream (http-request
 		       (format nil "http://weather.noaa.gov/pub/data/observations/metar/cycles/~2,'0dZ.TXT" (current-zulu-hour))
 		       :want-stream t))
-      (do* ((l (read-line metar-stream nil 'eof) (read-line metar-stream nil 'eof))
-	    (payload nil))
+      (do* ((l (read-line metar-stream nil 'eof) (read-line metar-stream nil 'eof)))
 	   ((eq l 'eof) nil)
-	(let ((station (scan-to-strings "^[A-Z]{4}" l)))
-	  (when station (setf (gethash station *metar-datums*) l)))))))
+	(let ((matches (scan-to-substrings "^([A-Z]{4}) [0-9]{2}([0-9]{2})([0-9]{2})Z" l)))
+	  (when matches
+	    (let* ((station (aref matches 0))
+		   (hours (aref matches 1))
+		   (minutes (aref matches 2))
+		   (ts (timestamp+ (timestamp+ base-timestamp (parse-number hours) :hour) (parse-number minutes) :minute) )
+		   (oldts (gethash station *metar-datums* nil)))
+	      (when (or (not oldts) (timestamp< (car oldts) ts))
+		(setf (gethash station *metar-datums*)
+		      (list ts l))))))))))
 
 (defun check-metar-data ()
   (with-connection (psql-botdb-credentials *bot-config*)

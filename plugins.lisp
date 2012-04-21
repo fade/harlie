@@ -388,31 +388,24 @@
 	       (parse-number (subseq s 9 11)))
       nil))
 
-(defun remove-wrapper (l) (remove-duplicates l :test #'string=))
-;(defun remove-wrapper (l) l)
-
-(defparameter *base-timestamp* nil)
-
-(defun scanalyze (l)
-  (multiple-value-bind (station hours minutes) (valid-metar l)
-    (when (and station hours minutes)
-      (let ((ts (timestamp+ (timestamp+ *base-timestamp* hours :hour) minutes :minute))
-	    (oldts (gethash station *metar-datums* nil)))
-	(when (or (not oldts) (timestamp< (car oldts) ts))
-	  (setf (gethash station *metar-datums*)
-		(list ts l)))))))
-
 (defun scrape-metar-data (&optional (hoursback 0))
-  (let ((flexi-streams:*substitution-char* #\?))
-    (setf *base-timestamp* (timestamp-minimize-part
-			    (adjust-timestamp (now) (offset :hour (- hoursback)))
-			    :hour :timezone +utc-zone+))
+  (let ((flexi-streams:*substitution-char* #\?)
+	(base-timestamp (timestamp-minimize-part
+			 (adjust-timestamp (now) (offset :hour (- hoursback)))
+			 :hour :timezone +utc-zone+)))
     (with-open-stream
 	(metar-stream (http-request
 		       (format nil "http://weather.noaa.gov/pub/data/observations/metar/cycles/~2,'0dZ.TXT"
 			       (mod (- (current-zulu-hour) hoursback) 24))
 		       :want-stream t))
-      (mapc #'scanalyze
+      (mapc #'(lambda (l)
+		(multiple-value-bind (station hours minutes) (valid-metar l)
+		  (when (and station hours minutes)
+		    (let ((ts (timestamp+ (timestamp+ base-timestamp hours :hour) minutes :minute))
+			  (oldts (gethash station *metar-datums* nil)))
+		      (when (or (not oldts) (timestamp< (car oldts) ts))
+			(setf (gethash station *metar-datums*)
+			      (list ts l)))))))
 	    (do* ((l (read-line metar-stream nil 'eof) (read-line metar-stream nil 'eof))
 		  (metars (make-hash-table :test 'equal :size 10000) metars ))
 		 ((eq l 'eof) (hash-table-keys metars))

@@ -413,10 +413,10 @@
 			       (mod (- (current-zulu-hour) hoursback) 24))
 		       :want-stream t))
       (mapc #'scanalyze
-	    (remove-wrapper
-	     (sort (do* ((l (read-line metar-stream nil 'eof) (read-line metar-stream nil 'eof))
-			 (metars nil (if (and (stringp l) (> (length l) 4) (upper-case-p (aref l 0))) (cons l metars) metars)))
-			((eq l 'eof) metars))#'string<)))))
+	    (do* ((l (read-line metar-stream nil 'eof) (read-line metar-stream nil 'eof))
+		  (metars (make-hash-table :test 'equal :size 10000) metars ))
+		 ((eq l 'eof) (hash-table-keys metars))
+	      (when (and (stringp l) (> (length l) 4) (upper-case-p (aref l 0))) (setf (gethash l metars) t))))))
   nil)
 
 (defun check-metar-data ()

@@ -85,3 +85,7 @@
   (multiple-value-bind (whole parts) (scan-to-strings rx s)
     (declare (ignore whole))
     parts))
+
+(defun timestamp-diff (t1 t2)
+  "Find the difference, in seconds, between two timestamps."
+  (abs (- (timestamp-to-universal t1) (timestamp-to-universal t2))))

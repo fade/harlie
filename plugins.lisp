@@ -362,12 +362,24 @@
 
 (defparameter *metar-datums* (make-hash-table :test 'equal :size 10000))
 
-(defun scrape-metar-data ()
+(defparameter *metar-last-scrape* nil)
+
+(defun clear-the-decks ()
+  (setf *metar-datums* (make-hash-table :test 'equal :size 10000))
+  (setf *metar-last-scrape* nil))
+
+(defun tronna ()
+  (gethash "CYYZ" *metar-datums*))
+
+(defun scrape-metar-data (&optional (hoursback 0))
   (let ((flexi-streams:*substitution-char* #\?)
-	(base-timestamp (timestamp-minimize-part (now) :hour)))
+	(base-timestamp (timestamp-minimize-part
+			 (adjust-timestamp (now) (offset :hour (- hoursback)))
+			 :hour :timezone +utc-zone+)))
     (with-open-stream
 	(metar-stream (http-request
-		       (format nil "http://weather.noaa.gov/pub/data/observations/metar/cycles/~2,'0dZ.TXT" (current-zulu-hour))
+		       (format nil "http://weather.noaa.gov/pub/data/observations/metar/cycles/~2,'0dZ.TXT"
+			       (mod (- (current-zulu-hour) hoursback) 24))
 		       :want-stream t))
       (do* ((l (read-line metar-stream nil 'eof) (read-line metar-stream nil 'eof)))
 	   ((eq l 'eof) nil)
@@ -389,6 +401,13 @@
 				    :from 'icao-code
 				    :where (:= 'icao k))))
 	    collecting k)))
+
+(defun retrospective-metar-scrape (&optional (hoursback 0))
+    (unless (and (= hoursback 0)
+		 *metar-last-scrape*
+		 (< (timestamp-diff *metar-last-scrape* (now)) 3600))
+      (scrape-metar-data)
+      (setf *metar-last-scrape* (now))))
 
 (defun metar-temp-value (centigrade &optional (units :Centigrade))
   (cond ((null centigrade) nil)

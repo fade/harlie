@@ -471,11 +471,24 @@
 	  (multiple-value-bind (station-name time-string windspeed cur-temp dew-temp) (metar-extract-data metar-line)
 	    (let ((windchill (calculate-wind-chill cur-temp windspeed))
 		  (humidex (calculate-humidex cur-temp dew-temp)))
-	      (format nil "~A ~A   Current temperature ~A~@[, wind chill ~A~]~@[, humidex ~A~], dewpoint ~A"
+	      (apply #'format nil "~A ~A   Current temperature ~A~@[, wind chill ~A~]~@[, humidex ~A~], dewpoint ~A"
 		      station-name time-string
-		      (metar-temp-value cur-temp units) (metar-temp-value windchill units)
-		      (metar-temp-value humidex units) (metar-temp-value dew-temp units)))))
-	"Temperature data not available.")))
+		      (mapcar #'(lambda (x) (metar-temp-value x units)) (list cur-temp windchill humidex dew-temp))))))
+	nil)))
+
+(defun metar-lookup (term &optional (units :Centigrade))
+  (with-connection (psql-botdb-credentials *bot-config*)
+    (if (query (:select 'icao :from 'icao-code :where (:= 'icao (string-upcase term))))
+	(list (metar-lookup-by-icao (string-upcase term) units)) 
+	(let ((icaos (query (:select 'icao :from 'icao-code :where (:= 'iata term)))))
+	  (if icaos
+	      (mapcar #'(lambda (x) (metar-lookup-by-icao (car x) units)) icaos)
+	      (let ((icaos (query (:select 'icao :from 'icao-code :where
+					   (:or (:ilike 'airport (format nil "%~A%" term))
+						(:ilike 'location (format nil "%~A%" term)))))))
+		(if icaos
+		    (mapcar #'(lambda (x) (metar-lookup-by-icao (car x) units)) icaos)
+		    (format nil "Sorry, I don't know from ~A." term))))))))
 
 (defun obtain-metar-data (regex &optional (units :Centigrade))
   "Grovel through up to 6 METAR data files to find a matching line, and return its meterological description."
@@ -496,7 +509,7 @@
 (defun metar-extract-data (metar-line)
   "Extract the values from various fields in a METAR record."
   (multiple-value-bind (tempnonce temp-substrings)
-      (scan-to-strings "^([^\\s]*)\\s*([0-9]+[Z])\\s*[0-9][0-9][0-9]([0-9]+)(G[0-9]+)?([A-Z]+).*\\s(M?[0-9]+)[/](M?[0-9]+)\\s" metar-line)
+      (scan-to-strings "^([^\\s]*)\\s*([0-9]+[Z]).*[0-9][0-9][0-9]([0-9]+)(G[0-9]+)?([A-Z]+).*\\s(M?[0-9]+)[/](M?[0-9]+)\\s" metar-line)
     (declare (ignore tempnonce))
     (if (not (null temp-substrings))
 	(values (aref temp-substrings 0) (aref temp-substrings 1)
@@ -542,7 +555,22 @@
 	    (units (if (<= 3 (length tokens))
 		       (metar-units-symbol (third tokens))
 		       :Centigrade)))
-       (metar-lookup-by-icao location units)))))
+       (remove-if-not #'identity (metar-lookup location units))))))
+
+(defplugin weather (plug-request)
+  (case (plugin-action plug-request)
+    (:docstring (format nil "Print a human-readable weather report based on METAR data"))
+    (:priority 2.0)
+    (:run
+     (format t "~{~^~A ~}~%" (plugin-token-text-list plug-request))
+     (let* ((tokens (plugin-token-text-list plug-request))
+	    (location (if (<= 2 (length tokens))
+			  (string-upcase (second tokens))
+			  "CYYZ"))
+	    (units (if (<= 3 (length tokens))
+		       (metar-units-symbol (third tokens))
+		       :Centigrade)))
+       (remove-if-not #'identity (metar-lookup location units))))))
 
 ;; temperature conversions
 

@@ -424,7 +424,7 @@
     (unless (and (= hoursback 0)
 		 *metar-last-scrape*
 		 (< (timestamp-diff *metar-last-scrape* (now)) 1200))
-      (scrape-metar-data)
+      (scrape-metar-data hoursback)
       (setf *metar-last-scrape* (now))))
 
 (defun metar-temp-value (centigrade &optional (units :Centigrade))
@@ -464,7 +464,9 @@
       (when (scan regex l) (setf payload l)))))
 
 (defun metar-lookup-by-icao (icao &optional (units :Centigrade))
-  (retrospective-metar-scrape 0)
+  (clear-the-decks)
+  (scrape-metar-data 1)
+  (scrape-metar-data 0)
   (let ((the-metar (gethash icao *metar-datums*)))
     (if the-metar
 	(let ((metar-line (second the-metar)))
@@ -554,13 +556,16 @@
 			  "CYYZ"))
 	    (units (if (<= 3 (length tokens))
 		       (metar-units-symbol (third tokens))
-		       :Centigrade)))
-       (remove-if-not #'identity (metar-lookup location units))))))
+		       :Centigrade))
+	    (the-metar (metar-lookup-by-icao location units)))
+	 (if the-metar
+	     the-metar
+	     (format nil "Sorry, I don't know from ~A." location))))))
 
 (defplugin weather (plug-request)
   (case (plugin-action plug-request)
     (:docstring (format nil "Print a human-readable weather report based on METAR data"))
-    (:priority 2.0)
+    (:priority -2.0)
     (:run
      (format t "~{~^~A ~}~%" (plugin-token-text-list plug-request))
      (let* ((tokens (plugin-token-text-list plug-request))

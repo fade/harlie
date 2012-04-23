@@ -215,10 +215,10 @@ This is a very confusing API."
 
 (defun twitter-payload (url)
   "Fetch the text from a Twitter posting."
-  (multiple-value-bind (whole parts) (scan-to-strings "twitter.com/#!/([^/]+)/status/([0-9]+)" url)
-    (if whole
-	(let* ((twit (elt parts 0))
-	       (twit-id-string (elt parts 1))
+  (let ((parts (scan-to-substrings "twitter.com/(#!/)?([^/]+)/status/([0-9]+)" url)))
+    (if parts
+	(let* ((twit (elt parts 1))
+	       (twit-id-string (elt parts 2))
 	       (twitter-spooge (with-open-stream
 				   (s (drakma:http-request
 				       (format nil "http://search.twitter.com/search.json?q=from:~A&max_id=~A" twit twit-id-string)

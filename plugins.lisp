@@ -252,9 +252,9 @@
   (with-html-output-to-string (s)
     (:html
      (:head
-      (:title (str (escape-string (format nil "Bot Help Page")))))
+      (:title "Bot Help Page"))
      (:body
-      (:h1 (str (escape-string (format nil "Bot Command Help"))))
+      (:h1 "Bot Command Help")
       (:dl
        (let ((oldpriority 0.0))
 	 (dolist (doc (sort (plugin-docs) 'sort-docs))
@@ -267,7 +267,7 @@
 		       (htm
 			(:br)))
 		   (htm
-		    (:dt (:b (str (escape-string (format nil "!~A:" (first doc))))))
+		    (:dt (:b (str (format nil "!~A:" (first doc)))))
 		    (:dd (str (escape-string (format nil "~A" (second doc))))))
 		 (setf oldpriority (third doc))))))))))))
 
@@ -546,7 +546,7 @@
 
 (defplugin metar (plug-request)
   (case (plugin-action plug-request)
-    (:docstring (format nil "Print a human-readable weather report based on METAR data"))
+    (:docstring (format nil "Print a human-readable weather report based on METAR data.  Usage: !metar <ICAO>"))
     (:priority 2.0)
     (:run
      (format t "~{~^~A ~}~%" (plugin-token-text-list plug-request))

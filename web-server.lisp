@@ -10,7 +10,7 @@
     (with-html-output-to-string (s)
       (:html
        (:head
-	(:title (str (escape-string (format nil "Short URL index for ~A on ~A" (bot-nick context) (bot-irc-channel context))))))
+	(:title (str (format nil "Short URL index for ~A on ~A" (bot-nick context) (bot-irc-channel context)))))
        (:body
 	(:h2 "URL Index")
 	(:br)
@@ -23,18 +23,12 @@
 	       (:a :href target (str (escape-string link-description))))))))))
       s)))
 
-;; (defun bug (store)
-;;   (dolist (link (get-urls-and-headlines store))
-;;     ;(format t "~&~A: ~A~&~A: ~A" (type-of (car link)) (car link) (type-of (cadr link)) (cadr link))
-;;     (format t "~%** ~A~%=> ~A~%" (car link) (escape-string (cadr link)))))
-
 (defun html-apology ()
   "Return HTML for a page explaining that a browser has struck out."
   (with-html-output-to-string (s)
     (:html
      (:head
-      (:title (str
-	       (escape-string (format nil "You are in a maze of twisty little redirects, all alike.")))))
+      (:title "You are in a maze of twisty little redirects, all alike."))
      (:body
       (:h1
        (htm

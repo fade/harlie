@@ -75,14 +75,13 @@ or an error message, as appropriate."
 	     (colorize::colorize-file-to-stream :common-lisp fpath s2)
 	     (get-output-stream-string s2)))
 	  (t
-	   (let ((gfulg nil))
-	     (with-open-file (stream (constant-file fpath))
+	   (with-open-file (stream (constant-file fpath))
 	       (do* ((line (read-line stream nil 'eof) (read-line stream nil 'eof))
-		     (lines (list line (format nil "<html><head><title>~A</title></head><body><pre>~%" fname))
-			    (cons (if (eq 'eof line) "" (format nil "~A~%" (escape-string line))) lines)))
-		    ((eq line 'eof) (setf gfulg (apply 'concatenate 'string (reverse (cdr lines))))))
-	       (format t "~A" gfulg)
-	       gfulg))))))
+		     (lines (list line (format nil "<html><head><title>~A</title></head><body><pre>" fname))
+			    (if (not (eq 'eof line))
+				(cons (escape-string line) lines)
+				lines)))
+		    ((eq line 'eof) (format nil "~{~A~^~%~}~%</pre></body></html>~%" (reverse lines)))))))))
 
 (defun fetch-source-dir ()
   (let ((fotchery

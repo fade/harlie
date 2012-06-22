@@ -48,17 +48,38 @@ Only the first match is returned."
   "Search recursively for a :title tag in a nested list, and return the text."
   (extract-from-html tree 'title-anchor 'title-extractor))
 
+;; (defun forex-anchor (tree)
+;;   "Predicate which detects the meat of an XE.com forex query."
+;;   ;; This the substructure that we're looking for:
+;;   ;;
+;;   ;;        (:TR ((:CLASS "CnvrsnTxt"))
+;;   ;;         (:TD ((:WIDTH "46%") (:ALIGN "right")) "1.00 CAD" "")
+;;   ;;               (:TD ((:WIDTH "8%") (:ALIGN "center") (:CLASS "CnvrsnEq")) "=")
+;;   ;;         (:TD ((:WIDTH "46%") (:ALIGN "left")) "0.980610 USD" ""))
+;;   (and (equal (car tree) :TR)
+;;        (listp (second tree))
+;;        (equal "CnvrsnTxt"
+;; 	      (some #'identity
+;; 		    (mapcar #'(lambda (proplist)
+;; 				(getf proplist :CLASS))
+;; 			    (second tree))))))
+
 (defun forex-anchor (tree)
   "Predicate which detects the meat of an XE.com forex query."
-  ;; This the substructure that we're looking for:
-  ;;
-  ;;        (:TR ((:CLASS "CnvrsnTxt"))
-  ;;         (:TD ((:WIDTH "46%") (:ALIGN "right")) "1.00 CAD" "")
-  ;;               (:TD ((:WIDTH "8%") (:ALIGN "center") (:CLASS "CnvrsnEq")) "=")
-  ;;         (:TD ((:WIDTH "46%") (:ALIGN "left")) "0.980610 USD" ""))
+  #|
+  This is the substructure that we're looking for:
+
+             (:TR ((:CLASS "uccRes"))
+            (:TD ((:WIDTH "47%") (:ALIGN "right")) "100.00 "
+             (:SPAN ((:CLASS "uccResCde")) "CAD") "
+")
+            (:TD ((:WIDTH "6%") (:VALIGN "middle") (:ALIGN "center")) "=")
+            (:TD ((:WIDTH "47%") (:ALIGN "left")) "77.5792 "
+             (:SPAN ((:CLASS "uccResCde")) "EUR") "
+")) |#
   (and (equal (car tree) :TR)
        (listp (second tree))
-       (equal "CnvrsnTxt"
+       (equal "uccRes"
 	      (some #'identity
 		    (mapcar #'(lambda (proplist)
 				(getf proplist :CLASS))

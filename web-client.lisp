@@ -86,8 +86,8 @@ Only the first match is returned."
 
 (defun forex-extractor (tree)
   "Extract the data from an XE.com forex query."
-  (list (third (third tree))
-	(third (fifth tree))))
+  (list (remove-if-not #'standard-char-p (third (third tree)))
+	(remove-if-not #'standard-char-p (third (fifth tree)))))
 
 (defun find-forex (tree)
   "Plunder a nested list for XE.com's forex information."

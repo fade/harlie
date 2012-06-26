@@ -69,14 +69,13 @@ Only the first match is returned."
   #|
   This is the substructure that we're looking for:
 
-             (:TR ((:CLASS "uccRes"))
-            (:TD ((:WIDTH "47%") (:ALIGN "right")) "100.00 "
-             (:SPAN ((:CLASS "uccResCde")) "CAD") "
-")
+  (:TR ((:CLASS "uccRes"))
+  (:TD ((:WIDTH "47%") (:ALIGN "right")) "100.00 "
+  (:SPAN ((:CLASS "uccResCde")) "CAD") "")
             (:TD ((:WIDTH "6%") (:VALIGN "middle") (:ALIGN "center")) "=")
             (:TD ((:WIDTH "47%") (:ALIGN "left")) "77.5792 "
-             (:SPAN ((:CLASS "uccResCde")) "EUR") "
-")) |#
+             (:SPAN ((:CLASS "uccResCde")) "EUR") ""))|#
+  
   (and (equal (car tree) :TR)
        (listp (second tree))
        (equal "uccRes"

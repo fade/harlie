@@ -80,11 +80,13 @@
 		 (to (string-upcase (fourth (plugin-token-text-list plug-request)))))
 	    (if (string= from to)
 		(format nil "Converting ~A to ~A is redundant." from to)
-		(format nil "~{~A~^ = ~}"
-			(find-forex
-			 (fetch-formatted-url
-			  "http://www.xe.com/ucc/convert/?Amount=~A&From=~A&To=~A"
-			  amount from to))))))))
+		(let* ((data (find-forex
+			      (fetch-formatted-url
+			       "http://www.xe.com/ucc/convert/?Amount=~A&From=~A&To=~A"
+			       amount from to)))
+		       (oline (list (first data) from (second data) to)))
+		  (princ oline)
+		  (format nil "~{~A ~A~^ = ~}" oline)))))))
 
 (defun parse-stock (tick)
   (cond ((string= tick "N/A") nil)

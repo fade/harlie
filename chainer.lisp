@@ -66,11 +66,12 @@
 the chain, and also the number of trials before finding it."
   (handler-case
       (trivial-timeout:with-timeout (3)
-      (let ((numrows (query (:select (:raw "max(row_num)") :from 'words) :single)))
-	(do* ((rownum (random (1+ numrows)) (random (1+ numrows)))
-	      (r (fetch-start context rownum) (fetch-start context rownum))
-	      (n 1 (1+ n)))
-	     (r (values r n)))))
+	(with-connection (psql-botdb-credentials *bot-config*)
+	  (let ((numrows (query (:select (:raw "max(row_num)") :from 'words) :single)))
+	    (do* ((rownum (random (1+ numrows)) (random (1+ numrows)))
+		  (r (fetch-start context rownum) (fetch-start context rownum))
+		  (n 1 (1+ n)))
+		 (r (values r n))))))
     (trivial-timeout:timeout-error (c)
       (declare (ignore c))
       (brute-force-fetch-start context))))

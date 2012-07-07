@@ -2,8 +2,7 @@
 
 (asdf:defsystem #:harlie
   :serial t
-  :depends-on (#:sb-concurrency
-	       #:alexandria
+  :depends-on (#:alexandria
 	       #:bordeaux-threads
 	       #:cl-fad
 	       #:cl-irc
@@ -16,6 +15,7 @@
 	       #:cxml-stp
 	       #:drakma
 	       #:hunchentoot
+	       #:jpl-queues
 	       #:local-time
 	       #:parse-number
 	       #:postmodern
@@ -25,6 +25,7 @@
 	       #:yaclml)
 
   :components ((:file "package")
+	       (:file "adaptation")
 	       (:file "confobjects")
 	       (:file "config")
 	       (:file "context")
@@ -37,4 +38,5 @@
 	       (:file "web-client")
 	       (:file "http-request")
 	       (:file "web-server")
+	       (:file "sleep-timers")
 	       (:file "harlie")))

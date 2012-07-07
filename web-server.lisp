@@ -93,13 +93,13 @@ or an error message, as appropriate."
 	     '("<html><head><title>Bot Source</title></head><body><ul>")
 	     (mapcar
 	      #'(lambda (x)
-		  (let ((fname (subseq (scan-to-strings "[/]([^/]*)$" (sb-ext:native-namestring x)) 1))) 
+		  (let ((fname (subseq (scan-to-strings "[/]([^/]*)$" (unix-pathstring-from-pathname x)) 1))) 
 		    (format nil "<li><a href=\"~A~A\"><h2>~A</h2></a></li>~%"
 			    (make-short-url-string url-context "source/") fname fname)))
 	      (remove-if
 	       #'(lambda (x)
 		   (scan "config.lisp|[/][.]|[/]$|[.]fasl$|^[#]|[#]$"
-			 (sb-ext:native-namestring x)))
+			 (unix-pathstring-from-pathname x)))
 	       fotchery)) 
 	     '("</ul></body></html>")))))
 

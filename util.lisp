@@ -89,3 +89,13 @@
 (defun timestamp-diff (t1 t2)
   "Find the difference, in seconds, between two timestamps."
   (abs (- (timestamp-to-universal t1) (timestamp-to-universal t2))))
+
+(defun unix-pathstring-from-pathname (pn)
+  (let* ((pnt (pathname-type pn))
+	 (extension (if pnt (format nil ".~A" pnt) ""))
+	 (pnn (pathname-name pn))
+	 (pnd (cdr (pathname-directory pn)))
+	 (pc (if pnn
+		 (append pnd (list pnn))
+		 pnd)))
+    (format nil "/~{~A~^/~}~A" pc extension)))

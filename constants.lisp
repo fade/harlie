@@ -15,7 +15,7 @@
 (defun constant-table (file)
   "return a hash-table built from a file of key/value pairs, one per
    line, separated by a colon.."
-  (let ((ccode-hashtable (make-hash-table :test 'equalp :synchronized t)))
+  (let ((ccode-hashtable (make-synchronized-hash-table :test 'equalp)))
     ;; if external format of file is latin-1 utf8 will puke. pass
     ;; 8859-1 as a safety measure.
     (with-open-file (s (constant-file file)

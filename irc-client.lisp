@@ -4,19 +4,15 @@
 
 (declaim (optimize (debug 3) (safety 3) (speed 0)))
 
-(defvar *irc-connections* (make-hash-table :test 'equal :synchronized t))
+(defvar *irc-connections* (make-synchronized-hash-table :test 'equal))
 
 (defun some-connection ()
   "Sometimes you just want to grab a connection object from the REPL."
   (car (hash-table-values *irc-connections*)))
 
-(defun troubleshoot-queues ()
-  (maphash-keys
-   #'(lambda (x)
-       (format t "~A ~A~%" x (sb-ext:timer-scheduled-p (message-timer (gethash x *irc-connections*))))
-       (format t "~{~A~^~%~}" (sb-concurrency:list-queue-contents (message-q (gethash x *irc-connections*)))))
-   *irc-connections*)
-  nil)
+(defun make-message-queue ()
+  (make-instance 'jpl-queues:synchronized-queue
+		 :queue (make-instance 'jpl-queues:unbounded-fifo-queue)))
 
 ;; We subclass cl-irc:connection and cl-irc:channel so we can store per-connection
 ;; and per-channel data here.
@@ -25,8 +21,9 @@
   ((last-message :initform nil :accessor last-message)
    (bot-irc-client-thread :initform nil :accessor bot-irc-client-thread)
    (ignore-list :initform nil :accessor ignore-list)
-   (message-q :initform (make-queue :name (format nil "IRC message queue")) :accessor message-q)
-   (message-timer :initform nil :accessor message-timer)))
+   (message-q :initform (make-message-queue) :accessor message-q)
+;;   (message-timer :initform nil :accessor message-timer)
+   (mq-task :initform nil :accessor mq-task)))
 
 (defclass bot-irc-channel (cl-irc:channel)
   ((trigger-list :initarg :trigger-list :initform nil :accessor trigger-list)))
@@ -50,26 +47,17 @@
 
 (defparameter *mess-count* 0)
 
-(defun make-q-runner (connection)
+(defun make-mq-thunk (connection)
   "A closure to generate the function which gets called periodically to flush the queue."
   #'(lambda ()
-      (when (not (queue-empty-p (message-q connection)))
-	(dqmess connection))
-      ;; (format t "Rescheduling the q runner...")
-      (sb-ext:schedule-timer (message-timer connection) (max 1.5 (random 2.5)))
-      ;; (format t " [Done :: ~A]~&" (get-universal-time))
-      ))
+      (format t "Entering the inner thunk.~%")
+      (if (not (jpl-queues:empty? (message-q connection)))
+	  (dqmess connection)
+	  (setf (task-interval (mq-task connection)) nil))))
 
 (defun start-irc-message-queue (connection)
   "A convenience function to regenerate the queue flusher and restart it."
-  (let ((q-runner (make-q-runner connection)))
-    (setf (message-timer connection)
-	  (sb-ext:make-timer q-runner :name "queue runner." :thread t))
-    (funcall q-runner)))
-
-(defun restart-irc-message-queues ()
-  "An inconvenience function for getting the queues running again when they wedge."
-  (mapcar #'(lambda (x) (sb-ext:schedule-timer x 1)) (sb-ext:list-all-timers)))
+  (setf (mq-task connection) (make-task (make-mq-thunk connection) nil "queue runner.")))
 
 (defgeneric qmess (connection reply-to message)
   (:documentation "queue a message for rate-limited sending."))
@@ -78,12 +66,14 @@
   (:documentation "dequeue a message to send."))
 
 (defmethod qmess ((connection bot-irc-connection) reply-to message)
-  (let* ((count (incf *mess-count*))) ;; (message (format nil "[~:D] ~A" count message))
-    (format t "~&Queuing message [~:D]::~% ~A" count message)
-    (enqueue (list reply-to message) (message-q connection))))
+  (incf *mess-count*)
+  (let ((task (mq-task connection)))
+    (when (null (task-interval task))
+      (start-task task (max 1.5 (random 2.5))))
+    (jpl-queues:enqueue (list reply-to message) (message-q connection))))
 
 (defmethod dqmess ((connection bot-irc-connection))
-  (let* ((mobj (dequeue (message-q connection)))
+  (let* ((mobj (jpl-queues:dequeue (message-q connection)))
 	 (reply-to (first mobj))
 	 (message (second mobj)))
     (format t "~&replying to: ~A~% with [~:D]: ~A~%" reply-to *mess-count* message)
@@ -118,8 +108,7 @@ sender wasn't being ignored; true otherwise."))
 
 (defun ignoring-whom ()
   "Convenience function to print out some semblance of who's on the global ignore list."
-  (sb-ext:with-locked-hash-table (*irc-connections*)
-    (maphash #'(lambda (k v) (format t "~A ~A~%" k (ignore-list v))) *irc-connections*)))
+    (maphash #'(lambda (k v) (format t "~A ~A~%" k (ignore-list v))) *irc-connections*))
 
 (defun print-some-random-dots ()
   "An anti-function function."
@@ -201,9 +190,7 @@ allowing for leading and trailing punctuation characters in the match."
   "Handle an incoming message."
   (let* ((connection (connection message))
 	 (channel-name (car (arguments message)))
-	 (channel (sb-ext:with-locked-hash-table
-		      ((channels connection))
-		    (gethash channel-name (channels connection) nil)))
+	 (channel (gethash channel-name (channels connection) nil))
 	 (sender (source message))
 	 (text (regex-replace-all "\\ca" (second (arguments message)) ""))
 	 (token-text-list (split "\\s+" text))
@@ -295,14 +282,13 @@ allowing for leading and trailing punctuation characters in the match."
 
 (defun stop-irc-client-instances ()
   "Shut down all the IRC connections."
-  (sb-ext:with-locked-hash-table (*irc-connections*)
     (maphash #'(lambda (k conn)
 		 (cl-irc:quit conn  "I'm tired. I'm going home.")
-		 (sb-ext:unschedule-timer (message-timer conn))
+		 (stop-task (mq-task conn))
 		 (sleep 1)
 		 (bt:destroy-thread (bot-irc-client-thread conn))
 		 (remhash k *irc-connections*))
-	     *irc-connections*)))
+	     *irc-connections*))
 
 (defun make-irc-client-instance-thunk (nickname channels ircserver connection)
   "Make the thunk which moves in and instantiates a new IRC connection."
@@ -327,11 +313,10 @@ allowing for leading and trailing punctuation characters in the match."
   (let ((connection (connect :nickname nickname
 			     :server ircserver
 			     :connection-type 'bot-irc-connection)))
-    (sb-ext:with-locked-hash-table (*irc-connections*)
       (setf (gethash
 	     (list (string-upcase ircserver)
 		   (string-upcase nickname))
-	     *irc-connections*) connection))
+	     *irc-connections*) connection)
     connection))
 
 (defun start-threaded-irc-client-instances ()

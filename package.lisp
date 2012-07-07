@@ -2,7 +2,6 @@
 
 (defpackage #:harlie
   (:use #:cl
-	#:sb-concurrency
 	#:alexandria
 	#:bt
 	#:cl-log

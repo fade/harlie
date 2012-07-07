@@ -213,7 +213,7 @@ allowing for leading and trailing punctuation characters in the match."
 		   :bot-nick (nickname (user connection))
 		   :bot-irc-server (server-name connection)
 		   :bot-irc-channel channel))
-	 (reply-to (if (string= channel-name (bot-nick context))
+	 (reply-to (if (string-equal channel-name (bot-nick context))
 		       sender
 		       channel-name))
 	 (urls (extract-urls text)))

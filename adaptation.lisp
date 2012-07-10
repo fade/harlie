@@ -23,3 +23,15 @@
 		   :rehash-size
 		   rehash-size
 		   :rehash-threshold rehash-threshold))
+
+;; On SBCL, input must be NIL or it errors out.
+;; On CCL, input must be a string or it errors out.
+
+#+sbcl
+(defun shell-out (pathname)
+  (trivial-shell:shell-command pathname))
+
+#+ccl
+(defun shell-out (pathname)
+  (trivial-shell:shell-command pathname :input ""))
+

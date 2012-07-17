@@ -492,7 +492,7 @@
 		    (format nil "Sorry, I don't know from ~A." term))))))))
 
 (defun obtain-metar-data (regex &optional (units :Centigrade))
-  "Grovel through up to 6 METAR data files to find a matching line, and return its meterological description."
+  "Grovel through up to 6 METAR data files to find a matching line, and return its meteorological description."
   (let* ((flexi-streams:*substitution-char* #\?)
 	 (zulu-hour (current-zulu-hour))
 	 (metar-line (loop for zulu from zulu-hour downto (- zulu-hour 5)
@@ -543,10 +543,10 @@
 
 ; http://www.avcodes.co.uk/aptcodesearch.asp
 
-(defplugin metar (plug-request)
+(defplugin oldmetar (plug-request)
   (case (plugin-action plug-request)
-    (:docstring (format nil "Print a human-readable weather report based on METAR data.  Usage: !metar <ICAO>"))
-    (:priority 2.0)
+    (:docstring (format nil "Print a human-readable weather report based on METAR data.  Usage: !oldmetar <ICAO>"))
+    (:priority -1.0)
     (:run
      (format t "~{~^~A ~}~%" (plugin-token-text-list plug-request))
      (let* ((tokens (plugin-token-text-list plug-request))
@@ -560,6 +560,29 @@
 	 (if the-metar
 	     the-metar
 	     (format nil "Sorry, I don't know from ~A." location))))))
+
+(defplugin metar (plug-request)
+  (case (plugin-action plug-request)
+    (:docstring (format nil "Print a human-readable weather report based on METAR data.  Usage: !metar <ICAO>"))
+    (:priority 2.0)
+    (:run
+     (let* ((tokens (plugin-token-text-list plug-request))
+	    (location (if (<= 2 (length tokens))
+			  (string-upcase (second tokens))
+			  "CYYZ"))
+	    (units (if (<= 3 (length tokens))
+		       (metar-units-symbol (third tokens))
+		       :Centigrade))
+	    (metar-tree (http-request (format nil "http://aviationweather.gov/adds/metars/?station_ids=~A&std_trans=standard&chk_metars=on&hoursStr=most+recent+only&submitmet=Submit" location)))
+	    (metar-line (find-metar metar-tree)))
+       (if metar-line
+	   (multiple-value-bind (station-name time-string windspeed cur-temp dew-temp) (metar-extract-data metar-line)
+	     (let ((windchill (calculate-wind-chill cur-temp windspeed))
+		   (humidex (calculate-humidex cur-temp dew-temp)))
+	       (apply #'format nil "~A ~A   Current temperature ~A~@[, wind chill ~A~]~@[, humidex ~A~], dewpoint ~A"
+		      station-name time-string
+		      (mapcar #'(lambda (x) (metar-temp-value x units)) (list cur-temp windchill humidex dew-temp)))))
+	   (format nil "Sorry, I don't know from ~A." location)))     )))
 
 (defplugin weather (plug-request)
   (case (plugin-action plug-request)

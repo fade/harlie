@@ -248,6 +248,15 @@ This is a very confusing API."
 						(cdr (assoc :results twitter-spooge)))))))
 	nil)))
 
+(defun metar-anchor (tree)
+  (eq :font (car tree)))
+
+(defun metar-extractor (tree)
+  (third tree))
+
+(defun find-metar (text)
+  (extract-from-html (chtml:parse text (chtml:make-lhtml-builder)) 'metar-anchor 'metar-extractor))
+
 ;; drakma is very thorough in checking the correctness of the HTML
 ;; it fetches.  Unfortunately, it wants to see a newline character
 ;; at the end-of-file.  The Hacker News website doesn't provide one.

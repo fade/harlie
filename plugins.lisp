@@ -359,73 +359,6 @@
     (:priority 3.0)
     (:run (rpn-calculator (rest (plugin-token-text-list plug-request))))))
 
-(defparameter *metar-datums* (make-hash-table :test 'equal :size 10000))
-
-(defparameter *metar-last-scrape* nil)
-
-(defun clear-the-decks ()
-  (setf *metar-datums* (make-hash-table :test 'equal :size 10000))
-  (setf *metar-last-scrape* nil))
-
-(defun tronna ()
-  (gethash "CYYZ" *metar-datums*))
-
-(defparameter *metar-regexen*
-  ; Sample METAR: "CYVR 211900Z 28008KT 30SM FEW040 FEW170 BKN240 11/06 A3019 RMK CF1AC1CI2 SLP224"
-  '("\\s([0-9]+[Z])\\s" ; " 211900Z " (DDHHMMZ: day of month, hour, minute, in time Zulu)
-    "\\s(M?[0-9]+)[/](M?[0-9]+)\\s" ; " 11/06 " (temperature and dewpoint)
-    "\\s[0-9]{3}([0-9]+)(G[0-9]+)?([A-Z]+)\\s" ; " 28008KT " (DDDWW: direction, wind speed.  Optional G[0-9]+ for gusts.)
-;    "^([A-Z]{4})\\s" ; "CYVR " (ICAO station code)
-    ))
-
-(defun valid-metar (s)
-  (if (and (every #'(lambda (rx) (scan rx s)) *metar-regexen*)
-	   (every #'upper-case-p (subseq s 0 4))
-	   (every #'digit-char-p (subseq s 5 11)))
-      (values (subseq s 0 4)
-	       (parse-number (subseq s 7 9))
-	       (parse-number (subseq s 9 11)))
-      nil))
-
-(defun scrape-metar-data (&optional (hoursback 0))
-  (let ((flexi-streams:*substitution-char* #\?)
-	(base-timestamp (timestamp-minimize-part
-			 (adjust-timestamp (now) (offset :hour (- hoursback)))
-			 :hour :timezone +utc-zone+)))
-    (with-open-stream
-	(metar-stream (http-request
-		       (format nil "http://weather.noaa.gov/pub/data/observations/metar/cycles/~2,'0dZ.TXT"
-			       (mod (- (current-zulu-hour) hoursback) 24))
-		       :want-stream t))
-      (mapc #'(lambda (l)
-		(multiple-value-bind (station hours minutes) (valid-metar l)
-		  (when (and station hours minutes)
-		    (let ((ts (timestamp+ (timestamp+ base-timestamp hours :hour) minutes :minute))
-			  (oldts (gethash station *metar-datums* nil)))
-		      (when (or (not oldts) (timestamp< (car oldts) ts))
-			(setf (gethash station *metar-datums*)
-			      (list ts l)))))))
-	    (do* ((l (read-line metar-stream nil 'eof) (read-line metar-stream nil 'eof))
-		  (metars (make-hash-table :test 'equal :size 10000) metars ))
-		 ((eq l 'eof) (hash-table-keys metars))
-	      (when (and (stringp l) (> (length l) 4) (upper-case-p (aref l 0))) (setf (gethash l metars) t))))))
-  nil)
-
-(defun check-metar-data ()
-  (with-connection (psql-botdb-credentials *bot-config*)
-    (loop for k being the hash-keys in *metar-datums*
-	  when (not (query (:select 'icao 'iata 'airport 'location
-				    :from 'icao-code
-				    :where (:= 'icao k))))
-	    collecting k)))
-
-(defun retrospective-metar-scrape (&optional (hoursback 0))
-    (unless (and (= hoursback 0)
-		 *metar-last-scrape*
-		 (< (timestamp-diff *metar-last-scrape* (now)) 1200))
-      (scrape-metar-data hoursback)
-      (setf *metar-last-scrape* (now))))
-
 (defun metar-temp-value (centigrade &optional (units :Centigrade))
   (cond ((null centigrade) nil)
 	((eq units :Fahrenheit) (format nil "~,1F F" (+ 32 (* (/ 9 5) centigrade))))
@@ -444,68 +377,6 @@
   (cond ((string= units "KT") (* 1.852 windspeed))
 	((string= units "MPS") (* 3.6 windspeed))
 	(t nil)))
-
-(defun current-zulu-hour ()
-  "Return the current hour in Zulu time."
-  (multiple-value-bind (ns sec min hour) (decode-timestamp (now) :timezone +utc-zone+)
-    (declare (ignore ns sec min))
-    hour))
-
-(defun read-metar-data (regex zulu)
-  "Fetch one METAR data file, search it for a matching line, and return it if found; return nil otherwise."
-  (with-open-stream
-      (metar-stream (http-request
-		     (format nil "http://weather.noaa.gov/pub/data/observations/metar/cycles/~2,'0dZ.TXT" zulu)
-		     :want-stream t))
-    (do* ((l (read-line metar-stream nil 'eof) (read-line metar-stream nil 'eof))
-	  (payload nil))
-	 ((or (eq l 'eof) payload) payload)
-      (when (scan regex l) (setf payload l)))))
-
-(defun metar-lookup-by-icao (icao &optional (units :Centigrade))
-  (clear-the-decks)
-  (scrape-metar-data 1)
-  (scrape-metar-data 0)
-  (let ((the-metar (gethash icao *metar-datums*)))
-    (if the-metar
-	(let ((metar-line (second the-metar)))
-	  (multiple-value-bind (station-name time-string windspeed cur-temp dew-temp) (metar-extract-data metar-line)
-	    (let ((windchill (calculate-wind-chill cur-temp windspeed))
-		  (humidex (calculate-humidex cur-temp dew-temp)))
-	      (apply #'format nil "~A ~A   Current temperature ~A~@[, wind chill ~A~]~@[, humidex ~A~], dewpoint ~A"
-		      station-name time-string
-		      (mapcar #'(lambda (x) (metar-temp-value x units)) (list cur-temp windchill humidex dew-temp))))))
-	nil)))
-
-(defun metar-lookup (term &optional (units :Centigrade))
-  (with-connection (psql-botdb-credentials *bot-config*)
-    (if (query (:select 'icao :from 'icao-code :where (:= 'icao (string-upcase term))))
-	(list (metar-lookup-by-icao (string-upcase term) units)) 
-	(let ((icaos (query (:select 'icao :from 'icao-code :where (:= 'iata term)))))
-	  (if icaos
-	      (mapcar #'(lambda (x) (metar-lookup-by-icao (car x) units)) icaos)
-	      (let ((icaos (query (:select 'icao :from 'icao-code :where
-					   (:or (:ilike 'airport (format nil "%~A%" term))
-						(:ilike 'location (format nil "%~A%" term)))))))
-		(if icaos
-		    (mapcar #'(lambda (x) (metar-lookup-by-icao (car x) units)) icaos)
-		    (format nil "Sorry, I don't know from ~A." term))))))))
-
-(defun obtain-metar-data (regex &optional (units :Centigrade))
-  "Grovel through up to 6 METAR data files to find a matching line, and return its meteorological description."
-  (let* ((flexi-streams:*substitution-char* #\?)
-	 (zulu-hour (current-zulu-hour))
-	 (metar-line (loop for zulu from zulu-hour downto (- zulu-hour 5)
-			   thereis (read-metar-data regex zulu))))
-    (if metar-line
-	(multiple-value-bind (station-name time-string windspeed cur-temp dew-temp) (metar-extract-data metar-line)
-	  (let ((windchill (calculate-wind-chill cur-temp windspeed))
-		(humidex (calculate-humidex cur-temp dew-temp)))
-	      (format nil "~A ~A   Current temperature ~A~@[, wind chill ~A~]~@[, humidex ~A~], dewpoint ~A"
-		      station-name time-string
-		      (metar-temp-value cur-temp units) (metar-temp-value windchill units)
-		      (metar-temp-value humidex units) (metar-temp-value dew-temp units))))
-	"Temperature data not available.")))
 
 (defun metar-extract-data (metar-line)
   "Extract the values from various fields in a METAR record."
@@ -541,26 +412,6 @@
 	((scan "^[fFiI]" s) :Fahrenheit)
 	(t :Centigrade)))
 
-; http://www.avcodes.co.uk/aptcodesearch.asp
-
-(defplugin oldmetar (plug-request)
-  (case (plugin-action plug-request)
-    (:docstring (format nil "Print a human-readable weather report based on METAR data.  Usage: !oldmetar <ICAO>"))
-    (:priority -1.0)
-    (:run
-     (format t "~{~^~A ~}~%" (plugin-token-text-list plug-request))
-     (let* ((tokens (plugin-token-text-list plug-request))
-	    (location (if (<= 2 (length tokens))
-			  (string-upcase (second tokens))
-			  "CYYZ"))
-	    (units (if (<= 3 (length tokens))
-		       (metar-units-symbol (third tokens))
-		       :Centigrade))
-	    (the-metar (metar-lookup-by-icao location units)))
-	 (if the-metar
-	     the-metar
-	     (format nil "Sorry, I don't know from ~A." location))))))
-
 (defplugin metar (plug-request)
   (case (plugin-action plug-request)
     (:docstring (format nil "Print a human-readable weather report based on METAR data.  Usage: !metar <ICAO>"))
@@ -583,21 +434,6 @@
 		      station-name time-string
 		      (mapcar #'(lambda (x) (metar-temp-value x units)) (list cur-temp windchill humidex dew-temp)))))
 	   (format nil "Sorry, I don't know from ~A." location)))     )))
-
-(defplugin weather (plug-request)
-  (case (plugin-action plug-request)
-    (:docstring (format nil "Print a human-readable weather report based on METAR data"))
-    (:priority -2.0)
-    (:run
-     (format t "~{~^~A ~}~%" (plugin-token-text-list plug-request))
-     (let* ((tokens (plugin-token-text-list plug-request))
-	    (location (if (<= 2 (length tokens))
-			  (string-upcase (second tokens))
-			  "CYYZ"))
-	    (units (if (<= 3 (length tokens))
-		       (metar-units-symbol (third tokens))
-		       :Centigrade)))
-       (remove-if-not #'identity (metar-lookup location units))))))
 
 ;; temperature conversions
 

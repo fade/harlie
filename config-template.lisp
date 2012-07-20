@@ -6,7 +6,8 @@
 
 (defparameter *harlot-config*
   (make-config :irc-server-name "irc.srh.org"
-	       :irc-nickchannels '(("Harlot" ("#trinity" "#triscuit")))
+	       :irc-nickchannels '(("Harlot" ("#trinity")))
+	       :irc-joins '(("irc.srh.org" (("Harlot" ("#trinity" "#triscuit")))))
 	       :web-server-name "127.0.0.1"
 	       :web-server-ports '(5791)
 	       :url-store-type :psql
@@ -15,6 +16,7 @@
 (defparameter *sr-4-config*
   (make-config :irc-server-name "irc.srh.org"
 	       :irc-nickchannels '(("SR-4" ("#trinity")))
+	       :irc-joins '(("irc.srh.org" (("SR-4" (#"trinity")))))
 	       :web-server-name "localhost"
 	       :web-server-ports '(5791)
 	       :url-store-type :psql
@@ -26,6 +28,11 @@
                                    ("Bootsy" ("#funkrehab"))
                                    ("shogun" ("#walled"))
                                    ("thugster" ("#wallednoc")))
+	       :irc-joins '(("irc.srh.org"
+			     (("semaphor" ("#deepsky"))
+			      ("Bootsy" ("#funkrehab"))
+			      ("shogun" ("#walled"))
+			      ("thugster" ("#wallednoc")))))
                :web-server-name "coruscant.deepsky.com"
                :web-server-ports '(7080 8080 8090 9099)
                :url-store-type :psql

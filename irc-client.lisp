@@ -321,15 +321,16 @@ allowing for leading and trailing punctuation characters in the match."
 
 (defun start-threaded-irc-client-instances ()
   "Spawn a thread to run a session with an IRC server."
-  (dolist (nickchans (irc-nickchannels *bot-config*))
-    (let* ((nickname (car nickchans))
-	   (channels (cadr nickchans))
-	   (ircserver (irc-server-name *bot-config*))
-	   (connection (make-bot-connection nickname ircserver)))
-      (make-thread
-       (make-irc-client-instance-thunk nickname channels ircserver connection)
-       :name (format nil "IRC Client thread: server ~A, nick ~A"
-		     ircserver nickname)))))
+  (dolist (server-spec (irc-joins *bot-config*))
+    (let ((ircserver (car server-spec)))
+      (dolist (nick-spec (cadr server-spec))
+	(let* ((nickname (car nick-spec))
+	       (channels (cadr nick-spec))
+	       (connection (make-bot-connection nickname ircserver)))
+	  (make-thread
+	   (make-irc-client-instance-thunk nickname channels ircserver connection)
+	   :name (format nil "IRC Client thread: server ~A, nick ~A"
+			 ircserver nickname)))))))
 
 (defun stop-threaded-irc-client-instances ()
   "Shut down a session with an IRC server, and clean up."

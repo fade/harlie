@@ -68,6 +68,7 @@
 (defclass config ()
   ((irc-server-name :initarg :irc-server-name :accessor irc-server-name)
    (irc-channel-names :initarg :irc-channel-names :accessor irc-channel-names)
+   (irc-joins :initarg :irc-joins :accessor irc-joins)
    (irc-nickchannels :initarg :irc-nickchannels :accessor irc-nickchannels)
    (web-server-name :initarg :web-server-name :accessor web-server-name)
    ;(web-server-port :initarg :web-server-port :accessor web-server-port)

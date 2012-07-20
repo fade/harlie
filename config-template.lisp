@@ -16,7 +16,7 @@
 (defparameter *sr-4-config*
   (make-config :irc-server-name "irc.srh.org"
 	       :irc-nickchannels '(("SR-4" ("#trinity")))
-	       :irc-joins '(("irc.srh.org" (("SR-4" (#"trinity")))))
+	       :irc-joins '(("irc.srh.org" (("SR-4" ("#trinity")))))
 	       :web-server-name "localhost"
 	       :web-server-ports '(5791)
 	       :url-store-type :psql

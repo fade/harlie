@@ -283,11 +283,9 @@ allowing for leading and trailing punctuation characters in the match."
 (defun stop-irc-client-instances ()
   "Shut down all the IRC connections."
     (maphash #'(lambda (k conn)
-		 (cl-irc:quit conn  "I'm tired. I'm going home.")
-		 (stop-task (mq-task conn))
-		 (sleep 1)
-		 (bt:destroy-thread (bot-irc-client-thread conn))
-		 (remhash k *irc-connections*))
+		 (let ((ircserver (first k))
+		       (nickname (second k)))
+		   (kill-bot-connection nickname ircserver)))
 	     *irc-connections*))
 
 (defun make-irc-client-instance-thunk (nickname channels ircserver connection)
@@ -319,18 +317,34 @@ allowing for leading and trailing punctuation characters in the match."
 	     *irc-connections*) connection)
     connection))
 
+(defun kill-bot-connection (nickname ircserver)
+  (let* ((nickname (string-upcase nickname))
+	 (ircserver (string-upcase ircserver))
+	 (k (list ircserver nickname))
+	 (connection (gethash k *irc-connections*)))
+    (when connection
+      (cl-irc:quit connection "I'm tired. I'm going home.")
+      (stop-task (mq-task connection))
+      (sleep 1)
+      (bt:destroy-thread (bot-irc-client-thread connection))
+      (remhash k *irc-connections*))))
+
+(defun start-threaded-irc-client-instance (ircserver nickname channels)
+  "Make a connection to an IRC server and spawn a thread to service it."
+  (let ((connection (make-bot-connection nickname ircserver)))
+    (make-thread
+     (make-irc-client-instance-thunk nickname channels ircserver connection)
+     :name (format nil "IRC Client thread: server ~A, nick ~A"
+		   ircserver nickname))))
+
 (defun start-threaded-irc-client-instances ()
   "Spawn a thread to run a session with an IRC server."
   (dolist (server-spec (irc-joins *bot-config*))
     (let ((ircserver (car server-spec)))
       (dolist (nick-spec (cadr server-spec))
-	(let* ((nickname (car nick-spec))
-	       (channels (cadr nick-spec))
-	       (connection (make-bot-connection nickname ircserver)))
-	  (make-thread
-	   (make-irc-client-instance-thunk nickname channels ircserver connection)
-	   :name (format nil "IRC Client thread: server ~A, nick ~A"
-			 ircserver nickname)))))))
+	(let ((nickname (car nick-spec))
+	      (channels (cadr nick-spec)))
+	  (start-threaded-irc-client-instance ircserver nickname channels))))))
 
 (defun stop-threaded-irc-client-instances ()
   "Shut down a session with an IRC server, and clean up."

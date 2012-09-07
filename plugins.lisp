@@ -111,7 +111,7 @@
 		(format nil "Issue: ~A last traded for $~$ at ~A on ~A, ~A changed on the day. Opened at $~$ with a high of $~$ and a low of $~$. ~:D shares traded."
 			(first quote) (second quote) (fourth quote) (third quote)
 			(fifth quote) (sixth quote) (seventh quote) (eighth quote) (ninth quote))
-		(format nil "No quotes for symbole: ~A. Perhaps you mistyped?" symbol))))))
+		(format nil "No quotes for symbol: ~A. Perhaps you mistyped?" symbol))))))
 
 ;; (defplugin jcw (plug-request)
 ;;   (case (plugin-action plug-request)

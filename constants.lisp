@@ -66,7 +66,8 @@
   (declare (ignorable word))
   (loop for key being the hash-keys of source
 	for val being the hash-values of source
-	:if (by-word-helper word val)
+	:if (or (by-word-helper word val)
+                (by-word-helper word key))
 	:collect (cons key val)))
 
 (defun country-lookup (key)

@@ -52,12 +52,14 @@
 
 (defun by-code (key base)
   (let ((place (gethash key base)))
+    (format t "~&In #'by-code")
     (if place
 	(acons key place nil)
 	nil)))
 
 (defun by-word-helper (word base)
-  (let ((scanner (create-scanner word :case-insensitive-mode t)))
+  (let ((scanner (create-scanner (format nil ".*~A.*" word) :case-insensitive-mode t)))
+    ;; (format t "~&In #'by-word-helper.")
     (if (scan scanner base)
 	t
 	nil)))
@@ -66,6 +68,7 @@
   (declare (ignorable word))
   (loop for key being the hash-keys of source
 	for val being the hash-values of source
+        ;; :do (format t "~&||~A ~%|| ~A" key val)
 	:if (or (by-word-helper word val)
                 (by-word-helper word key))
 	:collect (cons key val)))
@@ -90,7 +93,7 @@
 
 (defun currency-lookup (key)
   (cond
-    ((= (length key) 3) (by-code key *currency-codes*))
+    ;; ((= (length key) 3) (by-code key *currency-codes*))
     ((every #'alpha-char-p key) (by-word key *currency-codes*))
     (t (format nil "No ISO currency code found for key: ~A" key))))
 

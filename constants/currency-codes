@@ -1,70 +1,281 @@
-dzd:Algerian Dinars
-usd:United States Dollars
-ars:Argintinian Pesos
-aud:Australian Dollars
-ats:Austrian Schillings
-bsd:Bahamian Dollars
-bbd:Barbadian Dollars
-bef:Belgian Francs
-bmd:Bermudian Dollars
-brl:Brazilian Reals
-gbp:British Pounds
-bgl:Bulgarian Leva
-cad:Canadian Dollars
-clp:Chilean Pesos
-cny:Chinese Yan Renminbi
-cyp:Cypriot Pounds
-czk:Czech Koruny
-dkk:Danish Kroner
-xcd:East Caribbean Dollars
-egp:Egyptian Pounds
+zwr:Zimbabwean dollar A/09
+zwn:Zimbabwean dollar A/08
+zwd:Zimbabwean dollar A/06
+zwc:Rhodesian dollar
+zrz:Zaïrean zaïre
+zrn:Zaïrean new zaïre
+zmk:Zambian kwacha
+zal:South African financial rand (funds code) (discontinued)
+yum:Yugoslav dinar
+yug:Yugoslav dinar
+yuo:Yugoslav dinar
+yur:Yugoslav dinar
+yun:Yugoslav dinar
+yud:Yugoslav dinar
+ydd:South Yemeni dinar
+xfo:Gold franc (special settlement currency)
+veb:Venezuelan bolívar
+uyn:Uruguay old peso
+ugs:Ugandan shilling A/87
+uak:Ukrainian karbovanets
+trl:Turkish lira A/05
+tmm:Turkmenistani manat
+tjr:Tajikistani ruble
+svc:Salvadoran colón
+sur:Soviet Union rouble
+srg:Suriname guilder
+sdp:Sudanese old pound
+sdd:Sudanese dinar
+rur:Russian rouble A/97
+rol:Romanian leu A/05
+plz:Polish zloty A/94
+pei:Peruvian inti
+peh:Peruvian sol
+nfd:Newfoundland dollar
+mzm:Mozambican metical
+mxp:Mexican peso
+mvq:Maldivian rupee
+mlf:Mali franc
+mkn:Old Macedonian denar A/93
+mgf:Malagasy franc
+laj:Lao kip
+isj:Icelandic old krona
+ilr:Israeli shekel
+ilp:Israeli lira
+gwp:Guinea-Bissau peso
+ghc:Ghanaian cedi
+gne:Guinean syli
+esb:Spanish peseta (account B)
+esa:Spanish peseta (account A)
+gqe:Equatorial Guinean ekwele
+ecv:Ecuador Unidad de Valor Constante (funds code) (discontinued)
+ecs:Ecuadorian sucre
+ddm:East German Mark of the GDR (East Germany)
+csk:Czechoslovak koruna
+csd:Serbian dinar
+cle:Chilean escudo
+brr:Brazilian cruzeiro real
+bre:Brazilian cruzeiro
+brn:Brazilian cruzado novo
+brc:Brazilian cruzado
+brb:Brazilian cruzeiro novo
+brz:Brazilian cruzeiro
+bop:Bolivian peso
+bgl:Bulgarian lev A/99
+azm:Azerbaijani manat
+ara:Argentine austral
+arp:Argentine peso argentino
+arl:Argentine peso ley
+aor:Angolan kwanza readjustado
+aon:Angolan new kwanza
+afa:Afghan afghani
+xeu:European Currency Unit (1 XEU = 1 EUR)
+val:Vatican lira (currency union with ITL and SML)
+sml:San Marinese lira (currency union with ITL and VAL)
+skk:Slovak koruna
+sit:Slovenian tolar
+pte:Portuguese escudo
+nlg:Netherlands guilder
+mtl:Maltese lira
+maf:Moroccan franc
+mcf:Monegasque franc (currency union with FRF)
+luf:Luxembourg franc (currency union with BEF)
+itl:Italian lira
+iep:Irish pound (punt in Irish language)
+grd:Greek drachma
+frf:French franc
+fim:Finnish markka
+esp:Spanish peseta
+eek:Estonian kroon
+dem:German mark
+cyp:Cypriot pound
+bef:Belgian franc (currency union with LUF)
+ats:Austrian schilling
+adp:Andorran peseta (1:1 peg to the Spanish peseta)
+adf:Andorran franc (1:1 peg to the French franc)
+tvd:Tuvalu dollar
+prb:Transnistrian ruble
+sls, slsh:Somaliland shilling
+kri:Kiribati dollar
+imp:Isle of Man pound also Manx pound
+jep:Jersey pound
+ggp:Guernsey pound
+btc:Bitcoin
+zmw:Zambian kwacha
+zar:South African rand
+yer:Yemeni rial
+ xxx:No currency
+xts:Code reserved for testing purposes
+xpt:Platinum (one troy ounce)
+xpf:CFP franc
+xpd:Palladium (one troy ounce)
+xof:CFA franc BCEAO
+xfu:UIC franc (special settlement currency)
+xdr:Special drawing rights
+xcd:East Caribbean dollar
+xbd:European Unit of Account 17 (E.U.A.-17) (bond market unit)
+xbc:European Unit of Account 9 (E.U.A.-9) (bond market unit)
+xbb:European Monetary Unit (E.M.U.-6) (bond market unit)
+xba:European Composite Unit (EURCO) (bond market unit)
+xau:Gold (one troy ounce)
+xag:Silver (one troy ounce)
+xaf:CFA franc BEAC
+wst:Samoan tala
+vuv:Vanuatu vatu
+vnd:Vietnamese dong
+vef:Venezuelan bolívar fuerte
+uzs:Uzbekistan som
+uyu:Uruguayan peso
+uyi:Uruguay Peso en Unidades Indexadas (URUIURUI) (funds code)
+uss:United States dollar (same day) (funds code) (one source[who?] claims it is no longer used, but it is still on the ISO 4217-MA list)
+usn:United States dollar (next day) (funds code)
+usd:United States dollar
+ugx:Ugandan shilling
+uah:Ukrainian hryvnia
+tzs:Tanzanian shilling
+twd:New Taiwan dollar
+ttd:Trinidad and Tobago dollar
+try:Turkish lira
+top:Tongan paʻanga
+tnd:Tunisian dinar
+tmt:Turkmenistani manat
+tjs:Tajikistani somoni
+thb:Thai baht
+szl:Swazi lilangeni
+syp:Syrian pound
+std:São Tomé and Príncipe dobra
+ssp:South Sudanese pound
+srd:Surinamese dollar
+sos:Somali shilling
+sll:Sierra Leonean leone
+shp:Saint Helena pound
+sgd:Singapore dollar
+sek:Swedish krona/kronor
+sdg:Sudanese pound
+scr:Seychelles rupee
+sbd:Solomon Islands dollar
+sar:Saudi riyal
+rwf:Rwandan franc
+rub:Russian rouble
+rsd:Serbian dinar
+ron:Romanian new leu
+qar:Qatari riyal
+pyg:Paraguayan guaraní
+pln:Polish złoty
+pkr:Pakistani rupee
+php:Philippine peso
+pgk:Papua New Guinean kina
+pen:Peruvian nuevo sol
+pab:Panamanian balboa
+omr:Omani rial
+nzd:New Zealand dollar
+npr:Nepalese rupee
+nok:Norwegian krone
+nio:Nicaraguan córdoba
+ngn:Nigerian naira
+nad:Namibian dollar
+mzn:Mozambican metical
+myr:Malaysian ringgit
+mxv:Mexican Unidad de Inversion (UDI) (funds code)
+mxn:Mexican peso
+mwk:Malawian kwacha
+mvr:Maldivian rufiyaa
+mur:Mauritian rupee
+mro:Mauritanian ouguiya
+mop:Macanese pataca
+mnt:Mongolian tugrik
+mmk:Myanma kyat
+mkd:Macedonian denar
+mga:Malagasy ariary
+mdl:Moldovan leu
+mad:Moroccan dirham
+lyd:Libyan dinar
+lvl:Latvian lats
+ltl:Lithuanian litas
+lsl:Lesotho loti
+lrd:Liberian dollar
+lkr:Sri Lankan rupee
+lbp:Lebanese pound
+lak:Lao kip
+kzt:Kazakhstani tenge
+kyd:Cayman Islands dollar
+kwd:Kuwaiti dinar
+krw:South Korean won
+kpw:North Korean won
+kmf:Comoro franc
+khr:Cambodian riel
+kgs:Kyrgyzstani som
+kes:Kenyan shilling
+jpy:Japanese yen
+jod:Jordanian dinar
+jmd:Jamaican dollar
+isk:Icelandic króna
+irr:Iranian rial
+iqd:Iraqi dinar
+inr:Indian rupee
+ils:Israeli new shekel
+idr:Indonesian rupiah
+huf:Hungarian forint
+htg:Haitian gourde
+hrk:Croatian kuna
+hnl:Honduran lempira
+hkd:Hong Kong dollar
+gyd:Guyanese dollar
+gtq:Guatemalan quetzal
+gnf:Guinean franc
+gmd:Gambian dalasi
+gip:Gibraltar pound
+ghs:Ghanaian cedi
+gel:Georgian lari
+gbp:Pound sterling
+fkp:Falkland Islands pound
+fjd:Fiji dollar
 eur:Euro
-fjd:Fijian Dollars
-fim:Finlandian Markkaa
-frf:French Francs
-dem:Deutsche Marks
-xau:Gold Ounces
-grd:Greek Drachmae
-hkd:Hong Kong Dollars
-huf:Hungarian Forint
-isk:Icelandic Kronur
-inr:Indian Rupees
-idr:Indonesian Rupiahs
-iep:Irish Pounds
-ils:Israeli New Shekels
-itl:Italian Lire
-jmd:Jamaican Dollars
-jpy:Nipponese Yen
-jod:Jordanian Dinars
-lbp:Lebanese Pounds
-luf:Luxembourger Francs
-myr:Malaysian Ringgits
-mxn:Mexican Pesos
-nzd:New Zealand Dollars
-nok:Norse Kroner
-nlg:Dutch Guilders
-pkr:Pakistani Rupees
-php:Philippino Pesos
-xpt:Platinum Ounces
-pln:Polish Zlotych
-pte:Portuguese Escudos
-rol:Romanian Lei
-rur:Russian Rubles
-sar:Saudi Riyals
-xag:Silver Ounces
-sgd:Singaporean Dollars
-skk:Slovakian Koruny
-zar:South African Rand
-krw:South Korean Won
-esp:Spanish Pesetas
-xdr:IMF Special Drawing Rights
-sdd:Sudanese Dinars
-sek:Swedish Kronor
-chf:Swiss Francs
-twd:Taiwanese Dollars
-thb:Thai Bhat
-ttd:Trinidad and Tobago Dollars
-trl:Turkish Liras
-veb:Venezuelan Bolivares
-zmk:Zambian Kwacha
-
+etb:Ethiopian birr
+ern:Eritrean nakfa
+egp:Egyptian pound
+dzd:Algerian dinar
+dop:Dominican peso
+dkk:Danish krone
+djf:Djiboutian franc
+czk:Czech koruna
+cve:Cape Verde escudo
+cup:Cuban peso
+cuc:Cuban convertible peso
+crc:Costa Rican colon
+cou:Unidad de Valor Real
+cop:Colombian peso
+cny:Chinese yuan
+clp:Chilean peso
+clf:Unidad de Fomento (funds code)
+chw:WIR Franc (complementary currency)
+chf:Swiss franc
+che:WIR Euro (complementary currency)
+cdf:Congolese franc
+cad:Canadian dollar
+bzd:Belize dollar
+byr:Belarusian ruble
+bwp:Botswana pula
+btn:Bhutanese ngultrum
+bsd:Bahamian dollar
+brl:Brazilian real
+bov:Bolivian Mvdol (funds code)
+bob:Boliviano
+bnd:Brunei dollar
+bmd:Bermudian dollar (customarily known as Bermuda dollar)
+bif:Burundian franc
+bhd:Bahraini dinar
+bgn:Bulgarian lev
+bdt:Bangladeshi taka
+bbd:Barbados dollar
+bam:Bosnia and Herzegovina convertible mark
+azn:Azerbaijani manat
+awg:Aruban florin
+aud:Australian dollar
+ars:Argentine peso
+aoa:Angolan kwanza
+ang:Netherlands Antillean guilder
+amd:Armenian dram
+all:Albanian lek
+afn:Afghan afghani
+aed:United Arab Emirates dirham

@@ -72,7 +72,7 @@ or an error message, as appropriate."
 	  ((scan "[.]lisp|asd$" fname)
 	   (let ((url-context (make-instance 'bot-context :bot-web-port (acceptor-port (request-acceptor *request*)))))
 	     (setf clhs-lookup::*hyperspec-root* (make-short-url-string url-context "HyperSpec/"))
-	     (colorize::colorize-file-to-stream :common-lisp fpath s2)
+	     (colorize::colorize-file-to-stream :common-lisp fpath s2 :encoder 'encode-for-tt)
 	     (get-output-stream-string s2)))
 	  (t
 	   (with-open-file (stream (constant-file fpath))

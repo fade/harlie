@@ -246,6 +246,20 @@ allowing for leading and trailing punctuation characters in the match."
        (channels conn)))
    *irc-connections*))
 
+(defun say (utterance &key public channel channels)
+  (cond
+    (public (loop for cxn being the hash-values in *irc-connections* do
+      (loop for k being the hash-keys in (channels cxn) do
+	(privmsg cxn k utterance))))
+    (channels (loop for cxn being the hash-values in *irc-connections* do
+      (loop for k being the hash-keys in (channels cxn)
+	    when (member k channels :test #'string-equal) do
+	      (privmsg cxn k utterance))))
+    (channel (loop for cxn being the hash-values in *irc-connections* do
+      (loop for k being the hash-keys in (channels cxn)
+	    when (string-equal k channel) do
+	      (privmsg cxn k utterance))))))
+
 ; Why do we fork another thread just to run this lambda, you may ask?
 ; Because the thread that the network event loop runs in keeps getting
 ; killed every time there's an error in any of this code, and then

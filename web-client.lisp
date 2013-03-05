@@ -228,9 +228,9 @@ This is a very confusing API."
 
 (defun twitter-twit (url)
   "Convenience function to extract the Twitter user name from an URL."
-  (multiple-value-bind (whole parts) (scan-to-strings "twitter.com/#!/([^/]+)/status/([0-9]+)" url)
+  (multiple-value-bind (whole parts) (scan-to-strings "twitter.com/(#!/)?([^/]+)/status/([0-9]+)" url)
     (if whole
-	(elt parts 0)
+	(elt parts 1)
 	nil)))
 
 (defun twitter-payload (url)
@@ -256,6 +256,21 @@ This is a very confusing API."
 
 (defun find-metar (text)
   (extract-from-html (chtml:parse text (chtml:make-lhtml-builder)) 'metar-anchor 'metar-extractor))
+
+(defun confession-payload (url)
+  (let ((parts (scan-to-substrings "http://(www.)?codingconfessional.com/" url)))
+    (if parts
+	(extract-from-html (chtml:parse (webget url) (chtml:make-lhtml-builder)) 'confession-anchor 'confession-extractor)
+	nil)))
+
+(defun confession-anchor (tree)
+  (and (equal (car tree) :DIV)
+       (equal (caaadr tree) :CLASS)
+       (string-equal (second (caadr tree))
+		     "confession permalink-confession")))
+
+(defun confession-extractor (tree)
+  (strip-spaces (third tree)))
 
 ;; drakma is very thorough in checking the correctness of the HTML
 ;; it fetches.  Unfortunately, it wants to see a newline character

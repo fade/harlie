@@ -111,3 +111,62 @@ Issues
 
  When someone re-pastes a URL into a different channel, it doesn't get added to the new
  context.  Should it?
+
+Personal Profiles
+
+We'll allow IRC users to associate a nick with a personal profile.
+The profile can include things like which weather station to use for
+the !metar plugin, stock symbols to track, a preferred greeting when
+the bot sees you're active, etc.
+
+We already have one featurelet that's sort of like a personal profile;
+the !ignoreme function.
+
+Authentication
+
+We'll need a way to associate an IRC nick with a profile.  We can use
+a DCC message and/or a Web-based auth system.
+
+As a first step, allow "weak" authentication in the form of just
+assuming that a nick owns a profile.  That'll let us build the system
+up a bit before we worry about hard security.
+
+Nick Tracking
+
+Right now, every time the bot sees a message (public or private) from
+a user, it's a separate event.  There's no effort made to keep track
+of nicks through nick changes or departures and reappearances.
+
+We'll need to modify the IRC code to receive messages related to nick
+changes, departures from channel or from the server, and arrivals.
+All these events will need to be hooked into the profile system.
+
+Profiles
+
+The user profile itself needs some sort of data structure.  When a
+user asks us to do something, how do we look up a user profile, and
+how might that profile modify what we do?
+
+We need to work out an in-memory store for profile data, and change
+the IRC hooks for message handling to use it.  This is all rather
+nebulous, so what we really need is:
+
+A Couple Of Examples
+
+We should implement a handful of things which the bot will do with
+reference to profiles.  Once we see how those work, we can figure out
+what the common elements are, and cut down a little on the bodgery.
+
+Persistent Storage
+
+Eventually we're going to need a way to store user profiles in the
+database.  Probably best to just have a direct mapping from the data
+structure we use in memory to some sort of entry in a table--nothing
+fancy.  When a user authenticates, we can load the profile and keep it
+in memory.
+
+Getters/Setters
+
+We're going to need a way for users to retrieve their profile data and
+a way for them to change it.  Again, some combination of web and IRC
+methods is probably going to be needed.

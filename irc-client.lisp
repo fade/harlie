@@ -22,7 +22,7 @@
    (bot-irc-client-thread :initform nil :accessor bot-irc-client-thread)
    (ignore-list :initform nil :accessor ignore-list)
    (message-q :initform (make-message-queue) :accessor message-q)
-;;   (message-timer :initform nil :accessor message-timer)
+   ;;   (message-timer :initform nil :accessor message-timer)
    (mq-task :initform nil :accessor mq-task)))
 
 (defclass bot-irc-channel (cl-irc:channel)
@@ -95,8 +95,8 @@ sender wasn't being ignored; true otherwise."))
 (defmethod start-ignoring ((connection bot-irc-connection) sender)
   (let ((ignoree (string-upcase sender)))
     (if (not (member ignoree (ignore-list connection) :test #'string-equal))
-	  (push ignoree (ignore-list connection))
-	  nil)))
+        (push ignoree (ignore-list connection))
+        nil)))
 
 (defmethod stop-ignoring ((connection bot-irc-connection) sender)
   (let ((ignoree (string-upcase sender)))
@@ -108,7 +108,7 @@ sender wasn't being ignored; true otherwise."))
 
 (defun ignoring-whom ()
   "Convenience function to print out some semblance of who's on the global ignore list."
-    (maphash #'(lambda (k v) (format t "~A ~A~%" k (ignore-list v))) *irc-connections*))
+  (maphash #'(lambda (k v) (format t "~A ~A~%" k (ignore-list v))) *irc-connections*))
 
 (defun print-some-random-dots ()
   "An anti-function function."
@@ -116,7 +116,7 @@ sender wasn't being ignored; true otherwise."))
     for i from 1
     :until (= (random 200) 111)
     :when (= (mod i 3) 0)
-    :do (format t ".")
+      :do (format t ".")
     :finally (return i)))
 
 ;; Two functions used for the triggering mechanism about the chainer.
@@ -243,7 +243,7 @@ allowing for leading and trailing punctuation characters in the match."
        (maphash-keys
 	#'(lambda (channel)
 	    (privmsg conn channel "Test test alkahest"))
-       (channels conn)))
+        (channels conn)))
    *irc-connections*))
 
 (defun say (utterance &key public channel channels)
@@ -260,12 +260,12 @@ allowing for leading and trailing punctuation characters in the match."
 	    when (string-equal k channel) do
 	      (privmsg cxn k utterance))))))
 
-; Why do we fork another thread just to run this lambda, you may ask?
-; Because the thread that the network event loop runs in keeps getting
-; killed every time there's an error in any of this code, and then
-; I have to restart the bot, and I get cranky.  That's why.
-; This way, the thread that gets killed is an ephemeral thing that no-one
-; (well, hardly anyone) will miss.
+                                        ; Why do we fork another thread just to run this lambda, you may ask?
+                                        ; Because the thread that the network event loop runs in keeps getting
+                                        ; killed every time there's an error in any of this code, and then
+                                        ; I have to restart the bot, and I get cranky.  That's why.
+                                        ; This way, the thread that gets killed is an ephemeral thing that no-one
+                                        ; (well, hardly anyone) will miss.
 
 (defun threaded-msg-hook (message)
   "Dispatch a thread to handle an incoming message."
@@ -287,7 +287,6 @@ allowing for leading and trailing punctuation characters in the match."
 
 (defun nick-change-hook (message)
   "Handle a nick message."
-  
   (make-thread #'(lambda ()
 		   (let* ((connection (connection message))
 			  (sender (source message)))
@@ -301,6 +300,12 @@ allowing for leading and trailing punctuation characters in the match."
 		       (nickname (second k)))
 		   (kill-bot-connection nickname ircserver)))
 	     *irc-connections*))
+
+(defun notice-tracker (message)
+  (format t "~&[NOTICE]:| ~A" message))
+
+(defun irc-nick-change (message)
+  (format t "~&[NICK CHANGE]:| ~A" (describe message)))
 
 (defun make-irc-client-instance-thunk (nickname channels ircserver connection)
   "Make the thunk which moves in and instantiates a new IRC connection."
@@ -318,6 +323,8 @@ allowing for leading and trailing punctuation characters in the match."
     (add-hook connection 'irc::ctcp-action-message #'threaded-action-hook)
     (add-hook connection 'irc::irc-quit-message #'threaded-byebye-hook)
     (add-hook connection 'irc::irc-part-message #'threaded-byebye-hook)
+    (add-hook connection 'irc::irc-notice-message #'notice-tracker)
+    (add-hook connection 'irc::irc-nick-message #'irc-nick-change)
     (read-message-loop connection)))
 
 (defun make-bot-connection (nickname ircserver)

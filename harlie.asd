@@ -28,6 +28,7 @@
 	       (:file "adaptation")
 	       (:file "confobjects")
 	       (:file "config")
+               (:file "users")
 	       (:file "context")
 	       (:file "util")
 	       (:file "url-store")

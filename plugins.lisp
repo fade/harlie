@@ -470,6 +470,14 @@
 		(format nil "~f C == ~0,3f F" celsius (temperature-convert celsius))
 		(format nil "Error in converting unit: ~A" celsius))))))
 
+(defplugin pope (plug-request)
+  (case (plugin-action plug-request)
+    (:docstring (format nil "Report the head of the Roman church."))
+    (:priority 2.0)
+    (:run (extract-from-html (chtml:parse (webget "http://www.vatican.va/phome_en.htm")
+					  (chtml:make-lhtml-builder))
+			     'papal-anchor
+			     'papal-extractor))))
 
 ;; ===[ hyperspace motivator follows. ]===
 

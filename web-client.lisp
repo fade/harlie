@@ -269,6 +269,13 @@ This is a very confusing API."
        (string-equal (second (caadr tree))
 		     "confession permalink-confession")))
 
+(defun papal-extractor (tree)
+  (second (second (second (fourth tree)))))
+
+(defun papal-anchor (tree)
+  (and (equal (car tree) :MAP)
+       (string-equal (first (cdaadr tree)) "piechart")))
+
 (defun confession-extractor (tree)
   (strip-spaces (third tree)))
 

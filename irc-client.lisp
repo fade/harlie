@@ -307,8 +307,30 @@ allowing for leading and trailing punctuation characters in the match."
 (defun irc-nick-change (message)
   (format t "~&[NICK CHANGE]:| ~A" (describe message)))
 
+(defun channel-rota (message)
+  (format t "~&[ChannelROTA]| ~A" (describe message)))
+
+(defmethod default-hook :after ((message irc-rpl_namreply-message))
+  (let* ((connection (connection message))) 
+      (destructuring-bind
+          (nick chan-visibility channel names)
+          (arguments message)
+        (declare (ignorable chan-visibility))
+        (let* ((nl (split-sequence:split-sequence #\  names))
+               (name-list (loop
+                            for name in nl
+                            :collect (cl-ppcre:regex-replace-all "@|\\^|\&" name ""))))
+          (loop for name in name-list
+                :do (qmess connection channel (format nil "~&[HELLO!!] ~A from ~A" name nick))))
+        )))
+
+
+
+
+
 (defun make-irc-client-instance-thunk (nickname channels ircserver connection)
   "Make the thunk which moves in and instantiates a new IRC connection."
+  (declare (ignorable nickname ircserver))
   (lambda ()
     (setf (bot-irc-client-thread connection) (bt:current-thread))
     (dolist (channel channels)
@@ -319,12 +341,16 @@ allowing for leading and trailing punctuation characters in the match."
 	  (progn
 	    (cl-irc:join connection channel)
 	    (privmsg connection channel (format nil "NOTIFY:: Help, I'm a bot!")))))
+
+    ;; backend processing. server joins, messages, user tracking
     (add-hook connection 'irc::irc-privmsg-message #'threaded-msg-hook)
     (add-hook connection 'irc::ctcp-action-message #'threaded-action-hook)
     (add-hook connection 'irc::irc-quit-message #'threaded-byebye-hook)
     (add-hook connection 'irc::irc-part-message #'threaded-byebye-hook)
     (add-hook connection 'irc::irc-notice-message #'notice-tracker)
     (add-hook connection 'irc::irc-nick-message #'irc-nick-change)
+    ;; book-keeping hooks
+    (add-hook connection 'irc::irc-rpl_namreply-message #'channel-rota)
     (read-message-loop connection)))
 
 (defun make-bot-connection (nickname ircserver)

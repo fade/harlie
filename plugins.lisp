@@ -428,12 +428,14 @@
 	    (metar-line (find-metar metar-tree)))
        (if metar-line
 	   (multiple-value-bind (station-name time-string windspeed cur-temp dew-temp) (metar-extract-data metar-line)
-	     (let ((windchill (calculate-wind-chill cur-temp windspeed))
-		   (humidex (calculate-humidex cur-temp dew-temp)))
-	       (apply #'format nil "~A ~A   Current temperature ~A~@[, wind chill ~A~]~@[, humidex ~A~], dewpoint ~A"
-		      station-name time-string
-		      (mapcar #'(lambda (x) (metar-temp-value x units)) (list cur-temp windchill humidex dew-temp)))))
-	   (format nil "Sorry, I don't know from ~A." location)))     )))
+	     (if (and station-name time-string windspeed cur-temp dew-temp)
+		 (let ((windchill (calculate-wind-chill cur-temp windspeed))
+		       (humidex (calculate-humidex cur-temp dew-temp)))
+		   (apply #'format nil "~A ~A   Current temperature ~A~@[, wind chill ~A~]~@[, humidex ~A~], dewpoint ~A"
+			  station-name time-string
+			  (mapcar #'(lambda (x) (metar-temp-value x units)) (list cur-temp windchill humidex dew-temp))))
+		 (format nil "Sorry, no weather at ~A." location)))
+	   (format nil "Sorry, I don't know from ~A." location))))))
 
 ;; temperature conversions
 

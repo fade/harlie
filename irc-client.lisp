@@ -260,12 +260,14 @@ allowing for leading and trailing punctuation characters in the match."
 	    when (string-equal k channel) do
 	      (privmsg cxn k utterance))))))
 
-                                        ; Why do we fork another thread just to run this lambda, you may ask?
-                                        ; Because the thread that the network event loop runs in keeps getting
-                                        ; killed every time there's an error in any of this code, and then
-                                        ; I have to restart the bot, and I get cranky.  That's why.
-                                        ; This way, the thread that gets killed is an ephemeral thing that no-one
-                                        ; (well, hardly anyone) will miss.
+#|
+; Why do we fork another thread just to run this lambda, you may ask?
+; Because the thread that the network event loop runs in keeps getting
+; killed every time there's an error in any of this code, and then
+; I have to restart the bot, and I get cranky.  That's why.
+; This way, the thread that gets killed is an ephemeral thing that no-one
+; (well, hardly anyone) will miss.
+|#
 
 (defun threaded-msg-hook (message)
   "Dispatch a thread to handle an incoming message."
@@ -301,32 +303,49 @@ allowing for leading and trailing punctuation characters in the match."
 		   (kill-bot-connection nickname ircserver)))
 	     *irc-connections*))
 
+(defun channel-member-list-on-join (message)
+  (destructuring-bind
+    (nick chan-visibility channel names)
+      (arguments message)
+    (declare (ignorable nick chan-visibility channel))
+    (let* ((nl (split-sequence:split-sequence #\  names))
+         (name-list (loop for name in nl
+                          :collect (cl-ppcre:regex-replace-all "@|\\^|\&" name ""))))
+    (values name-list))))
+
 (defun notice-tracker (message)
   (format t "~&[NOTICE]:| ~A" message))
 
 (defun irc-nick-change (message)
-  (format t "~&[NICK CHANGE]:| ~A" (describe message)))
+  (format t "~&[NICK CHANGE]:| ~A" (describe message))
+  (let* ((connection (connection message)))))
 
 (defun channel-rota (message)
-  (format t "~&[ChannelROTA]| ~A" (describe message)))
+  (format t "~&[ChannelROTA]| ~A~%~%" (describe message))
+  (let* ((connection (connection message))
+         (sender (source message)))
+    (declare (ignorable connection))
+    (format t "[ROTAx] ~A ~A" sender message)))
 
-(defmethod default-hook :after ((message irc-rpl_namreply-message))
+(defmethod cl-irc::default-hook :after ((message irc-rpl_namreply-message))
+  "when the bot joins an irc channel, it catches a message of type
+'irc-rpl_namreply-message (sic) which will catch this hook from the
+messaging event loop as an :after method to the default combination.
+It isn't totally clear to me why the cl-irc library establishes pretty
+thorough generic function protocols around this eventing, and then
+also exposes the literal #'add-hook functionality. A literal 'add-hook
+hook runs before the default-hook, extended here."
   (let* ((connection (connection message))) 
       (destructuring-bind
           (nick chan-visibility channel names)
           (arguments message)
         (declare (ignorable chan-visibility))
-        (let* ((nl (split-sequence:split-sequence #\  names))
-               (name-list (loop
-                            for name in nl
-                            :collect (cl-ppcre:regex-replace-all "@|\\^|\&" name ""))))
+        (format t "~%~%~%CHANNEL JOIN DEFAULT HOOK, NAMES:: ~A~%~%~%" names)
+        (let ((name-list (channel-member-list-on-join message)))
           (loop for name in name-list
-                :do (qmess connection channel (format nil "~&[HELLO!!] ~A from ~A" name nick))))
-        )))
-
-
-
-
+                :do (progn
+                      (qmess connection channel (format nil "~&[HELLO!!] ~A from ~A~%" name nick))
+                      ))))))
 
 (defun make-irc-client-instance-thunk (nickname channels ircserver connection)
   "Make the thunk which moves in and instantiates a new IRC connection."
@@ -335,12 +354,12 @@ allowing for leading and trailing punctuation characters in the match."
     (setf (bot-irc-client-thread connection) (bt:current-thread))
     (dolist (channel channels)
       (if (listp channel)
-	  (progn
-	    (cl-irc:join connection (first channel) :password (second channel))
-	    (privmsg connection (first channel) (format nil "NOTIFY:: Help, I'm a bot!")))
-	  (progn
-	    (cl-irc:join connection channel)
-	    (privmsg connection channel (format nil "NOTIFY:: Help, I'm a bot!")))))
+          (progn
+            (cl-irc:join connection (first channel) :password (second channel))
+            (privmsg connection (first channel) (format nil "NOTIFY:: Help, I'm a bot!")))
+          (progn
+            (cl-irc:join connection channel)
+            (privmsg connection channel (format nil "NOTIFY:: Help, I'm a bot!")))))
 
     ;; backend processing. server joins, messages, user tracking
     (add-hook connection 'irc::irc-privmsg-message #'threaded-msg-hook)

@@ -6,9 +6,9 @@
 ;; Maintainer: 
 ;; Created: Tue Mar 12 12:04:43 2013 (-0400)
 ;; Version: 
-;; Last-Updated: Tue Mar 12 12:10:26 2013 (-0400)
+;; Last-Updated: Sat Mar 16 14:39:22 2013 (-0400)
 ;;           By: fade
-;;     Update #: 3
+;;     Update #: 4
 ;; URL: 
 ;; Doc URL: 
 ;; Keywords: 
@@ -55,6 +55,11 @@
 
 (defclass authenticated-channel-user (channel-user)
   ((authed-p :initarg :authed-p :initform nil :accessor authed-p)))
+
+(defun make-channel-user (nick-message)
+  (make-instance 'channel-user
+                 :channel-user (user nick-message)
+                 :current-handle ()))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; users.lisp ends here

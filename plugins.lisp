@@ -381,13 +381,15 @@
 (defun metar-extract-data (metar-line)
   "Extract the values from various fields in a METAR record."
   (multiple-value-bind (tempnonce temp-substrings)
-      (scan-to-strings "^([^\\s]*)\\s*([0-9]+[Z]).*[0-9][0-9][0-9]([0-9]+)(G[0-9]+)?([A-Z]+).*\\s(M?[0-9]+)[/](M?[0-9]+)\\s" metar-line)
+      (scan-to-strings "^([^\\s]*)\\s*([0-9]+[Z]).*[0-9][0-9][0-9]([0-9]+)(G[0-9]+)?([A-Z]+).*\\s(M?[0-9]+)[/](M?[0-9]+)?\\s" metar-line)
     (declare (ignore tempnonce))
     (if (not (null temp-substrings))
 	(values (aref temp-substrings 0) (aref temp-substrings 1)
 		(metar-windspeed-to-kmh (parse-integer (aref temp-substrings 2)) (aref temp-substrings 4)) 
 		(metar-temp-to-c (aref temp-substrings 5)) 
-		(metar-temp-to-c (aref temp-substrings 6)))
+		(if (aref temp-substrings 6)
+		    (metar-temp-to-c (aref temp-substrings 6))
+		    0))
 	nil)))
 
 (defun calculate-wind-chill (ambient windspeed)

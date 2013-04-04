@@ -3,3 +3,4 @@ config.lisp
 *.asd
 \#*\#
 .\#*
+*.log

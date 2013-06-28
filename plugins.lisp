@@ -381,13 +381,15 @@
 (defun metar-extract-data (metar-line)
   "Extract the values from various fields in a METAR record."
   (multiple-value-bind (tempnonce temp-substrings)
-      (scan-to-strings "^([^\\s]*)\\s*([0-9]+[Z]).*[0-9][0-9][0-9]([0-9]+)(G[0-9]+)?([A-Z]+).*\\s(M?[0-9]+)[/](M?[0-9]+)\\s" metar-line)
+      (scan-to-strings "^([^\\s]*)\\s*([0-9]+[Z]).*[0-9][0-9][0-9]([0-9]+)(G[0-9]+)?([A-Z]+).*\\s(M?[0-9]+)[/](M?[0-9]+)?\\s" metar-line)
     (declare (ignore tempnonce))
     (if (not (null temp-substrings))
 	(values (aref temp-substrings 0) (aref temp-substrings 1)
 		(metar-windspeed-to-kmh (parse-integer (aref temp-substrings 2)) (aref temp-substrings 4)) 
 		(metar-temp-to-c (aref temp-substrings 5)) 
-		(metar-temp-to-c (aref temp-substrings 6)))
+		(if (aref temp-substrings 6)
+		    (metar-temp-to-c (aref temp-substrings 6))
+		    0))
 	nil)))
 
 (defun calculate-wind-chill (ambient windspeed)
@@ -428,12 +430,14 @@
 	    (metar-line (find-metar metar-tree)))
        (if metar-line
 	   (multiple-value-bind (station-name time-string windspeed cur-temp dew-temp) (metar-extract-data metar-line)
-	     (let ((windchill (calculate-wind-chill cur-temp windspeed))
-		   (humidex (calculate-humidex cur-temp dew-temp)))
-	       (apply #'format nil "~A ~A   Current temperature ~A~@[, wind chill ~A~]~@[, humidex ~A~], dewpoint ~A"
-		      station-name time-string
-		      (mapcar #'(lambda (x) (metar-temp-value x units)) (list cur-temp windchill humidex dew-temp)))))
-	   (format nil "Sorry, I don't know from ~A." location)))     )))
+	     (if (and station-name time-string windspeed cur-temp dew-temp)
+		 (let ((windchill (calculate-wind-chill cur-temp windspeed))
+		       (humidex (calculate-humidex cur-temp dew-temp)))
+		   (apply #'format nil "~A ~A   Current temperature ~A~@[, wind chill ~A~]~@[, humidex ~A~], dewpoint ~A"
+			  station-name time-string
+			  (mapcar #'(lambda (x) (metar-temp-value x units)) (list cur-temp windchill humidex dew-temp))))
+		 (format nil "Sorry, no weather at ~A." location)))
+	   (format nil "Sorry, I don't know from ~A." location))))))
 
 ;; temperature conversions
 
@@ -470,6 +474,14 @@
 		(format nil "~f C == ~0,3f F" celsius (temperature-convert celsius))
 		(format nil "Error in converting unit: ~A" celsius))))))
 
+(defplugin pope (plug-request)
+  (case (plugin-action plug-request)
+    (:docstring (format nil "Report the head of the Roman church."))
+    (:priority 2.0)
+    (:run (extract-from-html (chtml:parse (webget "http://www.vatican.va/phome_en.htm")
+					  (chtml:make-lhtml-builder))
+			     'papal-anchor
+			     'papal-extractor))))
 
 ;; ===[ hyperspace motivator follows. ]===
 

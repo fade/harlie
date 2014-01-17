@@ -427,7 +427,7 @@
 		       (metar-units-symbol (third tokens))
 		       :Centigrade))
 	    (metar-tree (http-request
-			 (format nil "http://aviationweather.gov/adds/metars/?station_ids=~A&std_trans=standard&chk_metars=on&hoursStr=most+recent+only&submitmet=Submit" location)
+			 (format nil "http://www.aviationweather.gov/adds/metars/?station_ids=~A&std_trans=standard&chk_metars=on&hoursStr=most+recent+only&submitmet=Submit" location)
 			 :redirect 16))
 	    (metar-line (find-metar metar-tree)))
        (if metar-line

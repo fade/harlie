@@ -212,15 +212,19 @@ This is a very confusing API."
 (defun doomsday-anchor (tree)
   "Predicate which detects the result in a Doomsday lookup."
   (and (eq (car tree) :DIV)
-       (>= (length tree) 3)
-       (listp (second tree))
-       (string= (getf (caadr tree) :CLASS) "module-content")
-       (listp (third tree))
-       (eq (car (third tree)) :H3)))
+       (>= (length tree) 5)
+       (listp (fourth tree))
+       (eq (car (fourth tree)) :H2)
+       (listp (fifth tree))
+       (eq (car (fifth tree)) :DIV)
+       (listp (second (fifth tree)))
+       (listp (first (second (fifth tree))))
+       (stringp (second (first (second (fifth tree)))))
+       (string-equal (second (first (second (fifth tree)))) "timeline-clock")))
 
 (defun doomsday-extractor (tree)
   "Extract the result from a Doomsday lookup."
-  (third (third tree)))
+  (third (third (fourth tree))))
 
 (defun find-doomsday (tree)
   "Find how many minutes to midnight according to the Bulletin of the Atomic Scientists."

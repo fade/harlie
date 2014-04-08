@@ -280,9 +280,7 @@
   (case (plugin-action plug-request)
     (:docstring (format nil "Unit conversion and other exciting things."))
     (:priority 2.0)
-    (:run (let* ((search-tokens (mapcar 'url-encode (cdr (plugin-token-text-list plug-request))))
-		 (calcresult (find-calc (fetch-formatted-url "http://www.google.com/search?q=~{~A~^+~}&client=ubuntu&channel=fs" search-tokens))))
-	    calcresult))))
+    (:run "Scraping Web pages sucks.  Count on your fingers instead.")))
 
 (defplugin pants (plug-request)
   (case (plugin-action plug-request)

@@ -412,6 +412,15 @@
 	((scan "^[fFiI]" s) :Fahrenheit)
 	(t :Centigrade)))
 
+(defun form-metar-query-string (location)
+  (format nil
+	  (format nil "~{~A~^&~}"
+		  '("http://www.aviationweather.gov/adds/metars/?station_ids=\~\A"
+		    "std_trans=standard"
+		    "chk_metars=on"
+		    "hoursStr=most+recent+only"
+		    "submitmet=Submit")) location))
+
 (defplugin metar (plug-request)
   (case (plugin-action plug-request)
     (:docstring (format nil "Print a human-readable weather report based on METAR data.  Usage: !metar <ICAO>"))
@@ -424,9 +433,8 @@
 	    (units (if (<= 3 (length tokens))
 		       (metar-units-symbol (third tokens))
 		       :Centigrade))
-	    (metar-tree (http-request
-			 (format nil "http://www.aviationweather.gov/adds/metars/?station_ids=~A&std_trans=standard&chk_metars=on&hoursStr=most+recent+only&submitmet=Submit" location)
-			 :redirect 16))
+	    (metar-tree (http-request (form-metar-query-string location)
+			 :preserve-uri t :redirect 16))
 	    (metar-line (find-metar metar-tree)))
        (if metar-line
 	   (multiple-value-bind (station-name time-string windspeed cur-temp dew-temp) (metar-extract-data metar-line)

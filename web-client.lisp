@@ -165,50 +165,6 @@ This is a very confusing API."
 
 ;;; /webtils
 
-(defun calc-anchor (tree)
-  "Predicate which detects the result in a Google Calc page."
-  (and (equal (car tree) :H2)
-       (listp (second tree))
-       (equal "r"
-	      (some #'identity
-		    (mapcar #'(lambda (proplist)
-				(getf proplist :CLASS))
-			    (second tree))))))
-
-(defun cleanup-calc-string (s)
-  (string-strip-surrounding-whitespace
-   (substitute #\Space #\NO-BREAK_SPACE
-	       (substitute #\x #\MULTIPLICATION_SIGN s))))
-
-(defun calc-extractor (tree)
-  "Extract the result from a Google Calc query."
-  (let* ((payload (subseq tree 2))
-	 (pivot (position #\= (car payload)))
-	 (lhs (cleanup-calc-string (subseq (car payload) 0 pivot)))
-	 (mantissa (cleanup-calc-string (subseq (car payload) (1+ pivot))))
-	 (trailer (if (> (length payload) 1)
-		      (concatenate 'string " " (cleanup-calc-string (third payload))) 
-		      nil)))
-    (cond ((= 1 (length payload))
-	   (format nil "~A = ~A" lhs mantissa))
-	  ((= 3 (length payload))
-	   (let ((exponent (third (second payload))))
-	     (list (format nil "~V@A~A" (+ (length lhs) (length " = ") (length mantissa)) "" exponent)
-		   (format nil "~A = ~A~V@A~A" lhs mantissa (length exponent) "" trailer))))
-	  ((= 5 (length payload))
-	   (let* ((numerator (third (second payload)))
-		  (denominator (third (fourth payload)))
-		  (trailing-unit (fifth payload))
-		  (thruline (format nil "~A = ~A ~A/~A~A" lhs mantissa numerator denominator trailing-unit)))
-	     thruline))
-	  (t "I dunno, man, I just work here."))))
-
-(defun find-calc (tree)
-  "Take the result in a Google Calc page."
-  (let ((result (extract-from-html tree 'calc-anchor 'calc-extractor)))
-    (if result result
-	"Your query did not return any meaningful data.")))
-
 (defun doomsday-anchor (tree)
   "Predicate which detects the result in a Doomsday lookup."
   (and (eq (car tree) :DIV)

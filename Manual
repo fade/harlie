@@ -2,7 +2,22 @@ HARLIE
 
 Operator's Manual
 
-1. Adding a new channel
+1. Initializing the database
+
+You'll need to install PostgreSQL and create a database instance for the bot.
+
+  $ createdb botdb
+
+The file schema.sql contains the bare minimum database schema for the bot.
+You'll need to pipe it to psql, but you'll also need to specify ownership for
+tables and so forth.
+
+  $ sed 's/#laughingboy#/BOT-OWNER/g' < schema.sql | psql botdb
+
+where BOT-OWNER should be the name of the PostgreSQL user who 'owns' the bot db.
+(Usually also the Linux username which starts the bot processes.)
+
+2. Adding a new channel
 
 The bot gets its information on how to start up instances from two
 places: from the config.lisp source file, and also from the database.

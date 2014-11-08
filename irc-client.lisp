@@ -203,7 +203,7 @@ allowing for leading and trailing punctuation characters in the match."
 	 (reply-to (if (string-equal channel-name (bot-nick context))
 		       sender
 		       channel-name))
-	 (urls (extract-urls text)))
+	 (urls (mapcar #'de-utm-url (extract-urls text))))
     (flet ((reply (s) (qmess connection reply-to s)))
       (setf (last-message connection) message)
       (format t "Message: ~A~%" (raw-message-string message))

@@ -23,11 +23,10 @@
 		       :external-format :ISO-8859-1)
       (loop for cline = (read-line s nil nil)
 	    :while cline
-	    ;; :do 
 	    :do (let* ((ccode (strip-spaces (split-sequence #\: cline)))
 		       (clen (length ccode)))
-		  ;; (format t "~&|~A ~A ~A" (type-of ccode) (length ccode) (cdr ccode))
-		  (setf (gethash (car ccode) ccode-hashtable)
+		  (format t "~&|~A ~A ~A ~A" (type-of ccode) (length ccode) (car ccode) (cdr ccode))
+		  (setf (gethash (string-trim "*" (car ccode)) ccode-hashtable)
 			(if (= clen 2)
 			    (cadr ccode)
 			    (format nil "~{~A~^ ~}" (cdr ccode)))))

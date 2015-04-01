@@ -152,8 +152,10 @@
   (case (plugin-action plug-request)
     (:docstring (format nil "Look up an area code.  Usage: !area <area code>"))
     (:priority 3.0)
-    (:run (let* ((searchterm (second (plugin-token-text-list plug-request)))
+    (:run (let* ((pokearoo (second (plugin-token-text-list plug-request))) ;; < -- introduced for debuggery. could be collapsed into the next assignment.
+                 (searchterm (string-trim "*" pokearoo))
 		 (area (areacode-lookup searchterm)))
+            ;; (format t "~&~A || ~A~%" pokearoo searchterm)
 	    (if (and area (listp area))
 		(loop for (a . b) in area
 		      :collect (format nil "[ ~A ][ ~A ]" a b))
@@ -383,8 +385,8 @@
     (declare (ignore tempnonce))
     (if (not (null temp-substrings))
 	(values (aref temp-substrings 0) (aref temp-substrings 1)
-		(metar-windspeed-to-kmh (parse-integer (aref temp-substrings 2)) (aref temp-substrings 4)) 
-		(metar-temp-to-c (aref temp-substrings 5)) 
+		(metar-windspeed-to-kmh (parse-integer (aref temp-substrings 2)) (aref temp-substrings 4))
+		(metar-temp-to-c (aref temp-substrings 5))
 		(if (aref temp-substrings 6)
 		    (metar-temp-to-c (aref temp-substrings 6))
 		    0))
@@ -454,7 +456,7 @@
     ;; (assert (numberp tt))
     (when (numberp tt)
       (case scale
-	(:celsius (+ (* tt 9/5) 32)) 
+	(:celsius (+ (* tt 9/5) 32))
 	(:fahrenheit (* (- tt 32) 5/9))
 	))))
 

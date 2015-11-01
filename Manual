@@ -2,6 +2,68 @@ HARLIE
 
 Operator's Manual
 
+0. Acceptance testing
+
+When you've just upgraded to a newer version of the Lisp toolchain and
+you want to validate the bot's behaviour, you can run this acceptance
+test procedure.  It should only take a minute or two, and it puts the
+bot through its paces, validating that each significant subsystem is
+working to at least some minimal degree.
+
+It's certainly possible for some plugins to be broken or for some
+subtle bug to have crept into some part of the bot, and for the
+acceptance test procedure to pass anyway.  This is just intended as a
+quick once-over to check that the bot is fit for service after bumping
+the toolchain or otherwise restarting.
+
+ - In channel, use the command "!help".
+   This demonstrates that the bot is capable of receiving and sending
+   messages through the IRC client library, and that it can work out a
+   Web port to display, which shows that its "context" subsystem is
+   working.
+
+ - In a web browser, pull up the help URL the bot has given you.
+   This shows that the Web server subsystem is working, and further
+   verifies that the context subsystem is sane.
+
+ - Edit the URL in your Web browser to change /help to /source.
+   Further exercises the Web server subsystem.
+
+ - In the Web browser, click on one of the source files.
+   More Web server validation.  Also shows whether the Lisp
+   prettyprint library is working.
+
+ - In your Web browser, delete the portion of the URL after the port
+   number.
+   This will bring up the list of shortened URLs in the current
+   context.  The database client library must be used to pull these
+   up; if it works, the database is readable.
+
+ - Click on one of the titles and verify that it pulls up the original
+   target.
+   Exercises a different code path through the Web server; also
+   further verifies that the database read code for the URL shortener
+   is working.
+
+ - In IRC, use the "!metar" command.
+   The Web client code is exercised by this command.  Sometimes a
+   particular airport's weather data has not been updated, so spurious
+   errors can be seen here.
+
+ - In IRC, issue the "!status full" command.
+   This reads the database for the Markov chainer, again exercising
+   the context code.
+
+ - In IRC, issue the "!babble" and/or "!haiku" commands.
+   Demonstrates that the chainer can read from its database and
+   perform its most complex function, chaining an output together.
+
+ - In IRC, type something for the bot to see.  Then issue either
+   "!status" or "!status full" again.  Verify that the "I know n
+   phrases" response has been bumped up.
+   This shows that the chainer database can be written as well as
+   read.
+
 1. Initializing the database
 
 You'll need to install PostgreSQL and create a database instance for the bot.

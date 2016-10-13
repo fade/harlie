@@ -48,50 +48,30 @@ Only the first match is returned."
   "Search recursively for a :title tag in a nested list, and return the text."
   (extract-from-html tree 'title-anchor 'title-extractor))
 
-;; (defun forex-anchor (tree)
-;;   "Predicate which detects the meat of an XE.com forex query."
-;;   ;; This the substructure that we're looking for:
-;;   ;;
-;;   ;;        (:TR ((:CLASS "CnvrsnTxt"))
-;;   ;;         (:TD ((:WIDTH "46%") (:ALIGN "right")) "1.00 CAD" "")
-;;   ;;               (:TD ((:WIDTH "8%") (:ALIGN "center") (:CLASS "CnvrsnEq")) "=")
-;;   ;;         (:TD ((:WIDTH "46%") (:ALIGN "left")) "0.980610 USD" ""))
-;;   (and (equal (car tree) :TR)
-;;        (listp (second tree))
-;;        (equal "CnvrsnTxt"
-;; 	      (some #'identity
-;; 		    (mapcar #'(lambda (proplist)
-;; 				(getf proplist :CLASS))
-;; 			    (second tree))))))
-
-(defun forex-anchor (tree)
-  "Predicate which detects the meat of an XE.com forex query."
-  #|
-  This is the substructure that we're looking for:
-
-  (:TR ((:CLASS "uccRes"))
-  (:TD ((:WIDTH "47%") (:ALIGN "right")) "100.00 "
-  (:SPAN ((:CLASS "uccResCde")) "CAD") "")
-            (:TD ((:WIDTH "6%") (:VALIGN "middle") (:ALIGN "center")) "=")
-            (:TD ((:WIDTH "47%") (:ALIGN "left")) "77.5792 "
-             (:SPAN ((:CLASS "uccResCde")) "EUR") ""))|#
-  
-  (and (equal (car tree) :TR)
-       (listp (second tree))
-       (equal "uccRes"
-	      (some #'identity
-		    (mapcar #'(lambda (proplist)
-				(getf proplist :CLASS))
-			    (second tree))))))
-
-(defun forex-extractor (tree)
-  "Extract the data from an XE.com forex query."
-  (list (remove-if-not #'standard-char-p (third (third tree)))
-	(remove-if-not #'standard-char-p (third (fifth tree)))))
 
 (defun find-forex (tree)
   "Plunder a nested list for XE.com's forex information."
-  (extract-from-html tree 'forex-anchor 'forex-extractor))
+
+  ;; We're now looking for two SEPARATE subtrees which look like this:
+  ;;    (:SPAN ((:CLASS "amount") (:DATA-AMOUNT "2.85")) "2.85") " USD =")
+  ;;    (:SPAN ((:CLASS "uccResultAmount")) "3.76024")
+  ;;
+  ;; from which we want the "2.85" from (:DATA-AMOUNT "2.85")
+  ;; and the 3.76024 from (:SPAN ((:CLASS "uccResultAmount")) "3.76024")
+  ;;
+  ;; O the things we do.
+
+  (list
+   (extract-from-html tree
+		      #'(lambda (x) (equal (car x) :DATA-AMOUNT))
+		      #'(lambda (y) (second y)))
+   (extract-from-html tree
+		      #'(lambda (x) (and (equal (car x) :SPAN)
+					 (listp (second x))
+					 (listp (car (second x)))
+					 (equal (car (car (second x))) :CLASS)
+					 (string-equal (second (car (second x))) "uccResultAmount")))
+		      #'(lambda (y) (third y)))))
 
 (defparameter *user-agents* '("Mozilla/5.0 (X11; Linux x86_64; rv:7.0.1) Gecko/20100101 Firefox/7.0.1" "Bite Me"))
 

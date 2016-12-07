@@ -280,9 +280,7 @@
   (case (plugin-action plug-request)
     (:docstring (format nil "Unit conversion and other exciting things."))
     (:priority 2.0)
-    (:run (let* ((search-tokens (mapcar 'url-encode (cdr (plugin-token-text-list plug-request))))
-		 (calcresult (find-calc (fetch-formatted-url "http://www.google.com/search?q=~{~A~^+~}&client=ubuntu&channel=fs" search-tokens))))
-	    calcresult))))
+    (:run "Scraping Web pages sucks.  Count on your fingers instead.")))
 
 (defplugin pants (plug-request)
   (case (plugin-action plug-request)
@@ -294,7 +292,7 @@
   (case (plugin-action plug-request)
     (:docstring (format nil "Check the purity of essence of your precious bodily fluids"))
     (:priority 4.0)
-    (:run (find-doomsday (fetch-formatted-url "http://www.thebulletin.org/")))))
+    (:run (find-doomsday (fetch-formatted-url "http://www.thebulletin.org/timeline")))))
 
 (define-condition unrecognized-operator-error (error)
   ((unrecognized-operator :initarg :unrecognized-operator :initform nil :reader unrecognized-operator)))
@@ -414,6 +412,15 @@
 	((scan "^[fFiI]" s) :Fahrenheit)
 	(t :Centigrade)))
 
+(defun form-metar-query-string (location)
+  (format nil
+	  (format nil "~{~A~^&~}"
+		  '("http://www.aviationweather.gov/adds/metars/?station_ids=\~\A"
+		    "std_trans=standard"
+		    "chk_metars=on"
+		    "hoursStr=most+recent+only"
+		    "submitmet=Submit")) location))
+
 (defplugin metar (plug-request)
   (case (plugin-action plug-request)
     (:docstring (format nil "Print a human-readable weather report based on METAR data.  Usage: !metar <ICAO>"))
@@ -426,7 +433,8 @@
 	    (units (if (<= 3 (length tokens))
 		       (metar-units-symbol (third tokens))
 		       :Centigrade))
-	    (metar-tree (http-request (format nil "http://aviationweather.gov/adds/metars/?station_ids=~A&std_trans=standard&chk_metars=on&hoursStr=most+recent+only&submitmet=Submit" location)))
+	    (metar-tree (http-request (form-metar-query-string location)
+			 :preserve-uri t :redirect 16))
 	    (metar-line (find-metar metar-tree)))
        (if metar-line
 	   (multiple-value-bind (station-name time-string windspeed cur-temp dew-temp) (metar-extract-data metar-line)

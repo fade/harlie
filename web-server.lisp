@@ -127,6 +127,8 @@ or an error message, as appropriate."
 (defun glom-on-regex (s thunk)
   (push (create-regex-dispatcher (create-caseless-scanner s) thunk) *dispatch-table*))
 
+(defun glom-on-static-file (s p)
+  (push (create-static-file-dispatcher-and-handler s (make-pathname-in-lisp-subdir p)) *dispatch-table*))
 (defun glom-on-folder (s p)
   (push (create-folder-dispatcher-and-handler s (make-pathname-in-lisp-subdir p)) *dispatch-table*))
 
@@ -141,6 +143,7 @@ or an error message, as appropriate."
 			 :message-log-destination (make-pathname-in-lisp-subdir "harlie/logs/http-error.log"))
 	  *acceptors*)
     (glom-on-prefix "/" 'redirect-shortener-dispatch)
+    (glom-on-static-file "/robots.txt" "harlie/robots.txt")
     (glom-on-regex "^/help/?$" 'help-dispatch)
     (glom-on-regex "^/source" 'source-dispatch)
     (glom-on-regex "^/hyper(spec)?/?$" 'hyperspec-base-dispatch)

@@ -99,3 +99,9 @@
 		 (append pnd (list pnn))
 		 pnd)))
     (format nil "/~{~A~^/~}~A" pc extension)))
+
+(defun de-utm-url (url)
+  (let ((utm-index (scan "[&?][uU][tT][mM]_|[&?][mM][bB][iI][dD]" url)))
+    (if utm-index
+	(subseq url 0 utm-index)
+	url)))

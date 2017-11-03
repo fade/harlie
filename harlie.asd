@@ -19,6 +19,7 @@
 	       #:jpl-queues
 	       #:local-time
                #:simple-date-time
+               #:net-telent-date
 	       #:parse-number
 	       #:postmodern
 	       #:split-sequence

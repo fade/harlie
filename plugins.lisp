@@ -89,8 +89,8 @@
 
 
 
-(make-stock "IBM" (jsown:val (jsown:val (get-stock-values "IBM") "Time Series (Daily)" )
-                             (simple-date-time:YYYY-MM-DD (date-time:now))))
+;; (make-stock "IBM" (jsown:val (jsown:val (get-stock-values "IBM") "Time Series (Daily)" )
+;;                              (simple-date-time:YYYY-MM-DD (date-time:now))))
 
 ;; (defun parse-stock (tick)
 ;;   (cond ((string= tick "N/A") nil)
@@ -107,8 +107,8 @@
     (:run (let* ((symbol (string-upcase (second (plugin-token-text-list plug-request))))
 		 (quote (make-stock symbol)))
 	    (if quote
-		(format nil "Issue: ~A as of ~A opened at $~$ with high of ~A low of ~A, closing at ~A with volume of ~A"
-			(stock-name quote) (date:universal-time-to-http-date (stock-freshness quote)) (stock-open quote) (stock-high quote) (stock-low quote)
+		(format nil "Issue: ~A opened at $~$ with high of ~A low of ~A, closing at ~A with volume of ~A"
+			(stock-name quote)  (stock-open quote) (stock-high quote) (stock-low quote)
                         (stock-close quote) (stock-volume quote))
 		(format nil "No quotes for symbol: ~A. Perhaps you mistyped?" symbol))))))
 

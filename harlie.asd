@@ -9,6 +9,7 @@
 	       #:cl-irc
 	       #:cl-log
 	       #:cl-json
+               #:jsown
 	       #:cl-ppcre
 	       #:cl-who
 	       #:closure-html
@@ -18,6 +19,8 @@
 	       #:hunchentoot
 	       #:jpl-queues
 	       #:local-time
+               #:simple-date-time
+               #:net-telent-date
 	       #:parse-number
 	       #:postmodern
 	       #:split-sequence

@@ -87,11 +87,16 @@
 		       (oline (list (first data) from (second data) to)))
 		  (format nil "~{~A ~A~^ = ~}" oline)))))))
 
-(defun parse-stock (tick)
-  (cond ((string= tick "N/A") nil)
-	((float-as-string-p tick) (parse-number tick))
-	((or (every #'alpha-char-p tick) (some #'alphanumericp tick)) tick)
-	(t nil)))
+
+
+;; (make-stock "IBM" (jsown:val (jsown:val (get-stock-values "IBM") "Time Series (Daily)" )
+;;                              (simple-date-time:YYYY-MM-DD (date-time:now))))
+
+;; (defun parse-stock (tick)
+;;   (cond ((string= tick "N/A") nil)
+;; 	((float-as-string-p tick) (parse-number tick))
+;; 	((or (every #'alpha-char-p tick) (some #'alphanumericp tick)) tick)
+;; 	(t nil)))
 
 (defplugin stock (plug-request)
   (case (plugin-action plug-request)
@@ -100,17 +105,11 @@
     <symbol> (ex: !stock goog)"))
     (:priority 2.0)
     (:run (let* ((symbol (string-upcase (second (plugin-token-text-list plug-request))))
-		 (quote (loop for i in (get-stock-values symbol)
-			      :collect (parse-stock i))))
-	    (if (every #'identity quote)
-		;; if you're reading this and you're new to lisp, this
-		;; is possibly confusing, but lisp has namespaces for
-		;; functions as well as symbols, and many other
-		;; things, which allows them to share names that are
-		;; disambiguated by context.
-		(format nil "Issue: ~A last traded for $~$ at ~A on ~A, ~A changed on the day. Opened at $~$ with a high of $~$ and a low of $~$. ~:D shares traded."
-			(first quote) (second quote) (fourth quote) (third quote)
-			(fifth quote) (sixth quote) (seventh quote) (eighth quote) (ninth quote))
+		 (quote (make-stock symbol)))
+	    (if quote
+		(format nil "Issue: ~A opened at $~$ with high of ~A low of ~A, closing at ~A with volume of ~A"
+			(stock-name quote)  (stock-open quote) (stock-high quote) (stock-low quote)
+                        (stock-close quote) (stock-volume quote))
 		(format nil "No quotes for symbol: ~A. Perhaps you mistyped?" symbol))))))
 
 ;; (defplugin jcw (plug-request)

@@ -7,7 +7,9 @@
   (setf *random-state* (make-random-state t))
   (start-web-client)
   (start-web-servers)
-  (start-threaded-irc-client-instances))
+  (start-threaded-irc-client-instances)
+  (start-cron)
+  (add-canonical-crons))
 
 (defun kill-bot ()
   "Disconnect from the IRC server, clean up persistent data, shut down the Web servers."

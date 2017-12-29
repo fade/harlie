@@ -4,6 +4,7 @@
   :serial t
   :depends-on (#:alexandria
 	       #:bordeaux-threads
+               #:cl-cron
 	       #:cl-fad
 	       #:cl-irc
 	       #:cl-log
@@ -28,6 +29,7 @@
 	       (:file "adaptation")
 	       (:file "confobjects")
 	       (:file "config")
+               (:file "cron")
                (:file "users")
 	       (:file "context")
 	       (:file "util")

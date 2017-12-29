@@ -4,6 +4,7 @@
   (:use #:cl
 	#:alexandria
 	#:bt
+        #:cl-cron
 	#:cl-log
 	#:cl-ppcre
 	#:cl-who

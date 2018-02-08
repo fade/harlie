@@ -230,7 +230,7 @@
 (defplugin trigger (plug-request)
   (case (plugin-action plug-request)
     (:docstring (format nil "Return the current trigger word list"))
-    (:priority 1.5)
+    (:priority 1.51)
     (:run (format nil "~{~A~^, ~}"
 		  (trigger-list (gethash (plugin-channel-name plug-request)
 					(channels (plugin-conn plug-request))))))))

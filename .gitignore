@@ -4,3 +4,6 @@ config.lisp
 \#*\#
 .\#*
 *.log
+/semaphor.db.sql
+/http-request.lisp
+/bunker.lisp

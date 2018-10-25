@@ -26,7 +26,9 @@
 	       #:split-sequence
 	       #:trivial-shell
 	       #:trivial-timeout
-	       #:yaclml)
+	       #:yaclml
+               #:fxr
+               #:str)
 
   :components ((:file "package")
 	       (:file "adaptation")

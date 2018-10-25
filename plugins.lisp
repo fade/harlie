@@ -77,17 +77,39 @@
     (:priority 2.0)
     (:run (let* ((amount (second (plugin-token-text-list plug-request)))
 		 (from (string-upcase (third (plugin-token-text-list plug-request))))
-		 (to (string-upcase (fourth (plugin-token-text-list plug-request)))))
+		 (to (string-upcase (fourth (plugin-token-text-list plug-request))))
+                 (pair (str:join "" (list from to))))
+            (declare (ignorable pair))
+	    (cond ((string= from to)
+		   (format nil "Converting ~A to ~A is redundant." from to))
+                  (t
+		   (let* ((data (convert-pairs from to amount)))
+		     (format nil "~A" (cdr (assoc :text data)))))))))))
+
+(defplugin rate (plug-request)
+  (case (plugin-action plug-request)
+    (:docstring (format nil "Look up the conversion rate between two currencies.  Usage: !rate <curr1> <curr2>"))
+    (:priority 2.0)
+    (:run (let* ((amount 1)
+		 (from (string-upcase (second (plugin-token-text-list plug-request))))
+		 (to (string-upcase (third (plugin-token-text-list plug-request)))))
 	    (if (string= from to)
-		(format nil "Converting ~A to ~A is redundant." from to)
-		(let* ((data (find-forex
-			      (fetch-formatted-url
-			       "http://www.xe.com/ucc/convert/?Amount=~A&From=~A&To=~A"
-			       amount from to)))
-		       (oline (list (first data) from (second data) to)))
-		  (format nil "~{~A ~A~^ = ~}" oline)))))))
-
-
+		(format nil "The rate of ~A in ~A is obvious." from to)
+		(progn
+		  (let* ((fx
+			   (break-on-no-break-space
+			    (find-forex (fetch-formatted-url
+					 "http://www.xe.com/ucc/convert/?Amount=~A&From=~A&To=~A"
+					 amount from to))))
+			 (c1amt (parse-number:parse-number
+				 (remove #\, (first (first fx)))))
+			 (c2amt (parse-number:parse-number
+				 (remove #\, (first (second fx)))))
+			 (c1->c2 (format nil " ~$ ~A  =  ~$ ~A "
+					 c1amt from c2amt to))
+			 (c2->c1 (format nil " ~$ ~A  =  ~$ ~A "
+					 amount to (/ c1amt c2amt ) from)))
+		    (format nil "[ ~A | ~A ]" c1->c2 c2->c1))))))))
 
 ;; (make-stock "IBM" (jsown:val (jsown:val (get-stock-values "IBM") "Time Series (Daily)" )
 ;;                              (simple-date-time:YYYY-MM-DD (date-time:now))))
@@ -181,32 +203,6 @@
 		(loop for (a . b) in curr
 		      :collect (format nil "[ ~A ][ ~A ]" a b))
 		(format nil "~A" curr))))))
-
-
-(defplugin rate (plug-request)
-  (case (plugin-action plug-request)
-    (:docstring (format nil "Look up the conversion rate between two currencies.  Usage: !rate <curr1> <curr2>"))
-    (:priority 2.0)
-    (:run (let* ((amount 1)
-		 (from (string-upcase (second (plugin-token-text-list plug-request))))
-		 (to (string-upcase (third (plugin-token-text-list plug-request)))))
-	    (if (string= from to)
-		(format nil "The rate of ~A in ~A is obvious." from to)
-		(progn
-		  (let* ((fx
-			   (break-on-no-break-space
-			    (find-forex (fetch-formatted-url
-					 "http://www.xe.com/ucc/convert/?Amount=~A&From=~A&To=~A"
-					 amount from to))))
-			 (c1amt (parse-number:parse-number
-				 (remove #\, (first (first fx)))))
-			 (c2amt (parse-number:parse-number
-				 (remove #\, (first (second fx)))))
-			 (c1->c2 (format nil " ~$ ~A  =  ~$ ~A "
-					 c1amt from c2amt to))
-			 (c2->c1 (format nil " ~$ ~A  =  ~$ ~A "
-					 amount to (/ c1amt c2amt ) from)))
-		    (format nil "[ ~A | ~A ]" c1->c2 c2->c1))))))))
 
 (defplugin babble (plug-request)
   (case (plugin-action plug-request)

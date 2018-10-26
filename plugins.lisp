@@ -83,8 +83,12 @@
 	    (cond ((string= from to)
 		   (format nil "Converting ~A to ~A is redundant." from to))
                   (t
-		   (let* ((data (convert-pairs from to amount)))
-		     (format nil "~A" (cdr (assoc :text data)))))))))))
+                   (handler-case
+                       (trivial-timeout:with-timeout (10)
+		         (let* ((data (convert-pairs from to amount)))
+		           (format nil "~A" (cdr (assoc :text data)))))
+                     (trivial-timeout:timeout-error (c)
+                       (format nil "Timeout error: ~A~%" c))))))))))
 
 (defplugin rate (plug-request)
   (case (plugin-action plug-request)

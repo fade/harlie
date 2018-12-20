@@ -197,17 +197,19 @@ This is a very confusing API."
 (defun find-metar (text)
   (extract-from-html (chtml:parse text (chtml:make-lhtml-builder)) 'metar-anchor 'metar-extractor))
 
-(defun confession-payload (url)
-  (let ((parts (scan-to-substrings "http://(www.)?codingconfessional.com/" url)))
-    (if parts
-	(extract-from-html (chtml:parse (webget url) (chtml:make-lhtml-builder)) 'confession-anchor 'confession-extractor)
-	nil)))
 
-(defun confession-anchor (tree)
-  (and (equal (car tree) :DIV)
-       (equal (caaadr tree) :CLASS)
-       (string-equal (second (caadr tree))
-		     "confession permalink-confession")))
+;; DELETE ME. www.codingconfessional.com does not exist any more. This is dead code.
+;; (defun confession-payload (url)
+;;   (let ((parts (scan-to-substrings "http://(www.)?codingconfessional.com/" url)))
+;;     (if parts
+;; 	(extract-from-html (chtml:parse (webget url) (chtml:make-lhtml-builder)) 'confession-anchor 'confession-extractor)
+;; 	nil)))
+
+;; (defun confession-anchor (tree)
+;;   (and (equal (car tree) :DIV)
+;;        (equal (caaadr tree) :CLASS)
+;;        (string-equal (second (caadr tree))
+;; 		     "confession permalink-confession")))
 
 (defun papal-extractor (tree)
   (second (second (second (fourth tree)))))

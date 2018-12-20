@@ -88,7 +88,7 @@
 		         (let* ((data (convert-pairs from to amount)))
 		           (format nil "~A" (cdr (assoc :text data)))))
                      (trivial-timeout:timeout-error (c)
-                       (format nil "Timeout error: ~A~%" c))))))))))
+                       (format nil "Timeout error: ~A~%" c)))))))))
 
 (defplugin rate (plug-request)
   (case (plugin-action plug-request)

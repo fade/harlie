@@ -198,18 +198,6 @@ This is a very confusing API."
   (extract-from-html (chtml:parse text (chtml:make-lhtml-builder)) 'metar-anchor 'metar-extractor))
 
 
-;; DELETE ME. www.codingconfessional.com does not exist any more. This is dead code.
-;; (defun confession-payload (url)
-;;   (let ((parts (scan-to-substrings "http://(www.)?codingconfessional.com/" url)))
-;;     (if parts
-;; 	(extract-from-html (chtml:parse (webget url) (chtml:make-lhtml-builder)) 'confession-anchor 'confession-extractor)
-;; 	nil)))
-
-;; (defun confession-anchor (tree)
-;;   (and (equal (car tree) :DIV)
-;;        (equal (caaadr tree) :CLASS)
-;;        (string-equal (second (caadr tree))
-;; 		     "confession permalink-confession")))
 
 (defun papal-extractor (tree)
   (second (second (second (fourth tree)))))
@@ -217,9 +205,6 @@ This is a very confusing API."
 (defun papal-anchor (tree)
   (and (equal (car tree) :MAP)
        (string-equal (first (cdaadr tree)) "piechart")))
-
-(defun confession-extractor (tree)
-  (strip-spaces (third tree)))
 
 ;; drakma is very thorough in checking the correctness of the HTML
 ;; it fetches.  Unfortunately, it wants to see a newline character

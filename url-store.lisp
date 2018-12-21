@@ -150,12 +150,9 @@
 	  (setf redirect-uri (format nil "~A" redirect-uri))
 	  (cond (title
 		 (let ((short (make-unique-shortstring store url))
-		       (tweet (twitter-payload url))
-		       ;;(confession (confession-payload url)) DELETEME Site no longer exists.
-                       )
+		       (tweet (twitter-payload url)))
 		   (with-connection (readwrite-url-db store)
 		     (when tweet (setf title (format nil "@~A ~A" (twitter-twit url) tweet)))
-		     ;;(when confession (setf title (format nil "\"~A\"" confession))) DELETEME Site no longer exists.
 		     (insert-dao (make-instance 'urls
 						:input-url url
 						:redirected-url redirect-uri

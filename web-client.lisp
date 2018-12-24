@@ -145,22 +145,40 @@ This is a very confusing API."
 
 ;;; /webtils
 
+;; (defun doomsday-anchor (tree)
+;;   "Predicate which detects the result in a Doomsday lookup."
+;;   (and (eq (car tree) :DIV)
+;;        (>= (length tree) 5)
+;;        (listp (fourth tree))
+;;        (eq (car (fourth tree)) :H2)
+;;        (listp (fifth tree))
+;;        (eq (car (fifth tree)) :DIV)
+;;        (listp (second (fifth tree)))
+;;        (listp (first (second (fifth tree))))
+;;        (stringp (second (first (second (fifth tree)))))
+;;        (string-equal (second (first (second (fifth tree)))) "timeline-clock")))
+
 (defun doomsday-anchor (tree)
   "Predicate which detects the result in a Doomsday lookup."
-  (and (eq (car tree) :DIV)
-       (>= (length tree) 5)
-       (listp (fourth tree))
-       (eq (car (fourth tree)) :H2)
-       (listp (fifth tree))
-       (eq (car (fifth tree)) :DIV)
-       (listp (second (fifth tree)))
-       (listp (first (second (fifth tree))))
-       (stringp (second (first (second (fifth tree)))))
-       (string-equal (second (first (second (fifth tree)))) "timeline-clock")))
+  (when
+   (and (eq (car tree) :H3)
+        (eq (first (first (first (rest tree)))) :CLASS)
+        (string-equal (second (first (first (rest tree)))) "fl-heading"))
+    ;;(break "Fragment: ~S" tree)
+    tree)
+  nil)
+
+;; (when
+      
+;;       (print "Inside dooomsday-anchor")
+;;     (format t "Tree: length ~A" (length tree))
+;;     t)
 
 (defun doomsday-extractor (tree)
   "Extract the result from a Doomsday lookup."
-  (third (third (fourth tree))))
+  ;; (print tree)
+  (let ((murmur (third (fourth tree))))
+    (break "~S" murmur)))
 
 (defun find-doomsday (tree)
   "Find how many minutes to midnight according to the Bulletin of the Atomic Scientists."

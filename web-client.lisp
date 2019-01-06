@@ -148,55 +148,40 @@ This is a very confusing API."
 ;;; /webtils
 
 ;; (defun doomsday-anchor (tree)
-;;   "Predicate which detects the result in a Doomsday lookup."
-;;   (and (eq (car tree) :DIV)
-;;        (>= (length tree) 5)
-;;        (listp (fourth tree))
-;;        (eq (car (fourth tree)) :H2)
-;;        (listp (fifth tree))
-;;        (eq (car (fifth tree)) :DIV)
-;;        (listp (second (fifth tree)))
-;;        (listp (first (second (fifth tree))))
-;;        (stringp (second (first (second (fifth tree)))))
-;;        (string-equal (second (first (second (fifth tree)))) "timeline-clock")))
+;;   "experimental predicate to narrow the html tree for our extractor."
+;;   (cond
+;;     ((stringp tree) nil) ;; if its a raw string, strange inputs, bail.
+    
+;;     ;; vv the atomic scientists are really putting the screws to us here. :/
+;;     ((or (string-equal (second (second tree)) "extra-menu")
+;;          (not (= (length tree) 4)))
+;;      nil)
 
-;; (defun doomsday-anchor (tree)
-;;   "Predicate which detects the result in a Doomsday lookup."
-;;   (when
-;;       ;; (and (eq (car tree) :H3)
-;;       ;;   (eq (first (first (first (rest tree)))) :CLASS)
-;;       ;;   (string-equal (second (first (first (rest tree)))) "fl-heading"))
-;;       (and (eq (first (nth 3 tree)) :H3)
-;;            (eq (first (caadr tree)) :CLASS)
-;;            (string-equal (second (caadr tree)) "uabb-infobox-title-wrap"))
-;;       ;; (break "Fragment: ~S" tree)
-;;     tree)
-;;   "No returned tree fragments.")
+;;     ((or (eq (car tree) :SCRIPT)) ;; looking at this garbage will make you a US Republican. drop it.
+;;      nil)
+    
+;;     ((and (eq (car tree) :DIV) ;; this is the stuff.
+;;           (eq (car (third tree) ) :H5)
+;;           (eq (car (fourth tree)) :H3))
+;;      tree)
+    
+;;     (t  ;; otherwise everything about us is failure.
+;;      nil)))
 
 (defun doomsday-anchor (tree)
-  "experimental predicate to narrow the html tree for our extractor."
+  "predicate to find what we're looking for in the sexp representing a
+  return from the bulletin of the atomic scientists, who are
+  apparently quite protective of their public bulletins."
   (cond
-    ((stringp tree) nil) ;; if its a raw string, strange inputs.
-    
-    ;; vv the atomic scientists are really putting the screws to us here. :/
-    ((or (string-equal (second (second tree)) "extra-menu")
-         (not (= (length tree) 4)))
-     nil)
-
-    ((or (eq (car tree) :SCRIPT)) ;; looking at this garbage will make you a US Republican. drop it.
-     nil)
-    
-    ((and (eq (car tree) :DIV) ;; this is the stuff.
-          (eq (car (third tree) ) :H5)
-          (eq (car (fourth tree)) :H3))
+    ((and (eq (car tree) :span)
+          (string-equal (second (first (second tree))) "fl-heading-text"))
      tree)
-    
-    (t  ;; otherwise everything about us is failure.
+    (t
      nil)))
 
 (defun doomsday-extractor (tree)
   "Extract the result from a Doomsday lookup."
-  (format nil "~A" (string-capitalize (string-downcase (print (third (fourth tree)))))))
+  (first (last (doomsday-anchor tree))))
 
 (defun find-doomsday (tree)
   "Find how many minutes to midnight according to the Bulletin of the Atomic Scientists."

@@ -293,7 +293,7 @@
   (case (plugin-action plug-request)
     (:docstring (format nil "Check the purity of essence of your precious bodily fluids"))
     (:priority 4.0)
-    (:run (find-doomsday (fetch-formatted-url "http://www.thebulletin.org/timeline")))))
+    (:run (find-doomsday (fetch-formatted-url "https://thebulletin.org/doomsday-clock/current-time/")))))
 
 (define-condition unrecognized-operator-error (error)
   ((unrecognized-operator :initarg :unrecognized-operator :initform nil :reader unrecognized-operator)))

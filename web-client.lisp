@@ -10,6 +10,8 @@
 anchor-p is a predicate which will match when we find what we're looking for.
 extractor is a function which returns whatever you want from that site.
 Only the first match is returned."
+  (declare (optimize (speed 0) (safety 3) (debug 3)))
+
   ;; If what we've been handed isn't even a list, then we aren't finding anything here.
   (cond ((not (listp tree)) nil)
 
@@ -158,27 +160,43 @@ This is a very confusing API."
 ;;        (stringp (second (first (second (fifth tree)))))
 ;;        (string-equal (second (first (second (fifth tree)))) "timeline-clock")))
 
-(defun doomsday-anchor (tree)
-  "Predicate which detects the result in a Doomsday lookup."
-  (when
-   (and (eq (car tree) :H3)
-        (eq (first (first (first (rest tree)))) :CLASS)
-        (string-equal (second (first (first (rest tree)))) "fl-heading"))
-    ;;(break "Fragment: ~S" tree)
-    tree)
-  nil)
+;; (defun doomsday-anchor (tree)
+;;   "Predicate which detects the result in a Doomsday lookup."
+;;   (when
+;;       ;; (and (eq (car tree) :H3)
+;;       ;;   (eq (first (first (first (rest tree)))) :CLASS)
+;;       ;;   (string-equal (second (first (first (rest tree)))) "fl-heading"))
+;;       (and (eq (first (nth 3 tree)) :H3)
+;;            (eq (first (caadr tree)) :CLASS)
+;;            (string-equal (second (caadr tree)) "uabb-infobox-title-wrap"))
+;;       ;; (break "Fragment: ~S" tree)
+;;     tree)
+;;   "No returned tree fragments.")
 
-;; (when
-      
-;;       (print "Inside dooomsday-anchor")
-;;     (format t "Tree: length ~A" (length tree))
-;;     t)
+(defun doomsday-anchor (tree)
+  "experimental predicate to narrow the html tree for our extractor."
+  (cond
+    ((stringp tree) nil) ;; if its a raw string, strange inputs.
+    
+    ;; vv the atomic scientists are really putting the screws to us here. :/
+    ((or (string-equal (second (second tree)) "extra-menu")
+         (not (= (length tree) 4)))
+     nil)
+
+    ((or (eq (car tree) :SCRIPT)) ;; looking at this garbage will make you a US Republican. drop it.
+     nil)
+    
+    ((and (eq (car tree) :DIV) ;; this is the stuff.
+          (eq (car (third tree) ) :H5)
+          (eq (car (fourth tree)) :H3))
+     tree)
+    
+    (t  ;; otherwise everything about us is failure.
+     nil)))
 
 (defun doomsday-extractor (tree)
   "Extract the result from a Doomsday lookup."
-  ;; (print tree)
-  (let ((murmur (third (fourth tree))))
-    (break "~S" murmur)))
+  (format nil "~A" (string-capitalize (string-downcase (print (third (fourth tree)))))))
 
 (defun find-doomsday (tree)
   "Find how many minutes to midnight according to the Bulletin of the Atomic Scientists."
@@ -214,8 +232,6 @@ This is a very confusing API."
 
 (defun find-metar (text)
   (extract-from-html (chtml:parse text (chtml:make-lhtml-builder)) 'metar-anchor 'metar-extractor))
-
-
 
 (defun papal-extractor (tree)
   (second (second (second (fourth tree)))))

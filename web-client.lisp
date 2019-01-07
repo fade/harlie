@@ -150,7 +150,8 @@ This is a very confusing API."
 (defun doomsday-anchor (tree)
   "predicate to find what we're looking for in the sexp representing a
   return from the bulletin of the atomic scientists, who are
-  apparently quite protective of their public bulletins."
+  apparently quite protective of their public bulletins, assuming they
+  aren't actively fucking with us."
   (cond
     ((and (eq (car tree) :span)
           (string-equal (second (first (second tree))) "fl-heading-text"))

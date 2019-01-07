@@ -147,27 +147,6 @@ This is a very confusing API."
 
 ;;; /webtils
 
-;; (defun doomsday-anchor (tree)
-;;   "experimental predicate to narrow the html tree for our extractor."
-;;   (cond
-;;     ((stringp tree) nil) ;; if its a raw string, strange inputs, bail.
-    
-;;     ;; vv the atomic scientists are really putting the screws to us here. :/
-;;     ((or (string-equal (second (second tree)) "extra-menu")
-;;          (not (= (length tree) 4)))
-;;      nil)
-
-;;     ((or (eq (car tree) :SCRIPT)) ;; looking at this garbage will make you a US Republican. drop it.
-;;      nil)
-    
-;;     ((and (eq (car tree) :DIV) ;; this is the stuff.
-;;           (eq (car (third tree) ) :H5)
-;;           (eq (car (fourth tree)) :H3))
-;;      tree)
-    
-;;     (t  ;; otherwise everything about us is failure.
-;;      nil)))
-
 (defun doomsday-anchor (tree)
   "predicate to find what we're looking for in the sexp representing a
   return from the bulletin of the atomic scientists, who are

@@ -97,18 +97,13 @@
     (:run (let* ((amount 1)
 		 (from (string-upcase (second (plugin-token-text-list plug-request))))
 		 (to (string-upcase (third (plugin-token-text-list plug-request)))))
+            (format t "~&~%||  ~A ~A ~A~%~%" amount from to)
 	    (if (string= from to)
 		(format nil "The rate of ~A in ~A is obvious." from to)
 		(progn
-		  (let* ((fx
-			   (break-on-no-break-space
-			    (find-forex (fetch-formatted-url
-					 "http://www.xe.com/ucc/convert/?Amount=~A&From=~A&To=~A"
-					 amount from to))))
-			 (c1amt (parse-number:parse-number
-				 (remove #\, (first (first fx)))))
-			 (c2amt (parse-number:parse-number
-				 (remove #\, (first (second fx)))))
+		  (let* ((fx (convert-pairs from to amount)) ;; <-- alist of vals from remote API.
+			 (c1amt amount)
+			 (c2amt (cdr (assoc :value fx)))
 			 (c1->c2 (format nil " ~$ ~A  =  ~$ ~A "
 					 c1amt from c2amt to))
 			 (c2->c1 (format nil " ~$ ~A  =  ~$ ~A "

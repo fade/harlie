@@ -145,11 +145,11 @@
 ;;     (:priority 4.0)
 ;;     (:run (format nil "FUCK YOU, HANS!"))))
 
-(defplugin f1 (plug-request)
+(defplugin toynb (plug-request)
   (case (plugin-action plug-request)
-    (:docstring (format nil "He's such a fucking nancyboy."))
+    (:docstring (format nil "Message of unknown origin."))
     (:priority 4.0)
-    (:run (format nil "FUCK YOU, HAMILTON!"))))
+    (:run (list "TOYNBEE IDEA" "IN MOVIE `2001" "RESURRECT DEAD" "ON PLANET JUPITER"))))
 
 (defplugin spew (plug-request)
   (case (plugin-action plug-request)

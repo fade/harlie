@@ -9,8 +9,10 @@
 	       #:cl-irc
 	       #:cl-log
 	       #:cl-json
+               #:cl-csv
                #:jsown
 	       #:cl-ppcre
+               #:cl-interpol
 	       #:cl-who
 	       #:closure-html
 	       #:colorize

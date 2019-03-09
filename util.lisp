@@ -39,22 +39,9 @@
 	    :collect (split-sequence:split-sequence #\NO-BREAK_SPACE string))
       (split-sequence:split-sequence #\NO-BREAK_SPACE zert)))
 
-;; (defun get-stock-values (stock)
-;;   "take a stock symbol, look it up at yahoo, and return a list of the
-;;    values returned from finance.yahoo.com: 0:stock symbol (s)
-;;    1:last-trade-price (l1) 2:last-trade-date (d1)
-;;    3:last-trade-time (t1) 4:change (c1) 5:open-price (o)
-;;    6:day-high (h) 7:day-low (g) 8:volume (v)"
-;;   (let ((quote (split-sequence #\,
-;; 			      (strip-spaces
-;; 			       (flexi-streams:octets-to-string
-;; 				(drakma:http-request
-;; 				 (format nil "~A~A~A"
-;; 					 "http://finance.yahoo.com/d/quotes.csv?s=" stock "&f=sl1d1t1c1ohgv&e=.csv"))
-;; 				:external-format :utf-8)))))
-;;     (if quote
-;; 	(loop for i in quote :collect (remove #\" i)))))
-
+;;;============================================================================
+;;; stock market stuff
+;;;============================================================================
 
 (defclass stock ()
   ((stock-name
@@ -90,11 +77,11 @@
   "jsown is the worst name ever."
   (jsown:val obj string-thing))
 
-(defun make-stock (name &key (function "TIME_SERIES_DAILY"))
+(defun make-stock (name &key (function "TIME_SERIES_DAILY") (when (date-time:now)))
   (handler-case
       (let* ((raw-data (get-stock-values name :function function))
              (stock-info (jget (jget raw-data "Time Series (Daily)") (simple-date-time:YYYY-MM-DD
-                                                                      (date-time:now))))
+                                                                      when)))
              (metadata (jget raw-data "Meta Data"))
              (name (jget metadata "2. Symbol"))
              (freshness (date:parse-time (jget metadata "3. Last Refreshed")))
@@ -114,6 +101,7 @@
     (error (se)
       (declare (ignorable se))
       nil)))
+
 ;; (jsown:val  (jsown:val (get-stock-values "IBM" :function "TIME_SERIES_INTRADAY") "Time Series (1min)") "2017-11-02 15:00:00")
 
 ;; (jdown:val  (jsown:val (get-stock-values "IBM") "Time Series (Daily)") (simple-date-time:YYYY-MM-DD (date-time:now)))

@@ -413,6 +413,15 @@ hook runs before the default-hook, extended here."
 	      (channels (cadr nick-spec)))
 	  (start-threaded-irc-client-instance ircserver nickname channels))))))
 
+(defun print-bot-config (botconfig)
+  "print the contents of the bot's configuration class."
+  (dolist (server-spec (irc-joins botconfig))
+    (let ((ircserver (car server-spec)))
+      (dolist (nick-spec (cadr server-spec))
+	(let ((nickname (car nick-spec))
+	      (channels (cadr nick-spec)))
+	  (format t "~&~{~A~^~%~}~%~%" (list ircserver nickname channels)))))))
+
 (defun stop-threaded-irc-client-instances ()
   "Shut down a session with an IRC server, and clean up."
   (stop-irc-client-instances))

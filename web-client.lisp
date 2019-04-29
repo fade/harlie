@@ -187,7 +187,7 @@ This is a very confusing API."
 				 (json:decode-json-from-source s))))
 	  (cdr (assoc :text (car (remove-if-not #'(lambda (x) (string= (cdr (assoc :id--str x)) twit-id-string))
 						(cdr (assoc :results twitter-spooge)))))))
-	nil)))
+	(values nil (format nil "no extracted parts from url: ~A" url)))))
 
 (defun metar-anchor (tree)
   (eq :font (car tree)))

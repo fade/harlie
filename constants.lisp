@@ -1,6 +1,6 @@
 (in-package #:harlie)
 
-(defparameter *constants* (make-pathname-in-lisp-subdir "harlie/constants/"))
+(defparameter *constants* (asdf:system-relative-pathname :harlie  "constants/"))
 
 ;;; constants in the form of airport and country codes, areacodes, etc.
 
@@ -21,6 +21,7 @@
     (with-open-file (s (constant-file file)
 		       :direction :input
 		       :external-format :ISO-8859-1)
+
       (loop for cline = (read-line s nil nil)
 	    :while cline
 	    :do (let* ((ccode (strip-spaces (split-sequence #\: cline)))

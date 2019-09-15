@@ -49,12 +49,12 @@
 (in-package :harlie)
 
 (defclass channel-user ()
-  ((channel-user :initarg :channel-user :initform nil :accessor channel-user)
+  ((user-id :col-type integer :accessor user-id)
+   (channel-user :initarg :channel-user :initform nil :accessor channel-user)
    (current-handle :initarg :current-handle :initform nil :accessor current-handle)
-   (prev-handle :initarg :prev-handle :initform nil :accessor prev-handle)))
-
-(defclass authenticated-channel-user (channel-user)
-  ((authed-p :initarg :authed-p :initform nil :accessor authed-p)))
+   (prev-handle :initarg :prev-handle :initform nil :accessor prev-handle)
+   (authenticated :initarg :authenticated :initform nil :accessor authenticated))
+  (:metaclass dao-class))
 
 (defun make-channel-user (nick-message)
   (make-instance 'channel-user

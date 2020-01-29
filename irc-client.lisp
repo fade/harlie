@@ -314,11 +314,23 @@ allowing for leading and trailing punctuation characters in the match."
     (values name-list))))
 
 (defun notice-tracker (message)
-  (format t "~&[NOTICE]:| ~A" message))
+  (let* ((connection (connection message))
+         (sender (source message))
+         (text (regex-replace-all "\\ca" (second (arguments message)) "")))
+    (format t "~2&[NOTICE]:| ~A ~A ~A" connection sender text)))
 
 (defun irc-nick-change (message)
-  (format t "~&[NICK CHANGE]:| ~A" (describe message))
-  (let* ((connection (connection message)))))
+  ;; (format t "~&~2%[NICK CHANGE]:| ~A" (describe message))
+  (let* ((connection (connection message))
+         (sender (source message))
+         (channel-name (car (arguments message))) ;; in a nick change this is the new nick.
+         (channel (gethash channel-name (channels connection) nil))
+         (text (regex-replace-all "\\ca" (second (arguments message)) ""))
+	 (token-text-list (split "\\s+" text))
+	 (command (string-upcase (first token-text-list))))
+    (format t "~2&[NICK CHANGE ~A -> ~A] -- ~{~A~^ ~}~2%"
+            sender channel-name
+            (list connection sender channel-name channel text token-text-list command))))
 
 (defun channel-rota (message)
   (format t "~&[ChannelROTA]| ~A~%~%" (describe message))
@@ -326,6 +338,8 @@ allowing for leading and trailing punctuation characters in the match."
          (sender (source message)))
     (declare (ignorable connection))
     (format t "[ROTAx] ~A ~A" sender message)))
+
+(defparameter *users* nil)
 
 (defmethod cl-irc::default-hook :after ((message irc-rpl_namreply-message))
   "when the bot joins an irc channel, it catches a message of type
@@ -335,18 +349,18 @@ It isn't totally clear to me why the cl-irc library establishes pretty
 thorough generic function protocols around this eventing, and then
 also exposes the literal #'add-hook functionality. A literal 'add-hook
 hook runs before the default-hook, extended here."
-  (when nil
-    (let* ((connection (connection message)))
-      (destructuring-bind
-	  (nick chan-visibility channel names)
-	  (arguments message)
-	(declare (ignorable chan-visibility))
-	(format t "~%~%~%CHANNEL JOIN DEFAULT HOOK, NAMES:: ~A~%~%~%" names)
-	(let ((name-list (channel-member-list-on-join message)))
-	  (loop for name in name-list
-		:do (progn
-		      (qmess connection channel (format nil "~&[HELLO!!] ~A from ~A~%" name nick))
-		      )))))))
+  (let* ((connection (connection message)))
+    (destructuring-bind
+	(nick chan-visibility channel names)
+	(arguments message)
+      (declare (ignorable chan-visibility))
+      (format t "~%~%~%CHANNEL JOIN DEFAULT HOOK, NAMES:: ~A~%~%~%" names)
+      (let ((name-list (channel-member-list-on-join message)))
+	(loop for name in name-list
+	      :do (progn
+                    (push (make-channel-user message) *users*)
+		    (qmess connection channel (format nil "~&[HELLO!!] ~A from ~A~%" name nick))
+		    ))))))
 
 (defun make-irc-client-instance-thunk (nickname channels ircserver connection)
   "Make the thunk which moves in and instantiates a new IRC connection."
@@ -362,7 +376,7 @@ hook runs before the default-hook, extended here."
             (cl-irc:join connection channel)
             (privmsg connection channel (format nil "NOTIFY:: Help, I'm a bot!")))))
 
-    ;; backend processing. server joins, messages, user tracking
+    ;; Protocol processing. server joins, messages, user tracking
     (add-hook connection 'irc::irc-privmsg-message #'threaded-msg-hook)
     (add-hook connection 'irc::ctcp-action-message #'threaded-action-hook)
     (add-hook connection 'irc::irc-quit-message #'threaded-byebye-hook)
@@ -370,7 +384,7 @@ hook runs before the default-hook, extended here."
     (add-hook connection 'irc::irc-notice-message #'notice-tracker)
     (add-hook connection 'irc::irc-nick-message #'irc-nick-change)
     ;; book-keeping hooks
-    (add-hook connection 'irc::irc-rpl_namreply-message #'channel-rota)
+    (add-hook connection 'irc::irc-rpl_namreply-message #'channel-member-list-on-join)
     (read-message-loop connection)))
 
 (defun make-bot-connection (nickname ircserver)

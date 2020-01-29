@@ -57,7 +57,7 @@
   (case (plugin-action plug-request)
     (:docstring (format nil "Tell us where the source is kept."))
     (:priority -1.0)
-    (:run (format nil "git@coruscant.deepsky.com:harlie.git"))))
+    (:run (format nil "https://github.com/fade/harlie.git"))))
 
 (defplugin status (plug-request)
   (case (plugin-action plug-request)
@@ -97,7 +97,7 @@
     (:run (let* ((amount 1)
 		 (from (string-upcase (second (plugin-token-text-list plug-request))))
 		 (to (string-upcase (third (plugin-token-text-list plug-request)))))
-            (format t "~&~%||  ~A ~A ~A~%~%" amount from to)
+            (format t "~2&||  ~A ~A ~A~2%" amount from to)
 	    (if (string= from to)
 		(format nil "The rate of ~A in ~A is obvious." from to)
 		(progn

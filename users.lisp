@@ -59,7 +59,9 @@
 (defun make-channel-user (nick-message)
   (make-instance 'channel-user
                  :channel-user (user nick-message)
-                 :current-handle ()))
+                 :current-handle (source nick-message)
+                 :prev-handle (source nick-message)
+                 :authenticated nil))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; users.lisp ends here

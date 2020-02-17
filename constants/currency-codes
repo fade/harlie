@@ -1,116 +1,130 @@
-zwr:Zimbabwean dollar A/09
-zwn:Zimbabwean dollar A/08
-zwd:Zimbabwean dollar A/06
-zwc:Rhodesian dollar
-zrz:Zaïrean zaïre
-zrn:Zaïrean new zaïre
-zmk:Zambian kwacha
-zal:South African financial rand (funds code) (discontinued)
-yum:Yugoslav dinar
-yug:Yugoslav dinar
-yuo:Yugoslav dinar
-yur:Yugoslav dinar
-yun:Yugoslav dinar
-yud:Yugoslav dinar
-ydd:South Yemeni dinar
-xfo:Gold franc (special settlement currency)
-veb:Venezuelan bolívar
-uyn:Uruguay old peso
-ugs:Ugandan shilling A/87
-uak:Ukrainian karbovanets
-trl:Turkish lira A/05
-tmm:Turkmenistani manat
-tjr:Tajikistani ruble
-svc:Salvadoran colón
-sur:Soviet Union rouble
-srg:Suriname guilder
-sdp:Sudanese old pound
-sdd:Sudanese dinar
-rur:Russian rouble A/97
-rol:Romanian leu A/05
-plz:Polish zloty A/94
-pei:Peruvian inti
-peh:Peruvian sol
-nfd:Newfoundland dollar
-mzm:Mozambican metical
-mxp:Mexican peso
-mvq:Maldivian rupee
-mlf:Mali franc
-mkn:Old Macedonian denar A/93
-mgf:Malagasy franc
-laj:Lao kip
-isj:Icelandic old krona
-ilr:Israeli shekel
-ilp:Israeli lira
-gwp:Guinea-Bissau peso
-ghc:Ghanaian cedi
-gne:Guinean syli
-esb:Spanish peseta (account B)
-esa:Spanish peseta (account A)
-gqe:Equatorial Guinean ekwele
-ecv:Ecuador Unidad de Valor Constante (funds code) (discontinued)
-ecs:Ecuadorian sucre
-ddm:East German Mark of the GDR (East Germany)
-csk:Czechoslovak koruna
-csd:Serbian dinar
-cle:Chilean escudo
-brr:Brazilian cruzeiro real
-bre:Brazilian cruzeiro
-brn:Brazilian cruzado novo
-brc:Brazilian cruzado
-brb:Brazilian cruzeiro novo
-brz:Brazilian cruzeiro
-bop:Bolivian peso
-bgl:Bulgarian lev A/99
-azm:Azerbaijani manat
-ara:Argentine austral
-arp:Argentine peso argentino
-arl:Argentine peso ley
-aor:Angolan kwanza readjustado
-aon:Angolan new kwanza
-afa:Afghan afghani
-xeu:European Currency Unit (1 XEU = 1 EUR)
-val:Vatican lira (currency union with ITL and SML)
-sml:San Marinese lira (currency union with ITL and VAL)
-skk:Slovak koruna
-sit:Slovenian tolar
-pte:Portuguese escudo
-nlg:Netherlands guilder
-mtl:Maltese lira
-maf:Moroccan franc
-mcf:Monegasque franc (currency union with FRF)
-luf:Luxembourg franc (currency union with BEF)
-itl:Italian lira
-iep:Irish pound (punt in Irish language)
-grd:Greek drachma
-frf:French franc
-fim:Finnish markka
-esp:Spanish peseta
-eek:Estonian kroon
-dem:German mark
-cyp:Cypriot pound
-bef:Belgian franc (currency union with LUF)
-ats:Austrian schilling
-adp:Andorran peseta (1:1 peg to the Spanish peseta)
-adf:Andorran franc (1:1 peg to the French franc)
-tvd:Tuvalu dollar
-prb:Transnistrian ruble
-sls, slsh:Somaliland shilling
-kri:Kiribati dollar
-imp:Isle of Man pound also Manx pound
-jep:Jersey pound
-ggp:Guernsey pound
-btc:Bitcoin
+zwl:Zimbabwean dollar (historic)
+zwr:Zimbabwean dollar (historic)
+zwn:Zimbabwean dollar (historic)
+zwd:Zimbabwean dollar (historic)
+zwc:Rhodesian dollar (historic)
+zrn:Zairean new zaire (historic)
+zrz:Zairean zaire (historic)
+zmk:Zambian kwacha (historic)
+zal:South African financial rand (funds code) (historic)
+yum:Yugoslav dinar (historic)
+yug:Yugoslav dinar (historic)
+yuo:Yugoslav dinar (historic)
+yur:Yugoslav dinar (historic)
+yun:Yugoslav dinar (historic)
+yud:Yugoslav dinar (historic)
+ydd:South Yemeni dinar (historic)
+xfu:UIC franc (special settlement currency) (historic)
+xfo:Gold franc (special settlement currency) (historic)
+xeu:European Currency Unit (historic)
+vef:Venezuelan bolívar fuerte (historic)
+veb:Venezuelan bolívar (historic)
+val:Vatican lira (historic)
+uyn:Uruguay new peso (historic)
+uyp:Uruguay peso (historic)
+uss:United States dollar (same day) (funds code)[30] (historic)
+ugs:Ugandan shilling (historic)
+uak:Ukrainian karbovanets (historic)
+trl:Turkish lira (historic)
+tpe:Portuguese Timorese escudo (historic)
+tmm:Turkmenistani manat (historic)
+tjr:Tajikistani ruble (historic)
+sur:Soviet Union ruble (historic)
+std:São Tomé and Príncipe Dobra (historic)
+srg:Suriname guilder (historic)
+sml:San Marinese lira (historic)
+skk:Slovak koruna (historic)
+sit:Slovenian tolar (historic)
+sdp:Sudanese old pound (historic)
+sdd:Sudanese dinar (historic)
+rur:Russian ruble (historic)
+rol:Romanian leu (historic)
+pte:Portuguese escudo (historic)
+plz:Polish zloty (historic)
+pei:Peruvian inti (historic)
+peh:Peruvian old sol (historic)
+nlg:Dutch guilder (historic)
+nic:Nicaraguan córdoba (historic)
+mtl:Maltese lira (historic)
+mzm:Mozambican metical (historic)
+mxp:Mexican peso (historic)
+mro:Mauritanian Ouguiya (historic)
+mvq:Maldivian rupee (historic)
+mlf:Mali franc (historic)
+mkn:Old Macedonian denar (historic)
+mgf:Malagasy franc (historic)
+mcf:Monegasque franc (historic)
+maf:Moroccan franc (historic)
+lvl:Latvian lats (historic)
+luf:Luxembourg franc (historic)
+ltl:Lithuanian litas (historic)
+laj:Lao kip (historic)
+itl:Italian lira (historic)
+isj:Icelandic old króna (historic)
+ilr:Israeli shekel (historic)
+ilp:Israeli lira (historic)
+iep:Irish pound (historic)
+hrd:Croatian dinar (historic)
+gwp:Guinea-Bissau peso (historic)
+grd:Greek drachma (historic)
+gqe:Equatorial Guinean ekwele (historic)
+ghc:Ghanaian cedi (historic)
+gne:Guinean syli (historic)
+frf:French franc (historic)
+fim:Finnish markka (historic)
+esp:Spanish peseta (historic)
+esb:Spanish peseta (account B) (historic)
+esa:Spanish peseta (account A) (historic)
+eek:Estonian kroon (historic)
+ecv:Ecuador Unidad de Valor Constante (funds code) (historic)
+ecs:Ecuadorian sucre (historic)
+dem:German mark (historic)
+ddm:East German mark (historic)
+cyp:Cypriot pound (historic)
+csk:Czechoslovak koruna (historic)
+csd:Serbian dinar (historic)
+byr:Belarusian ruble (historic)
+byb:Belarusian ruble (historic)
+brr:Brazilian cruzeiro real (historic)
+bre:Brazilian cruzeiro (historic)
+brn:Brazilian cruzado novo (historic)
+brc:Brazilian cruzado (historic)
+brb:Brazilian cruzeiro (historic)
+bop:Bolivian peso (historic)
+bgl:Bulgarian lev (historic)
+bef:Belgian franc (historic)
+bad:Bosnia and Herzegovina dinar (historic)
+azm:Azerbaijani manat (historic)
+ats:Austrian schilling (historic)
+ara:Argentine austral (historic)
+arp:Argentine peso argentino (historic)
+arl:Argentine peso ley (historic)
+aor:Angolan kwanza reajustado (historic)
+aon:Angolan new kwanza (historic)
+aok:Angolan kwanza (historic)
+afa:Afghan afghani (historic)
+adp:Andorran peseta (historic)
+adf:Andorran franc (historic)
+zec:Zcash
+xrp:XRP
+xmr:Monero
+xlm:Stellar Lumen
+xbc:Bitcoin Cash
+vtc:Vertcoin
+eth:Ether
+dash:Dash
+zwl:Zimbabwean dollar
 zmw:Zambian kwacha
 zar:South African rand
 yer:Yemeni rial
- xxx:No currency
-xts:Code reserved for testing purposes
+xxx:No currency
+xua:ADB Unit of Account
+xts:Code reserved for testing
+xsu:SUCRE
 xpt:Platinum (one troy ounce)
-xpf:CFP franc
+xpf:CFP franc (franc Pacifique)
 xpd:Palladium (one troy ounce)
 xof:CFA franc BCEAO
-xfu:UIC franc (special settlement currency)
 xdr:Special drawing rights
 xcd:East Caribbean dollar
 xbd:European Unit of Account 17 (E.U.A.-17) (bond market unit)
@@ -122,12 +136,12 @@ xag:Silver (one troy ounce)
 xaf:CFA franc BEAC
 wst:Samoan tala
 vuv:Vanuatu vatu
-vnd:Vietnamese dong
-vef:Venezuelan bolívar fuerte
+vnd:Vietnamese đồng
+ves:Venezuelan bolívar soberano[13]
 uzs:Uzbekistan som
+uyw:Unidad previsional[15]
 uyu:Uruguayan peso
 uyi:Uruguay Peso en Unidades Indexadas (URUIURUI) (funds code)
-uss:United States dollar (same day) (funds code) (one source[who?] claims it is no longer used, but it is still on the ISO 4217-MA list)
 usn:United States dollar (next day) (funds code)
 usd:United States dollar
 ugx:Ugandan shilling
@@ -138,12 +152,12 @@ ttd:Trinidad and Tobago dollar
 try:Turkish lira
 top:Tongan paʻanga
 tnd:Tunisian dinar
-tmt:Turkmenistani manat
+tmt:Turkmenistan manat
 tjs:Tajikistani somoni
 thb:Thai baht
 szl:Swazi lilangeni
 syp:Syrian pound
-std:São Tomé and Príncipe dobra
+svc:Salvadoran colón
 ssp:South Sudanese pound
 srd:Surinamese dollar
 sos:Somali shilling
@@ -156,16 +170,16 @@ scr:Seychelles rupee
 sbd:Solomon Islands dollar
 sar:Saudi riyal
 rwf:Rwandan franc
-rub:Russian rouble
+rub:Russian ruble
 rsd:Serbian dinar
-ron:Romanian new leu
+ron:Romanian leu
 qar:Qatari riyal
 pyg:Paraguayan guaraní
 pln:Polish złoty
 pkr:Pakistani rupee
-php:Philippine peso
+php:Philippine peso[13]
 pgk:Papua New Guinean kina
-pen:Peruvian nuevo sol
+pen:Peruvian sol
 pab:Panamanian balboa
 omr:Omani rial
 nzd:New Zealand dollar
@@ -181,17 +195,14 @@ mxn:Mexican peso
 mwk:Malawian kwacha
 mvr:Maldivian rufiyaa
 mur:Mauritian rupee
-mro:Mauritanian ouguiya
 mop:Macanese pataca
-mnt:Mongolian tugrik
-mmk:Myanma kyat
+mnt:Mongolian tögrög
+mmk:Myanmar kyat
 mkd:Macedonian denar
 mga:Malagasy ariary
 mdl:Moldovan leu
 mad:Moroccan dirham
 lyd:Libyan dinar
-lvl:Latvian lats
-ltl:Lithuanian litas
 lsl:Lesotho loti
 lrd:Liberian dollar
 lkr:Sri Lankan rupee
@@ -239,13 +250,13 @@ dop:Dominican peso
 dkk:Danish krone
 djf:Djiboutian franc
 czk:Czech koruna
-cve:Cape Verde escudo
+cve:Cape Verdean escudo
 cup:Cuban peso
 cuc:Cuban convertible peso
 crc:Costa Rican colon
-cou:Unidad de Valor Real
+cou:Unidad de Valor Real (UVR) (funds code)[8]
 cop:Colombian peso
-cny:Chinese yuan
+cny:Renminbi (Chinese) yuan[7]
 clp:Chilean peso
 clf:Unidad de Fomento (funds code)
 chw:WIR Franc (complementary currency)
@@ -254,7 +265,7 @@ che:WIR Euro (complementary currency)
 cdf:Congolese franc
 cad:Canadian dollar
 bzd:Belize dollar
-byr:Belarusian ruble
+byn:Belarusian ruble
 bwp:Botswana pula
 btn:Bhutanese ngultrum
 bsd:Bahamian dollar
@@ -262,7 +273,7 @@ brl:Brazilian real
 bov:Bolivian Mvdol (funds code)
 bob:Boliviano
 bnd:Brunei dollar
-bmd:Bermudian dollar (customarily known as Bermuda dollar)
+bmd:Bermudian dollar
 bif:Burundian franc
 bhd:Bahraini dinar
 bgn:Bulgarian lev

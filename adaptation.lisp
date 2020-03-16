@@ -24,6 +24,18 @@
 		   rehash-size
 		   :rehash-threshold rehash-threshold))
 
+#+ECL
+(defun make-synchronized-hash-table (&key
+				       (test 'eql)
+				       (size 40)
+				       (rehash-size 1.5)
+				       (rehash-threshold 1))
+  (make-hash-table :test test
+		   :size size
+		   :rehash-size
+		   rehash-size
+		   :rehash-threshold rehash-threshold))
+
 ;; On SBCL, input must be NIL or it errors out.
 ;; On CCL, input must be a string or it errors out.
 

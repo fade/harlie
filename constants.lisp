@@ -93,7 +93,6 @@
 
 (defun currency-lookup (key)
   (cond
-    ;; ((= (length key) 3) (by-code key *currency-codes*))
     ((every #'alpha-char-p key) (by-word key *currency-codes*))
     (t (format nil "No ISO currency code found for key: ~A" key))))
 

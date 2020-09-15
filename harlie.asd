@@ -29,7 +29,6 @@
 	       #:trivial-shell
 	       #:trivial-timeout
 	       #:yaclml
-               #:fxr
                #:str)
 
   :components ((:file "package")

@@ -45,7 +45,6 @@
 	       (:file "chainer")
 	       (:file "plugins")
 	       (:file "web-client")
-;	       (:file "http-request")
 	       (:file "web-server")
 	       (:file "sleep-timers")
 	       (:file "harlie")))

@@ -17,8 +17,7 @@
 	#:local-time
 	#:parse-number
 	#:postmodern
-  	#:split-sequence
-        #:fxr)
+  	#:split-sequence)
   
   (:shadowing-import-from :closure-html :attribute :text :comment)
   (:shadowing-import-from :hunchentoot

@@ -57,7 +57,7 @@
   (case (plugin-action plug-request)
     (:docstring (format nil "Tell us where the source is kept."))
     (:priority -1.0)
-    (:run (format nil "git@coruscant.deepsky.com:harlie.git"))))
+    (:run (format nil "https://github.com/fade/harlie.git"))))
 
 (defplugin status (plug-request)
   (case (plugin-action plug-request)

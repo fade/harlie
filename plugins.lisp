@@ -133,17 +133,7 @@
                         (stock-close quote) (stock-volume quote))
 		(format nil "No quotes for symbol: ~A. Perhaps you mistyped?" symbol))))))
 
-;; (defplugin jcw (plug-request)
-;;   (case (plugin-action plug-request)
-;;     (:docstring (format nil "Address the left/right libertarian/asshole continuum"))
-;;     (:priority 4.0)
-;;     (:run (format nil "FUCK YOU, JACKHOLE!"))))
 
-;; (defplugin rally (plug-request)
-;;   (case (plugin-action plug-request)
-;;     (:docstring (format nil "Deal with the world of racing"))
-;;     (:priority 4.0)
-;;     (:run (format nil "FUCK YOU, HANS!"))))
 
 (defplugin toynb (plug-request)
   (case (plugin-action plug-request)

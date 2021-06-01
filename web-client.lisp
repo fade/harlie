@@ -10,6 +10,7 @@
 anchor-p is a predicate which will match when we find what we're looking for.
 extractor is a function which returns whatever you want from that site.
 Only the first match is returned."
+
   (declare (optimize (speed 0) (safety 3) (debug 3)))
 
   ;; If what we've been handed isn't even a list, then we aren't finding anything here.

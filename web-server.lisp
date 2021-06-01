@@ -43,9 +43,18 @@ Serve up a redirection, a list of shortened URL links,
 or an error message, as appropriate."
   (let ((uri (request-uri*)))
     (if (> (length uri) *how-short*)
-	(let* ((short (subseq (request-uri*) 1))
+	(let* ((short (cond
+                        ;; when short links are sent in to the
+                        ;; shortener from places like facebook, they
+                        ;; add all kinds of tracking spooj in the form
+                        ;; of query parameters, which causes a link
+                        ;; failure in some cases.
+                        ((scan "\\?+" (request-uri*))
+                         (format t "~&BELLICOSE:: ~A~2%" (split "\\?+" (subseq (request-uri*) 1)))
+                         (car (split "\\?+" (subseq (request-uri*) 1))))
+                        (t (subseq (request-uri*) 1))))
 	       (url (get-url-from-shortstring *the-url-store* short)))
-	  
+	  (format t "~&SHORTTHING: [~A]~3%" short)
 	  (if url
 	      (redirect url)
 	      (let* ((short (subseq (request-uri*) 4))

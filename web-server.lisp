@@ -50,7 +50,7 @@ or an error message, as appropriate."
                         ;; of query parameters, which causes a link
                         ;; failure in some cases.
                         ((scan "\\?+" (request-uri*))
-                         (format t "~&BELLICOSE:: ~A~2%" (split "\\?+" (subseq (request-uri*) 1)))
+                         (format t "~&BELLICOSE QUERY PARAMETERS:: ~A~2%" (split "\\?+" (subseq (request-uri*) 1)))
                          (car (split "\\?+" (subseq (request-uri*) 1))))
                         (t (subseq (request-uri*) 1))))
 	       (url (get-url-from-shortstring *the-url-store* short)))

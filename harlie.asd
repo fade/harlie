@@ -25,6 +25,7 @@
                #:net-telent-date
 	       #:parse-number
 	       #:postmodern
+               #:puri
 	       #:split-sequence
 	       #:trivial-shell
 	       #:trivial-timeout

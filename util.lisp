@@ -79,9 +79,14 @@
 
 (defun make-stock (name &key (function "TIME_SERIES_DAILY") (when (date-time:now)))
   (handler-case
+      
       (let* ((raw-data (get-stock-values name :function function))
-             (stock-info (jget (jget raw-data "Time Series (Daily)") (simple-date-time:YYYY-MM-DD
-                                                                      when)))
+             (tradedays (list "Mon" "Tue" "Wed" "Thu" "Fri"))
+             (rundate (simple-date-time:YYYY-MM-DD when))
+             (stock-info (cond
+                           ((find (simple-date-time:day-name-of rundate) tradedays)
+                            (jget (jget raw-data "Time Series (Daily)") rundate))
+                           (t (error "Market is closed today."))))
              (metadata (jget raw-data "Meta Data"))
              (name (jget metadata "2. Symbol"))
              (freshness (date:parse-time (jget metadata "3. Last Refreshed")))
@@ -90,6 +95,7 @@
              (low  (jget stock-info "3. low"))
              (close (jget stock-info "4. close"))
              (volume (jget stock-info "5. volume")))
+        
         (make-instance 'stock
                        :stock-name name
                        :stock-freshness freshness
@@ -99,8 +105,10 @@
                        :stock-close (parse-number close)
                        :stock-volume (parse-number volume)))
     (error (se)
-      (declare (ignorable se))
-      nil)))
+      ;;(declare (ignorable se))
+      (break)
+      ;;(format t "Error: ~A~2%" se)
+      )))
 
 ;; (jsown:val  (jsown:val (get-stock-values "IBM" :function "TIME_SERIES_INTRADAY") "Time Series (1min)") "2017-11-02 15:00:00")
 
@@ -117,7 +125,7 @@
                                  "&symbol="
                                  stock
                                  ;; "&outputsize=full"
-                                 "&apikey=3ADMW9QPQPQT1S17"))
+                                 "&apikey=JMRFD5OZA2QQGJKU"))
                         ((string-equal function "TIME_SERIES_INTRADAY")
                          (format nil "~A~A~A~A~A~A"
                                  "https://www.alphavantage.co/query?function="
@@ -125,7 +133,7 @@
                                  "&symbol="
                                  stock
                                  "&interval=1min"
-                                 "&apikey=3ADMW9QPQPQT1S17"))
+                                 "&apikey=JMRFD5OZA2QQGJKU"))
                         (t
                          (format nil "~A~A~A~A~A"
                                  "https://www.alphavantage.co/query?function="
@@ -133,13 +141,14 @@
                                  "&symbol="
                                  stock
                                  ;; "&outputsize=full"
-                                 "&apikey=3ADMW9QPQPQT1S17"))))
+                                 "&apikey=JMRFD5OZA2QQGJKU"))))
          (quote (strip-spaces
                  (flexi-streams:octets-to-string
                   (drakma:http-request
                    data-source)
                   :external-format :utf-8))))
-    (format t "~A"data-source)
+    ;; (format t "~A"data-source)
+    (assert quote)
     (jsown:parse quote)))
 
 (defun make-url-prefix (server-name server-port)

@@ -353,14 +353,23 @@ hook runs before the default-hook, extended here."
   (declare (ignorable nickname ircserver))
   (lambda ()
     (setf (bot-irc-client-thread connection) (bt:current-thread))
-    (dolist (channel channels)
-      (if (listp channel)
-          (progn
-            (cl-irc:join connection (first channel) :password (second channel))
-            (privmsg connection (first channel) (format nil "NOTIFY:: Help, I'm a bot!")))
-          (progn
-            (cl-irc:join connection channel)
-            (privmsg connection channel (format nil "NOTIFY:: Help, I'm a bot!")))))
+    (format t "~2&Channels: ~A" channels)
+
+    (if (listp channels)
+        (let ((ch (first channels))
+              (pass (second channels)))
+          (format t "||| Channel : ~A, Password: ~A |||~3%" ch pass)
+          (cl-irc:join connection ch :password pass)
+          (privmsg connection ch (format nil "NOTIFY:: Help, I'm a bot!")))
+        (progn
+          (format t "||| Channel (nopass) : ~A, Password: ~A |||~3%" channel nil)
+          (cl-irc:join connection channel)
+          (privmsg connection channel (format nil "NOTIFY:: Help, I'm a bot!"))))
+    
+    ;; (dolist (channel channels)
+    ;;   (format t "~2&Type of 'channel: ~A~3%" (type-of channel))
+    ;;   (format t "~&~S~3%" channel)
+    ;;   )
 
     ;; backend processing. server joins, messages, user tracking
     (add-hook connection 'irc::irc-privmsg-message #'threaded-msg-hook)

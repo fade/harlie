@@ -7,3 +7,5 @@ config.lisp
 /semaphor.db.sql
 /http-request.lisp
 /bunker.lisp
+/blonk.sql
+/scratch.lisp

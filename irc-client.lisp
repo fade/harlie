@@ -335,8 +335,9 @@ It isn't totally clear to me why the cl-irc library establishes pretty
 thorough generic function protocols around this eventing, and then
 also exposes the literal #'add-hook functionality. A literal 'add-hook
 hook runs before the default-hook, extended here."
-  (when nil
-    (let* ((connection (connection message)))
+
+  #+nil ;;; we aren't using this form for now.
+  (let* ((connection (connection message)))
       (destructuring-bind
 	  (nick chan-visibility channel names)
 	  (arguments message)
@@ -345,8 +346,9 @@ hook runs before the default-hook, extended here."
 	(let ((name-list (channel-member-list-on-join message)))
 	  (loop for name in name-list
 		:do (progn
-		      (qmess connection channel (format nil "~&[HELLO!!] ~A from ~A~%" name nick))
-		      )))))))
+		      (qmess connection channel (format nil "~&[HELLO!!] ~A from ~A~%"
+                                                        name nick))
+		      ))))))
 
 (defun make-irc-client-instance-thunk (nickname channels ircserver connection)
   "Make the thunk which moves in and instantiates a new IRC connection."

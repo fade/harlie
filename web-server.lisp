@@ -62,7 +62,7 @@ or an error message, as appropriate."
 		(if url
 		    (redirect url)
 		    (html-apology)))))
-	(let (( page (make-webpage-listing-urls *the-url-store*)))
+	(let ((page (make-webpage-listing-urls *the-url-store*)))
 	  ;; (format t "~&passed.. prepare to get a page!~&~A" page)
 	  (values (format nil "~A" page))))))
 
@@ -71,11 +71,11 @@ or an error message, as appropriate."
   (html-help))
 
 (defun fetch-file (fname)
-  (let ((fpath
-	  (merge-pathnames
-	   fname
-	   (make-pathname-in-lisp-subdir "harlie/")))
+  (let ((fpath (merge-pathnames
+                fname
+                (make-pathname-in-lisp-subdir "harlie/")))
 	(s2 (make-string-output-stream)))
+    
     (cond ((scan "config.lisp" fname)
 	   (format nil "<html><head><title>File Unavailable</title></head><body><p>We're sorry, but that file is not available.</body></html>"))
 	  ((scan "[.]lisp|asd$" fname)
@@ -85,12 +85,12 @@ or an error message, as appropriate."
 	     (get-output-stream-string s2)))
 	  (t
 	   (with-open-file (stream (constant-file fpath))
-	       (do* ((line (read-line stream nil 'eof) (read-line stream nil 'eof))
-		     (lines (list line (format nil "<html><head><title>~A</title></head><body><pre>" fname))
-			    (if (not (eq 'eof line))
-				(cons (escape-string line) lines)
-				lines)))
-		    ((eq line 'eof) (format nil "~{~A~^~%~}~%</pre></body></html>~%" (reverse lines)))))))))
+             (do* ((line (read-line stream nil 'eof) (read-line stream nil 'eof))
+                   (lines (list line (format nil "<html><head><title>~A</title></head><body><pre>" fname))
+                          (if (not (eq 'eof line))
+                              (cons (escape-string line) lines)
+                              lines)))
+                  ((eq line 'eof) (format nil "~{~A~^~%~}~%</pre></body></html>~%" (reverse lines)))))))))
 
 (defun fetch-source-dir ()
   (let ((fotchery

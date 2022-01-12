@@ -133,8 +133,6 @@
                         (stock-close quote) (stock-volume quote))
 		(format nil "No quotes for symbol: ~A. Perhaps you mistyped?" symbol))))))
 
-
-
 (defplugin toynb (plug-request)
   (case (plugin-action plug-request)
     (:docstring (format nil "Message of unknown origin."))

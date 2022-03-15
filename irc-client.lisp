@@ -424,9 +424,7 @@ hook runs before the default-hook, extended here."
                                 (start-ignoring connection (current-handle user))))
                             (let ((this-user (make-new-channel-user name)))
                               (format t "~2&Creating user ~A in channel ~A~2%" (current-handle this-user) channel)
-                              (setf (gethash (channel-user this-user) *users*) this-user))))
-                      (qmess connection channel (format nil "~&[HELLO!!] ~A from ~A~%" name nick)))
-                    ))))))
+                              (setf (gethash (channel-user this-user) *users*) this-user)))))))))))
 
 
 (defun make-irc-client-instance-thunk (nickname channels ircserver connection)

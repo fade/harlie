@@ -284,6 +284,7 @@ allowing for leading and trailing punctuation characters in the match."
   (make-thread #'(lambda ()
 		   (let* ((connection (connection message))
 			  (sender (source message)))
+                     (format t "~&[WAT?!] really? ~A~2%" (describe message))
 		     (setf (last-message connection) message)
 		     (stop-ignoring connection sender)))))
 
@@ -319,8 +320,34 @@ allowing for leading and trailing punctuation characters in the match."
          (text (regex-replace-all "\\ca" (second (arguments message)) "")))
     (format t "~2&[NOTICE]:| ~A ~A ~A" connection sender text)))
 
+(defun user-join (message)
+  "Handle channel join events, manage channel rota for persistent state (ignores)"
+  (let* ((connection (connection message))
+         (sender (source message))
+         (channel-name (car (arguments message)))
+         (channel (gethash channel-name (channels connection) nil))
+         (text (regex-replace-all "\\ca" (second (arguments message)) ""))
+         (token-text-list (split "\\s+" text))
+         (command (string-upcase (first token-text-list)))
+         (uobject (get-user-for-handle sender)))
+    (declare (ignorable channel command))
+    ;;        connection                              sender   channel-name  channel text  token-text-list  command
+    ;; #<BOT-IRC-CONNECTION irc.srh.org {1023CB5133}> SR-4     #trinity      NIL     NIL   NIL              NIL
+    (format t "~2&~A~2%" message)
+    (if uobject
+      (progn
+        (format t "~2&[NEW USER OBJECT FOR USER JOIN] -> ~A" (describe uobject))
+        (setf (gethash (current-handle uobject) *users*) uobject)
+        (if (ignored uobject)
+            (progn
+              (format t "~2& IGNORING USER: ~A~%" (current-handle uobject))
+              (start-ignoring connection sender))
+            (progn
+              (format t "~2&Making new channel user: ~A" sender)
+              (let ((uobject (make-new-channel-user sender)))
+                (setf (gethash sender uobject) *users*))))))))
+
 (defun irc-nick-change (message)
-  ;; (format t "~&~2%[NICK CHANGE]:| ~A" (describe message))
   (let* ((connection (connection message))
          (sender (source message))
          (channel-name (car (arguments message))) ;; in a nick change this is the new nick.
@@ -328,9 +355,24 @@ allowing for leading and trailing punctuation characters in the match."
          (text (regex-replace-all "\\ca" (second (arguments message)) ""))
 	 (token-text-list (split "\\s+" text))
 	 (command (string-upcase (first token-text-list))))
+    ;;        connection                              sender   channel-name  channel text  token-text-list  command
+    ;; #<BOT-IRC-CONNECTION irc.srh.org {1023CB5133}> SR-4     #trinity      NIL     NIL   NIL              NIL
+
     (format t "~2&[NICK CHANGE ~A -> ~A] -- ~{~A~^ ~}~2%"
             sender channel-name
-            (list connection sender channel-name channel text token-text-list command))))
+            (list connection sender channel-name channel text token-text-list command))
+    
+    ;; the nick is changing, so we need to update the channel-user
+    ;; hash table in *users* appropriately.
+    (let* ((uobject (get-user-for-handle sender))) ;; get a new channel-user object from db
+      (when uobject
+        (format t "~2&[NEW USER OBJECT FOR NICK CHANGE] -> ~A" (describe uobject))
+        (remhash sender *users*) ;; remove the previously cached object from *users*
+        (setf (current-handle uobject) channel-name) ;; update the current-handle slot with the new name
+        (setf (prev-handle uobject) sender) ;; set the prev-handle slot to the previous handle
+        (with-connection (psql-botdb-credentials *bot-config*)
+          (save-dao uobject)) ;; save the updated info in the database
+        (setf (current-handle uobject) *users*))))) ;; save the updated object to the cache in *users*
 
 (defun channel-rota (message)
   (format t "~&[ChannelROTA]| ~A~%~%" (describe message))
@@ -339,7 +381,18 @@ allowing for leading and trailing punctuation characters in the match."
     (declare (ignorable connection))
     (format t "[ROTAx] ~A ~A" sender message)))
 
-(defparameter *users* nil)
+(defparameter *users* (make-hash-table :test 'equalp :synchronized t))
+
+(defun show-known-users ()
+  (loop for k being the hash-keys of *users*
+                using (hash-value value)
+              do (format t "User: ~A~%Object:~%~A" k (describe value))))
+
+(defun ignoring-users-list ()
+  (loop for k being the hash-keys of *users*
+          using (hash-value v)
+        when (ignored v)
+          collect v))
 
 (defmethod cl-irc::default-hook :after ((message irc-rpl_namreply-message))
   "when the bot joins an irc channel, it catches a message of type
@@ -347,20 +400,33 @@ allowing for leading and trailing punctuation characters in the match."
 messaging event loop as an :after method to the default combination.
 It isn't totally clear to me why the cl-irc library establishes pretty
 thorough generic function protocols around this eventing, and then
-also exposes the literal #'add-hook functionality. A literal 'add-hook
+also exposes the literal #'add-hook functionality. A literal #'add-hook
 hook runs before the default-hook, extended here."
 
   (let* ((connection (connection message)))
     (destructuring-bind
 	(nick chan-visibility channel names)
 	(arguments message)
-      (declare (ignorable chan-visibility))
+      (declare (ignorable chan-visibility channel))
+      (format t "[[[~{ ~A ~^ ~}]]]" (list nick chan-visibility channel names))
       (format t "~%~%~%CHANNEL JOIN DEFAULT HOOK, NAMES:: ~A~%~%~%" names)
       (let ((name-list (channel-member-list-on-join message)))
 	(loop for name in name-list
 	      :do (progn
-                    (push (make-channel-user message) *users*)
-		    (qmess connection channel (format nil "~&[HELLO!!] ~A from ~A~%" name nick))))))))
+                    (when (not (string= nick name)) ;; don't act on ourself
+                      ;; establish user objects.
+                      (let ((user (get-user-for-handle name)))
+                        (if user
+                            (progn
+                              (format t "~2&Adding user ~A to channel ~A~2%" (current-handle user) channel)
+                              (setf (gethash (channel-user user) *users*) user)
+                              (when (ignored user)
+                                (start-ignoring connection (current-handle user))))
+                            (let ((this-user (make-new-channel-user name)))
+                              (format t "~2&Creating user ~A in channel ~A~2%" (current-handle this-user) channel)
+                              (setf (gethash (channel-user this-user) *users*) this-user))))
+                      (qmess connection channel (format nil "~&[HELLO!!] ~A from ~A~%" name nick)))
+                    ))))))
 
 
 (defun make-irc-client-instance-thunk (nickname channels ircserver connection)
@@ -392,6 +458,7 @@ hook runs before the default-hook, extended here."
     (add-hook connection 'irc::irc-quit-message #'threaded-byebye-hook)
     (add-hook connection 'irc::irc-part-message #'threaded-byebye-hook)
     (add-hook connection 'irc::irc-notice-message #'notice-tracker)
+    (add-hook connection 'irc::irc-join-message #'user-join)
     (add-hook connection 'irc::irc-nick-message #'irc-nick-change)
     ;; book-keeping hooks
     (add-hook connection 'irc::irc-rpl_namreply-message #'channel-member-list-on-join)

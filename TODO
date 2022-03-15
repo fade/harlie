@@ -31,6 +31,7 @@
 - Coalesce entries in chain DB
 
 - Follow nick changes.  Should the ignore list be a flag on cl-irc's user class?
+  A: Yes. Done.
 
 - More robust checking for own URLs in shortener logic.
   (Scanning for 127.0.0.1 is fragile.)

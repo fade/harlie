@@ -26,6 +26,7 @@
 	       #:parse-number
 	       #:postmodern
                #:puri
+               #:rutils
 	       #:split-sequence
 	       #:trivial-shell
 	       #:trivial-timeout

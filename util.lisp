@@ -79,14 +79,15 @@
 
 (defun make-stock (name &key (function "TIME_SERIES_DAILY") (when (date-time:now)))
   (handler-case
-      
       (let* ((raw-data (get-stock-values name :function function))
              (tradedays (list "Mon" "Tue" "Wed" "Thu" "Fri"))
              (rundate (simple-date-time:YYYY-MM-DD when))
-             (stock-info (cond
-                           ((find (simple-date-time:day-name-of rundate) tradedays)
+             (stock-info ;; (jget (jget raw-data "Time Series (Daily)") rundate)
+                         (cond
+                           ((find (simple-date-time:day-name-of when) tradedays :test #'string-equal)
                             (jget (jget raw-data "Time Series (Daily)") rundate))
-                           (t (error "Market is closed today."))))
+                           (t (error "Market is closed today.")))
+                         )
              (metadata (jget raw-data "Meta Data"))
              (name (jget metadata "2. Symbol"))
              (freshness (date:parse-time (jget metadata "3. Last Refreshed")))
@@ -106,8 +107,8 @@
                        :stock-volume (parse-number volume)))
     (error (se)
       ;;(declare (ignorable se))
-      (break)
-      ;;(format t "Error: ~A~2%" se)
+      ;; (break)
+      (format t "Error: ~A~2%" se)
       )))
 
 ;; (jsown:val  (jsown:val (get-stock-values "IBM" :function "TIME_SERIES_INTRADAY") "Time Series (1min)") "2017-11-02 15:00:00")

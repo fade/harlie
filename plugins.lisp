@@ -110,15 +110,6 @@
 					 amount to (/ c1amt c2amt ) from)))
 		    (format nil "[ ~A | ~A ]" c1->c2 c2->c1))))))))
 
-;; (make-stock "IBM" (jsown:val (jsown:val (get-stock-values "IBM") "Time Series (Daily)" )
-;;                              (simple-date-time:YYYY-MM-DD (date-time:now))))
-
-;; (defun parse-stock (tick)
-;;   (cond ((string= tick "N/A") nil)
-;; 	((float-as-string-p tick) (parse-number tick))
-;; 	((or (every #'alpha-char-p tick) (some #'alphanumericp tick)) tick)
-;; 	(t nil)))
-
 (defplugin stock (plug-request)
   (case (plugin-action plug-request)
     (:docstring (format nil "Get a vaguely timely appraisal of the

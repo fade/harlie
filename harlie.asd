@@ -7,7 +7,8 @@
                #:cl-cron
 	       #:cl-fad
 	       #:cl-irc
-	       #:cl-log
+	       ;; #:cl-log
+               #:log4cl
 	       #:cl-json
                #:cl-csv
                #:jsown
@@ -18,6 +19,7 @@
 	       #:colorize
 	       #:cxml-stp
 	       #:drakma
+               #:fxr
 	       #:hunchentoot
 	       #:jpl-queues
 	       #:local-time

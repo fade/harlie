@@ -147,7 +147,9 @@ that id."
                            :current-handle nick
                            :prev-handle nil
                            :authenticated nil)))
-      (save-dao uobject))))
+      (if (save-dao uobject)
+          (values uobject)
+          nil))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; users.lisp ends here

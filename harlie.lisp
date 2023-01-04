@@ -2,6 +2,10 @@
 
 (in-package #:harlie)
 
+(defvar *base-pathname*
+  #.(uiop:pathname-directory-pathname (or *compile-file-truename* *load-truename*))
+  "calculate this at run-time, not fixed at compile time...")
+
 (defun run-bot ()
   "Start up the IRC client and the Web servers."
   (setf *random-state* (make-random-state t))

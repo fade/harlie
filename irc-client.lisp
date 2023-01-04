@@ -26,7 +26,8 @@
    (mq-task :initform nil :accessor mq-task)))
 
 (defclass bot-irc-channel (cl-irc:channel)
-  ((trigger-list :initarg :trigger-list :initform nil :accessor trigger-list)))
+  ((trigger-list :initarg :trigger-list :initform nil :accessor trigger-list)
+   (ignore-sticky :initarg :ignore-sticky :initform (make-hash-table :test #'equalp :synchronized t) :accessor ignore-sticky)))
 
 ;; Here, we insinuate ourselves into the cl-irc plumbing by subclassing the irc channel
 ;; on the fly and setting up the trigger list.
@@ -92,17 +93,38 @@ sender was already being ignored, and a true value otherwise."))
   (:documentation "Stop ignoring sender on connection.  Returns nil if
 sender wasn't being ignored; true otherwise."))
 
+(defun make-user-ignored (user)
+  "Given a user, ignore the hell out of them, stickily."
+  (let ((theuser (gethash user *users*)))
+    (if theuser
+        (setf (ignored theuser) t)
+        (with-connection (psql-botdb-credentials *bot-config*)
+          (save-dao theuser)))))
+
+(defun make-user-unignored (user)
+  "Given a user, listen intently, forever."
+  (let ((theuser (gethash user *users*)))
+    (if theuser
+        (setf (ignored theuser) nil)
+        (with-connection (psql-botdb-credential *bot-config*)
+          (save-dao theuser)))))
+
 (defmethod start-ignoring ((connection bot-irc-connection) sender)
-  (let ((ignoree (string-upcase sender)))
+  (let* ((ignoree (string-upcase sender))
+         (theuser (gethash sender *users*)))
     (if (not (member ignoree (ignore-list connection) :test #'string-equal))
-        (push ignoree (ignore-list connection))
-        nil)))
+        (progn
+          (format t "~&ignoring a fafo: ~A // ~A~%" ignoree theuser)
+          (push ignoree (ignore-list connection))
+          (make-user-ignored sender))
+          nil)))
 
 (defmethod stop-ignoring ((connection bot-irc-connection) sender)
   (let ((ignoree (string-upcase sender)))
     (if (member ignoree (ignore-list connection) :test #'string-equal)
 	(progn
 	  (setf (ignore-list connection) (remove ignoree (ignore-list connection) :test #'string-equal))
+          ;; (make-user-unignored sender)
 	  t)
 	nil)))
 
@@ -203,6 +225,7 @@ allowing for leading and trailing punctuation characters in the match."
 	 (reply-to (if (string-equal channel-name (bot-nick context))
 		       sender
 		       channel-name))
+         ;; naively strip tracking components from pasted URLs.
 	 (urls (mapcar #'de-utm-url (extract-urls text))))
     (flet ((reply (s) (qmess connection reply-to s)))
       (setf (last-message connection) message)
@@ -408,13 +431,15 @@ hook runs before the default-hook, extended here."
 	(nick chan-visibility channel names)
 	(arguments message)
       (declare (ignorable chan-visibility channel))
-      (format t "[[[~{ ~A ~^ ~}]]]" (list nick chan-visibility channel names))
-      (format t "~%~%~%CHANNEL JOIN DEFAULT HOOK, NAMES:: ~A~%~%~%" names)
+      (format t "[[[~{ ~A~^ ~}]]]" (list nick chan-visibility channel names))
+      (format t "~2&CHANNEL JOIN DEFAULT HOOK, NAMES:: ~A~2%" names)
       (let ((name-list (channel-member-list-on-join message)))
 	(loop for name in name-list
 	      :do (progn
                     (when (not (string= nick name)) ;; don't act on ourself
                       ;; establish user objects.
+                      ;; print the name of the user
+                      (format t "~2&Acting for user: ~A" name)
                       (let ((user (get-user-for-handle name)))
                         (if user
                             (progn

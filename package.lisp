@@ -5,7 +5,8 @@
 	#:alexandria
 	#:bt
         #:cl-cron
-	#:cl-log
+	;; #:cl-log
+        #:log4cl
 	#:cl-ppcre
 	#:cl-who
 	#:closure-html
@@ -26,7 +27,7 @@
   (:shadowing-import-from :cl-irc :connect)
   (:shadowing-import-from :cl-who :with-html-output)
   (:shadowing-import-from :drakma :header-value)
-  (:shadowing-import-from :cl-log :log-message :make-timestamp :timestamp)
+  ;; (:shadowing-import-from :cl-log :log-message :make-timestamp :timestamp)
   (:shadowing-import-from :postmodern :encode-json-to-string)
   (:export #:run-bot
 	   #:kill-bot))

@@ -39,3 +39,8 @@
                :psql-botdb-credentials '("botdb" "semaphor" nil :unix)))
 
 (defparameter *bot-config* *combined-config*)
+
+(defparameter *twitter-auth* nil
+  "if you want the bot to grab channel linked tweets and drop them in
+  the headlines fetched by the URL shortener, you need to provide a
+  twitter access token, here.")

@@ -54,7 +54,7 @@ or an error message, as appropriate."
                          (car (split "\\?+" (subseq (request-uri*) 1))))
                         (t (subseq (request-uri*) 1))))
 	       (url (get-url-from-shortstring *the-url-store* short)))
-	  (format t "~&SHORTTHING: [~A]~3%" short)
+	  (format t "~2&SHORTTHING: [~A]~2%" short)
 	  (if url
 	      (redirect url)
 	      (let* ((short (subseq (request-uri*) 4))

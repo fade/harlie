@@ -70,7 +70,6 @@
       (if (and (listp u) (>= (length u) 1))
           (first u)
           nil))))
-
 (defun get-user-for-handle (handle)
   "Given a HANDLE, return the associated user"
   (with-connection (psql-botdb-credentials *bot-config*)

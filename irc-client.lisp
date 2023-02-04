@@ -93,53 +93,49 @@ sender was already being ignored, and a true value otherwise."))
   (:documentation "Stop ignoring sender on connection.  Returns nil if
 sender wasn't being ignored; true otherwise."))
 
-(defun make-user-ignored (user)
+(defun make-user-ignored (user channel)
   "Given a user, ignore the hell out of them, stickily."
   (let ((theuser (gethash user *users*)))
-    (if theuser
-        (setf (ignored theuser) t)
-        (with-connection (psql-botdb-credentials *bot-config*)
-          (save-dao theuser)))))
+    (when theuser
+      (setf (ignored theuser) channel)
+      (with-connection (psql-botdb-credentials *bot-config*)
+        (save-dao theuser)))))
 
-(defun make-user-unignored (user)
+(defun make-user-unignored (user channel)
   "Given a user, listen intently, forever."
   (let ((theuser (gethash user *users*)))
-    (if theuser
-        (setf (ignored theuser) nil)
-        (with-connection (psql-botdb-credential *bot-config*)
-          (save-dao theuser)))))
+    (when theuser
+      (setf (ignored theuser) nil)
+      (with-connection (psql-botdb-credentials *bot-config*)
+        (save-dao theuser)))))
 
 (defmethod start-ignoring ((connection bot-irc-connection) sender)
   (let* ((ignoree (string-upcase sender))
-         (theuser (gethash sender *users*)))
+         (theuser (gethash sender *users*))
+         (context (channel theuser)))
+    (format t "~2&[[ ~A ~A ~A ]]" theuser ignoree context)    
     (if (not (member ignoree (ignore-list connection) :test #'string-equal))
         (progn
           (format t "~&ignoring a fafo: ~A // ~A~%" ignoree theuser)
           (push ignoree (ignore-list connection))
-          (make-user-ignored sender))
-          nil)))
+          (make-user-ignored sender context))
+        nil)))
 
 (defmethod stop-ignoring ((connection bot-irc-connection) sender)
-  (let ((ignoree (string-upcase sender)))
+  (let* ((ignoree (string-upcase sender))
+         (theuser (gethash sender *users*))
+         (context (channel theuser)))
+    (format t "~2&[[ ~A ~A ~A ]]" theuser ignoree context)
     (if (member ignoree (ignore-list connection) :test #'string-equal)
 	(progn
 	  (setf (ignore-list connection) (remove ignoree (ignore-list connection) :test #'string-equal))
-          ;; (make-user-unignored sender)
+          (make-user-unignored sender context)
 	  t)
 	nil)))
 
 (defun ignoring-whom ()
   "Convenience function to print out some semblance of who's on the global ignore list."
   (maphash #'(lambda (k v) (format t "~A ~A~%" k (ignore-list v))) *irc-connections*))
-
-(defun print-some-random-dots ()
-  "An anti-function function."
-  (loop
-    for i from 1
-    :until (= (random 200) 111)
-    :when (= (mod i 3) 0)
-      :do (format t ".")
-    :finally (return i)))
 
 ;; Two functions used for the triggering mechanism about the chainer.
 
@@ -354,8 +350,10 @@ allowing for leading and trailing punctuation characters in the match."
          (command (string-upcase (first token-text-list)))
          (uobject (get-user-for-handle sender)))
     (declare (ignorable channel command))
+    ;;=============================================================================================================
     ;;        connection                              sender   channel-name  channel text  token-text-list  command
     ;; #<BOT-IRC-CONNECTION irc.srh.org {1023CB5133}> SR-4     #trinity      NIL     NIL   NIL              NIL
+    ;;=============================================================================================================
     (format t "~2&~A~2%" message)
     (if uobject
       (progn

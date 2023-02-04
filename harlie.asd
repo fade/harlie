@@ -19,7 +19,7 @@
 	       #:colorize
 	       #:cxml-stp
 	       #:drakma
-               #:fxr
+               ;; #:fxr
 	       #:hunchentoot
 	       #:jpl-queues
 	       #:local-time

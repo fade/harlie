@@ -47,20 +47,6 @@
 
 (in-package :harlie)
 
-;; (defstruct config
-;;   irc-server-name
-;;   irc-nick ;Deprecated
-;;   irc-channel-names ;Deprecated
-;;   irc-nickchannels
-;;   web-server-name
-;;   web-server-port ; Deprecated
-;;   web-server-ports
-;;   url-store-type
-;;   psql-old-credentials
-;;   psql-url-new-credentials
-;;   psql-chain-credentials
-;;   psql-context-credentials)
-
 ;;; a transliteration to a CLOS class of the struct that formerly
 ;;; contained the configuration information for the various channel
 ;;; personalities of a given image containing a harlie instance.

@@ -93,15 +93,15 @@ sender was already being ignored, and a true value otherwise."))
   (:documentation "Stop ignoring sender on connection.  Returns nil if
 sender wasn't being ignored; true otherwise."))
 
-(defun make-user-ignored (user channel)
+(defun make-user-ignored (user)
   "Given a user, ignore the hell out of them, stickily."
   (let ((theuser (gethash user *users*)))
     (when theuser
-      (setf (ignored theuser) channel)
+      (setf (ignored theuser) t)
       (with-connection (psql-botdb-credentials *bot-config*)
         (save-dao theuser)))))
 
-(defun make-user-unignored (user channel)
+(defun make-user-unignored (user)
   "Given a user, listen intently, forever."
   (let ((theuser (gethash user *users*)))
     (when theuser
@@ -118,7 +118,7 @@ sender wasn't being ignored; true otherwise."))
         (progn
           (format t "~&ignoring a fafo: ~A // ~A~%" ignoree theuser)
           (push ignoree (ignore-list connection))
-          (make-user-ignored sender context))
+          (make-user-ignored sender))
         nil)))
 
 (defmethod stop-ignoring ((connection bot-irc-connection) sender)
@@ -129,7 +129,7 @@ sender wasn't being ignored; true otherwise."))
     (if (member ignoree (ignore-list connection) :test #'string-equal)
 	(progn
 	  (setf (ignore-list connection) (remove ignoree (ignore-list connection) :test #'string-equal))
-          (make-user-unignored sender context)
+          (make-user-unignored sender)
 	  t)
 	nil)))
 

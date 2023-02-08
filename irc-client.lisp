@@ -14,6 +14,15 @@
   (make-instance 'jpl-queues:synchronized-queue
 		 :queue (make-instance 'jpl-queues:unbounded-fifo-queue)))
 
+(defmethod print-object ((object hash-table) stream)
+  "give a reasonably informative printed representation of the contents
+   of lisp hash-tables."
+  (format stream "#HASH{~{~&~{(~a : ~a)~}~^~%~}}"
+          (loop for key being the hash-keys of object
+                  using (hash-value value)
+                collect (list key value))))
+
+
 ;; We subclass cl-irc:connection and cl-irc:channel so we can store per-connection
 ;; and per-channel data here.
 
@@ -93,21 +102,32 @@ sender was already being ignored, and a true value otherwise."))
   (:documentation "Stop ignoring sender on connection.  Returns nil if
 sender wasn't being ignored; true otherwise."))
 
+(define-condition database-fuckery (error)
+  ())
+
 (defun make-user-ignored (user)
   "Given a user, ignore the hell out of them, stickily."
   (let ((theuser (gethash user *users*)))
     (when theuser
-      (setf (ignored theuser) t)
-      (with-connection (psql-botdb-credentials *bot-config*)
-        (save-dao theuser)))))
+          (setf (ignored theuser) t)
+          (handler-case
+              (with-connection (psql-botdb-credentials *bot-config*)
+                (update-dao theuser))
+            (error (c)
+              (format t "Caught condition ~A in database updateoperation." c)
+              nil)))))
 
 (defun make-user-unignored (user)
   "Given a user, listen intently, forever."
   (let ((theuser (gethash user *users*)))
     (when theuser
-      (setf (ignored theuser) nil)
-      (with-connection (psql-botdb-credentials *bot-config*)
-        (save-dao theuser)))))
+      (handler-case
+          (with-connection (psql-botdb-credentials *bot-config*)
+            (update-dao theuser)
+            (setf (ignored theuser) nil))
+        (error (c)
+          (format t "Caught condition ~A in database unignoring ~A" c user)
+          nil)))))
 
 (defmethod start-ignoring ((connection bot-irc-connection) sender)
   (let* ((ignoree (string-upcase sender))
@@ -116,8 +136,8 @@ sender wasn't being ignored; true otherwise."))
     (format t "~2&[[ ~A ~A ~A ]]" theuser ignoree context)    
     (if (not (member ignoree (ignore-list connection) :test #'string-equal))
         (progn
-          (format t "~&ignoring a fafo: ~A // ~A~%" ignoree theuser)
-          (push ignoree (ignore-list connection))
+          (format t "~2&ignoring a fafo: ~A // ~A //~%" sender ignoree)
+          (pushnew ignoree (ignore-list connection))
           (make-user-ignored sender))
         nil)))
 
@@ -134,7 +154,7 @@ sender wasn't being ignored; true otherwise."))
 	nil)))
 
 (defun ignoring-whom ()
-  "Convenience function to print out some semblance of who's on the global ignore list."
+  "Convenience function to print out who's on the global ignore list."
   (maphash #'(lambda (k v) (format t "~A ~A~%" k (ignore-list v))) *irc-connections*))
 
 ;; Two functions used for the triggering mechanism about the chainer.
@@ -392,7 +412,7 @@ allowing for leading and trailing punctuation characters in the match."
         (setf (current-handle uobject) channel-name) ;; update the current-handle slot with the new name
         (setf (prev-handle uobject) sender) ;; set the prev-handle slot to the previous handle
         (with-connection (psql-botdb-credentials *bot-config*)
-          (save-dao uobject)) ;; save the updated info in the database
+          (update-dao uobject)) ;; save the updated info in the database
         (setf (current-handle uobject) *users*))))) ;; save the updated object to the cache in *users*
 
 (defun channel-rota (message)

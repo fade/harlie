@@ -108,6 +108,7 @@ that id."
 
 (defun zero-users ()
   "Let's just... start all over again."
+  (setf *users* (make-hash-table :test 'equalp :synchronized t))
   (zero-user-aliases)
   (zero-channel-users)
   (make-user-aliases))

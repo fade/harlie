@@ -114,7 +114,7 @@ sender wasn't being ignored; true otherwise."))
               (with-connection (psql-botdb-credentials *bot-config*)
                 (update-dao theuser))
             (error (c)
-              (format t "Caught condition ~A in database updateoperation." c)
+              (format t "Caught condition ~A in database update operation." c)
               nil)))))
 
 (defun make-user-unignored (user)

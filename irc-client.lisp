@@ -323,7 +323,7 @@ allowing for leading and trailing punctuation characters in the match."
   (make-thread #'(lambda ()
 		   (let* ((connection (connection message))
 			  (sender (source message)))
-                     (format t "~&[WAT?!] really? ~A~2%" (describe message))
+                     (format t "~2&[WAT?!] really? ~A~2%" (describe message))
 		     (setf (last-message connection) message)
 		     (stop-ignoring connection sender)))))
 
@@ -374,7 +374,7 @@ allowing for leading and trailing punctuation characters in the match."
     ;;        connection                              sender   channel-name  channel text  token-text-list  command
     ;; #<BOT-IRC-CONNECTION irc.srh.org {1023CB5133}> SR-4     #trinity      NIL     NIL   NIL              NIL
     ;;=============================================================================================================
-    (format t "~2&~A~2%" message)
+    (format t "~2&>> ~A <<~2%" message)
     (if uobject
       (progn
         (format t "~2&[NEW USER OBJECT FOR USER JOIN] -> ~A" (describe uobject))
@@ -443,7 +443,6 @@ It isn't totally clear to me why the cl-irc library establishes pretty
 thorough generic function protocols around this eventing, and then
 also exposes the literal #'add-hook functionality. A literal #'add-hook
 hook runs before the default-hook, extended here."
-
   (let* ((connection (connection message)))
     (destructuring-bind
 	(nick chan-visibility channel names)

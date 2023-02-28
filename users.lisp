@@ -60,7 +60,7 @@
    (ignored :initarg :ignore :col-type boolean :initform nil :accessor ignored))
   (:metaclass postmodern:dao-class)
   (:documentation "This table holds data relevant to the persistent channel users, about whom we would like to calculate things in service to their whims.")
-  (table-name channel-users)
+  (table-name channel-user)
   (:keys user-id))
 
 (defun get-user-for-id (id)

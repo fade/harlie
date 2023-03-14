@@ -50,7 +50,8 @@
 
 (defclass channel-user ()
   ((user-id :col-type serial :accessor user-id)
-   (channel-user :initarg :channel-user :col-type text :initform "" :accessor channel-user)
+   (channel-name :initarg :channel-name :col-type text :initform "" :accessor channel-name)
+   (channel-user :initarg :channel-user :col-type text :initform "" :accessor channel-user :unique t)
    (current-handle :initarg :current-handle :col-type text :initform "" :accessor current-handle)
    (prev-handle :initarg :prev-handle :col-type text :initform "" :accessor prev-handle)
    (email-address :initarg :email-address :col-type text :initform nil :accessor email-address)
@@ -70,14 +71,21 @@
       (if (and (listp u) (>= (length u) 1))
           (first u)
           nil))))
-(defun get-user-for-handle (handle)
+
+(defun get-user-for-handle (handle &key channel)
   "Given a HANDLE, return the associated user"
   (with-connection (psql-botdb-credentials *bot-config*)
-    (format t "~2&[HANDLE] : ~A [TYPE] : ~A" handle (type-of handle))
-    (let ((u (select-dao 'channel-user (:= 'current_handle handle))))
-      (if (and (listp u) (>= (length u) 1))
-          (first u)
-          nil))))
+    (format t "~2&[HANDLE] : ~A [CHANNEL] : ~A" handle channel)
+    (if channel
+        (let ((u (select-dao 'channel-user (:and (:= 'current_handle handle)
+                                                 (:= 'channel_name channel)))))
+          (if (and (listp u) (>= (length u) 1))
+              (first u)
+              nil))
+        (let ((u (select-dao 'channel-user (:= 'current_handle handle))))
+          (if (and (listp u) (>= (length u) 1))
+              (first u)
+              nil)))))
 
 ;; (defgeneric update-channel-user ((user channel-user) &key (:email :prev-handle :current-handle )))
 
@@ -140,10 +148,11 @@ that id."
                  :prev-handle nil
                  :authenticated nil))
 
-(defun make-new-channel-user (nick)
+(defun make-new-channel-user (nick channel)
   (with-connection (psql-botdb-credentials *bot-config*)
     (let ((uobject (make-instance 'channel-user
                            :channel-user nick
+                           :channel-name channel
                            :current-handle nick
                            :prev-handle nil
                            :authenticated nil)))

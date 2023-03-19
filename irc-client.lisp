@@ -51,7 +51,9 @@
 						:bot-nick (nickname (user connection))
 						:bot-irc-server (server-name connection)
 						:bot-irc-channel channel-name)
-				 10 #'acceptable-word-p))))
+				 10 #'acceptable-word-p))
+    (when (make-bot-channel channel-name (server-name connection))
+      (format t "~2&|| Created channel entry for ~A ||~%" channel-name))))
 
 ;; The rate-limiting queue structure for the connection to the IRC server.
 
@@ -391,7 +393,7 @@ allowing for leading and trailing punctuation characters in the match."
                   (start-ignoring connection sender))
                 (progn
                   (format t "~2&(user-join ~A) Making new channel user: ~A" message sender)
-                  (let ((uobject (make-new-channel-user sender channel-name)))
+                  (let ((uobject (make-new-harlie-user sender channel-name)))
                     (setf (gethash sender *users*) uobject)))))))))
 
 (defun irc-nick-change (message)
@@ -470,8 +472,9 @@ hook runs before the default-hook, extended here."
                               (setf (gethash (channel-user user) *users*) user)
                               (when (ignored user)
                                 (start-ignoring connection (current-handle user))))
-                            (let ((this-user (make-new-channel-user name channel)))
-                              (format t "~2&Creating user ~A in channel ~A~2%" (current-handle this-user) channel)
+                            (let* ((this-user (make-new-harlie-user name))
+                                   (this-channel (get-this-harlie-channel channel)))
+                              (format t "~2&Creating user ~A in channel ~A~2%" (current-handle this-user) )
                               (setf (gethash (channel-user this-user) *users*) this-user)))))))))))
 
 

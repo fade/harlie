@@ -23,6 +23,7 @@
 	       #:hunchentoot
 	       #:jpl-queues
 	       #:local-time
+               #:cl-postgres+local-time
                #:simple-date-time
                #:net-telent-date
 	       #:parse-number

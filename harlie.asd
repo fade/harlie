@@ -41,11 +41,14 @@
 	       (:file "confobjects")
 	       (:file "config")
                (:file "cron")
+
                (:file "users")
+
 	       (:file "context")
 	       (:file "util")
 	       (:file "url-store")
 	       (:file "irc-client")
+
 	       (:file "constants")
 	       (:file "chainer")
 	       (:file "plugins")

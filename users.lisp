@@ -53,45 +53,51 @@
                    :reader bot-channel-id)
    (channel-name :col-type text
             :initarg :channel-name
-            :unique t
+            :col-unique t
             :initform ""
             :accessor channel-name)
    (server :col-type text
            :initarg :server
            :initform "" :accessor server))
   
-  (:documentation "Metadata for each channel the bot monitors.")
+  (:documentation "Metadata for each channel the bot monitors. Not to be confused with
+'BOT-IRC-CHANNEL. MURGH.")
   (:metaclass postmodern:dao-class)
   ;; (:table-name bot-channels)
-  (:keys bot-channel-id channel-name))
+  (:keys bot-channel-id))
+
+
 
 (defun make-bot-channel (channel-name &optional (server-name nil))
-  (format t "Creating a channel object for channel: ~A" channel-name)
+  (log:debug "~2&Creating a channel object for channel: ~A~%" channel-name)
   (with-connection (psql-botdb-credentials *bot-config*)
-   (let ((bco (make-instance 'bot-channel
-                             :channel-name channel-name
-                             :server server-name)))
-     (if (save-dao bco)
-         (values bco)
-         nil))))
+    (let ((bco (or (first (select-dao 'bot-channel (:= :channel-name channel-name)))
+                   (make-instance 'bot-channel
+                                  :channel-name channel-name
+                                  :server server-name))))
+      (log:debug "~2&TYPE OF BCO:[ ~S ][ ~S ]~2%" (type-of bco) bco)
+      (upsert-dao bco)
+      bco)))
 
-(defun get-bot-channel-for-name (name)
+(defun get-bot-channel-for-name (name &optional (server-name ""))
   "Given a NAME, return the associated BOT-CHANNEL object."
   (with-connection (psql-botdb-credentials *bot-config*)
-    (format t "~2&CHANNEL: ~A~2%" name)
-    (let ((c (select-dao 'bot-channel (:= 'channel name))))
-      (if (and (listp c) (>= (length c) 1))
-          (first c)
-          nil))))
+    (let ((c (make-bot-channel name server-name)))
+      (values c))))
 
 (defclass channel-user ()
-  ((channel-id :col-type integer :col-references ((bot-channel bot-channel-id)) :initarg :channel-id :accessor channel-id)
-   (user-id :col-type integer :col-references ((harlie-user harlie-user-id)) :initarg :user-id :accessor user-id)
-   (ignored :col-type boolean :initarg :ignored :accessor ignored))
-  (:metaclass postmodern:dao-class)
+  ((channel-id :col-type integer :col-references ((bot-channel bot-channel-id) :cascade) :initarg :channel-id :accessor channel-id)
+   (user-id :col-type integer :col-references ((harlie-user harlie-user-id) :cascade) :initarg :user-id :accessor user-id)
+   (ignored :col-type boolean :col-default nil :iniform nil :initarg :ignored :accessor ignored))
   (:documentation "A table to bridge between a channel and the users it contains.")
+  (:metaclass postmodern:dao-class)
+  ;; (:table-name channel-users)
   (:keys channel-id user-id))
 
+(defmethod print-object ((c/u channel-user) out)
+  (print-unreadable-object (c/u out :type t)
+    (format out "[|- CHANNEL-ID: ~D | USER-ID: ~A | IGNORED: ~A -|]"
+            (channel-id c/u) (user-id c/u) (ignored c/u))))
 
 (defclass harlie-user ()
   ((harlie-user-id :col-type serial
@@ -99,13 +105,13 @@
    
    (harlie-user-name :col-type text
                      :initarg :harlie-user-name
-                     :initform ""
+                     :col-unique t
                      :accessor harlie-user-name)
    
    (current-handle :col-type text
                    :initarg :current-handle
-                   :initform ""
-                   :accessor current-handle )
+                   :col-unique t
+                   :accessor current-handle)
    
    (prev-handle :col-type text
                 :initarg :prev-handle
@@ -123,10 +129,10 @@
                    :accessor authenticated?)
 
    ;; follows some persistent states we want tracked
-   (ignored :col-type boolean
-            :initarg :ignored
-            :initform nil
-            :accessor ignored)
+   ;; (ignored :col-type boolean
+   ;;          :initarg :ignored
+   ;;          :initform nil
+   ;;          :accessor ignored)
 
    (first-seen :col-type timestamptz
                :initarg :first-seen
@@ -142,11 +148,48 @@
                      :initarg :harlie-user-memo
                      :initform ""
                      :accessor harlie-user-memo))
-  
+
+  (:documentation "This table holds the user metadata for users being served by the bot.")
   (:metaclass postmodern:dao-class)
   ;; (:table-name harlie-users)
-  (:documentation "This table holds the user metadata for users being served by the bot.")
   (:keys harlie-user-id))
+
+(defmacro with-channel-user (channel user &body body) ;;connection
+  "Given a channel name and user nick as strings, bind the recorded
+   HARLIE-USER, BOT-CHANNEL, and CHANNEL-USER that are associated with
+   BOT-IRC-CHANNEL object mappings and return them as:
+   CHAN -> BOT-IRC-CHANNEL object 
+   THEUSERSTATE -> hash table for recording channel state in BOT-IRC-CHANNEL
+   THIS-USER -> HALIE-USER object
+   THIS-CHANNEL -> BOT-CHANNEL object (tag to key persistent state
+   between runs in CHANNEL-USER). 
+   CHANNEL/USER-MAP -> per channel state for each user
+   in the database."
+  `(let* ((chan (find-the-bot-state ,channel))
+          (theuserstate (gethash ,user (ignore-sticky chan))) ;;(list ,user)
+          (this-user (get-user-for-handle ,user))
+          (this-channel (get-bot-channel-for-name ,channel))
+          (channel/user-map (get-channel-user-mapping this-channel this-user)))
+     (log:debug "~2&<<~%THEUSERSTATE: ~A~% THIS-USER:~A /~% USER-NAME:~A~% THIS-CHANNEL:~A~% CHANNEL/USER-MAP:~A~%>>~2%" theuserstate this-user (harlie-user-name this-user) this-channel channel/user-map)
+     ,@body))
+
+(defgeneric get-channel-user-mapping (channel user)
+  (:documentation "given a channel object and a user object, return a mapping between them in the database."))
+
+(defmethod get-channel-user-mapping ((channel bot-channel) (user harlie-user))
+  (with-connection (psql-botdb-credentials *bot-config*)
+    (let ((c/u-map (select-dao 'channel-user (:and (:= 'channel-id (bot-channel-id channel))
+                                                   (:= 'user-id (harlie-user-id user))))))
+      (if (and (listp c/u-map) (>= (length c/u-map) 1))
+          (values (first c/u-map))
+          (let* ((c/u-map (make-instance 'channel-user
+                                         :channel-id (bot-channel-id channel)
+                                         :user-id (harlie-user-id user))))
+            (update-dao c/u-map)
+            (values c/u-map))))))
+
+(defun get-channel-sticky-state (channel)
+  (let* ((sstate ()))))
 
 (defun get-user-for-id (id)
   "Given an ID of type integer, return the associated channel user handle."
@@ -157,85 +200,77 @@
           nil))))
 
 (defun get-user-for-handle (handle &key channel)
-  "Given a HANDLE, return the associated user"
+  "Given a HANDLE, return the user from the database, or create one."
   (with-connection (psql-botdb-credentials *bot-config*)
-    (format t "~2&[HANDLE] : ~A [CHANNEL] : ~A" handle channel)
-    (if channel
-        (let ((u (select-dao 'harlie-user (:= 'current_handle handle))))
-          (if (and (listp u) (>= (length u) 1))
-              (first u)
-              nil))
-        (let ((u (select-dao 'channel-user (:= 'current_handle handle))))
-          (if (and (listp u) (>= (length u) 1))
-              (first u)
-              nil)))))
+    (let ((this-user (or (first (select-dao 'harlie-user (:= 'current-handle handle)))
+                         (make-instance 'harlie-user :harlie-user-name handle :current-handle handle))))
+      ;; (format t "~2&[HANDLE] : ~A [CHANNEL] : ~A~%" (current-handle this-user) channel)
+      (log:debug "~2&[HANDLE] : ~A [CHANNEL] : ~A~%" (current-handle this-user) channel)
+
+      (update-dao this-user)
+      this-user)))
 
 ;; (defgeneric update-channel-user ((user channel-user) &key (:email :prev-handle :current-handle )))
 
-(defun zero-channel-user ()
-  (with-connection (psql-botdb-credentials *bot-config*)
-    (when (pomo:table-exists-p 'channel-user)
-      (execute (drop-table 'channel-user)))
-    (execute (dao-table-definition 'channel-user))))
 
-(defun zero-users ()
-  "Let's just... start all over again."
-  (setf *users* (make-hash-table :test 'equalp :synchronized t))
-  (zero-channel-user)
-  (zero-bot-channel)
-  (zero-harlie-users))
-
-(defun zero-bot-channel ()
+(defun zero-bot-channels ()
   "Destroy and recreate the table to hold the channels the bot joins."
   (with-connection (psql-botdb-credentials *bot-config*)
-    (when (pomo:table-exists-p 'bot-channel)
-      (execute (drop-table 'bot-channel)))
-    (execute (dao-table-definition 'bot-channel))))
+    (drop-table "bot-channel" :if-exists t :cascade t)))
 
-;; (defun zero-channel-users ()
-;;   "destroy and recreate the table to hold a channel's persistent users."
-;;   (with-connection (psql-botdb-credentials *bot-config*)
-;;     (when (pomo:table-exists-p 'channel-user)
-;;       (query (:drop-table 'channel-user)))
-;;     (execute (dao-table-definition 'channel-user))))
+(defun make-bot-channels ()
+  (with-connection (psql-botdb-credentials *bot-config*)
+   (query (dao-table-definition 'bot-channel))))
+
+(defun zero-channel-users ()
+  "destroy and recreate the table to hold a channel's persistent users."
+  (with-connection (psql-botdb-credentials *bot-config*)
+    (drop-table 'channel-user :if-exists t :cascade t)))
+
+(defun make-channel-users ()
+  (with-connection (psql-botdb-credentials *bot-config*)
+   (query (dao-table-definition 'channel-user))))
 
 (defun zero-harlie-users ()
   "destroy the table that holds the users known to the bot."
   (with-connection (psql-botdb-credentials *bot-config*)
-    (when (pomo:table-exists-p 'harlie-user)
-      (execute (:drop-table 'harlie-user)))
-    (execute (dao-table-definition 'harlie-user))))
+    (drop-table "harlie-user" :if-exists t :cascade t)))
 
-;; (defun zero-user-aliases ()
-;;   "destroy the talbe that holds the aliases for channel users."
-;;   (with-connection (psql-botdb-credentials *bot-config*)
-;;     (when (pomo:table-exists-p 'user-alias)
-;;       (execute (:drop-table 'user-alias)))))
+(defun make-harlie-users ()
+  (with-connection (psql-botdb-credentials *bot-config*)
+    (query (dao-table-definition 'harlie-user))))
 
-;; (defun make-user-aliases ()
-;;   (execute (dao-table-definition 'user-alias)))
+(defun zero-users ()
+  "Let's just... start all over again."
+  (setf *users* (make-hash-table :test 'equalp :synchronized t))
+  (zero-harlie-users)
+  (zero-bot-channels)
+  (zero-channel-users))
+
+(defun make-users ()
+  (make-bot-channels)
+  (make-harlie-users)
+  (make-channel-users))
 
 
-(defun make-harlie-user (nick-message)
+(defun make-an-harlie-user (nick-message)
   "given an irc user handle in nick-message, create an instance of the
 'harlie-user dao class."
-  (format t "~2&KLEEVO! [ ~A ]~2%" (describe nick-message))
-  (make-instance 'harlie-user
-                 :harlie-user nick-message
-                 :current-handle nick-message
-                 :prev-handle nil
-                 :authenticated nil))
+  (log:debug "~2&KLEEVO! [ ~A ]~2%" (describe nick-message))
+  (let ((this-user
+          (make-instance 'harlie-user
+                         :harlie-user nick-message
+                         :current-handle nick-message
+                         :prev-handle nil
+                         :authenticated nil)))
+    (update-dao this-user)))
 
-(defun make-new-harlie-user (nick)
+(defun make-a-new-harlie-user (nick)
   (with-connection (psql-botdb-credentials *bot-config*)
-    (let ((uobject (make-instance 'harlie-user
-                           :harlie-user-name nick
-                           :current-handle nick
-                           :prev-handle nil
-                           :authenticated nil)))
-      (if (save-dao uobject)
-          (values uobject)
-          nil))))
+    (let ((uobject (get-user-for-handle nick)))
+      (if uobject
+          (update-dao uobject)
+          (make-an-harlie-user nick)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; users.lisp ends here

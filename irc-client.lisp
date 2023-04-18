@@ -4,6 +4,8 @@
 
 (declaim (optimize (debug 3) (safety 3) (speed 0)))
 
+(log:config :debug)
+
 (defvar *irc-connections* (make-synchronized-hash-table :test 'equal))
 
 (defun some-connection ()
@@ -36,7 +38,8 @@
 
 (defclass bot-irc-channel (cl-irc:channel)
   ((trigger-list :initarg :trigger-list :initform nil :accessor trigger-list)
-   (ignore-sticky :initarg :ignore-sticky :initform (make-hash-table :test #'equalp :synchronized t) :accessor ignore-sticky)))
+   (ignore-sticky :initarg :ignore-sticky
+                  :initform (make-hash-table :test #'equalp :synchronized t) :accessor ignore-sticky)))
 
 ;; Here, we insinuate ourselves into the cl-irc plumbing by subclassing the irc channel
 ;; on the fly and setting up the trigger list.
@@ -52,8 +55,8 @@
 						:bot-irc-server (server-name connection)
 						:bot-irc-channel channel-name)
 				 10 #'acceptable-word-p))
-    (when (make-bot-channel channel-name (server-name connection))
-      (format t "~2&|| Created channel entry for ~A ||~%" channel-name))))
+    (when (get-bot-channel-for-name channel-name (server-name connection))
+      (log:debug "~2&|| Created channel entry for ~A ||~2%" channel-name))))
 
 ;; The rate-limiting queue structure for the connection to the IRC server.
 
@@ -62,7 +65,7 @@
 (defun make-mq-thunk (connection)
   "A closure to generate the function which gets called periodically to flush the queue."
   #'(lambda ()
-      (format t "Entering the inner thunk.~%")
+      (log:debug "Entering the inner thunk.~%")
       (if (not (jpl-queues:empty? (message-q connection)))
 	  (dqmess connection)
 	  (setf (task-interval (mq-task connection)) nil))))
@@ -88,7 +91,7 @@
   (let* ((mobj (jpl-queues:dequeue (message-q connection)))
 	 (reply-to (first mobj))
 	 (message (second mobj)))
-    (format t "~&replying to: ~A~% with [~:D]: ~A~%" reply-to *mess-count* message)
+    (log:debug "~&replying to: ~A~% with [~:D]: ~A~%" reply-to *mess-count* message)
     (privmsg connection reply-to message)))
 
 (defmethod initialize-instance :after ((connection bot-irc-connection) &key)
@@ -96,70 +99,68 @@
 
 ;; The !IGNOREME plumbing.
 
-(defgeneric start-ignoring (connection sender)
+(defgeneric start-ignoring (connection sender channel)
   (:documentation "Begin ignoring sender on connection.  Returns nil if
 sender was already being ignored, and a true value otherwise."))
 
-(defgeneric stop-ignoring (connection sender)
+(defgeneric stop-ignoring (connection sender channel)
   (:documentation "Stop ignoring sender on connection.  Returns nil if
 sender wasn't being ignored; true otherwise."))
 
 (define-condition database-fuckery (error)
   ())
 
-(defun make-user-ignored (user &key channel)
+(defun make-user-ignored (channel this-user channel/user-map)
   "Given a user, ignore the hell out of them, stickily."
-  (let ((theuser (gethash user *users*)))
-    (when theuser
-          (setf (ignored theuser) t
-                (channel-name theuser) channel)
-          (handler-case
-              (with-connection (psql-botdb-credentials *bot-config*)
-                (update-dao theuser))
-            (error (c)
-              (format t "Caught condition ~A in database update operation." c)
-              nil)))))
+  (declare (ignorable channel))
+  (setf (ignored channel/user-map) t)
+  (handler-case
+      (with-connection (psql-botdb-credentials *bot-config*)
+        (update-dao this-user)
+        (update-dao channel/user-map))
+    (error (c)
+      (log:debug "Caught condition ~A in database update operation in MAKE-USER-IGNORED." c)
+      nil)))
 
-(defun make-user-unignored (user &key channel)
+(defun make-user-unignored (channel this-user channel/user-map)
   "Given a user, listen intently, forever."
-  (let ((theuser (gethash user *users*)))
-    (when theuser
-      (handler-case
-          (with-connection (psql-botdb-credentials *bot-config*)
-            (setf (ignored theuser) nil
-                  (channel-name theuser) channel)
-            (update-dao theuser))
-        (error (c)
-          (format t "Caught condition ~A in database unignoring ~A" c user)
-          nil)))))
+  (declare (ignorable channel))
+  (setf (ignored channel/user-map) nil)
+  (handler-case
+      (with-connection (psql-botdb-credentials *bot-config*)
+        (update-dao this-user)
+        (update-dao channel/user-map))
+    (error (c)
+      (log:debug "~2&Caught condition ~A in database, unignoring ~A" c this-user))))
 
-(defmethod start-ignoring ((connection bot-irc-connection) sender)
-  (let* ((ignoree (string-upcase sender))
-         (theuser (gethash sender *users*))
-         (context (channel-name theuser)))
-    (format t "~2&[[ ~A ~A ~A ]]" theuser ignoree context)    
-    (if (not (ignored theuser))
-        (progn
-          (format t "~2&ignoring a fafo: ~A // ~A //~%" sender ignoree)
-          (make-user-ignored sender :channel context))
-        nil)))
+(defmethod start-ignoring ((connection bot-irc-connection) (sender string) (channel string))
+  (log:debug "~3& #'START-IGNORING: CHANNEL: ~A ~A~2%" (type-of channel) channel)
+  (let ((bot-irc-channel-name channel))
+    (log:debug "Super tired, this is a mess. ~A" bot-irc-channel-name)
+    (with-channel-user bot-irc-channel-name  sender 
+      (if (not (ignored channel/user-map))
+          (progn
+            (log:debug "~2&ignoring a fafo: ~A // ~A //~%" sender (current-handle this-user))
+            (make-user-ignored this-channel this-user channel/user-map))))))
 
-(defmethod stop-ignoring ((connection bot-irc-connection) sender)
-  (let* ((ignoree (string-upcase sender))
-         (theuser (gethash sender *users*))
-         (context (channel-name theuser)))
-    (format t "~2&[[ ~A ~A ~A ]]" theuser ignoree context)
-    (if (ignored theuser)
-	(progn
-          (make-user-unignored sender :channel context)
-	  t)
-	nil)))
+(defmethod stop-ignoring ((connection bot-irc-connection) sender channel)
+  (with-channel-user channel sender
+     (log:debug "~3&BLIXIT: CHAN: ~A~%THEUSERSTATE: ~A~%THIS-USER: ~A~%THIS-CHANNEL: ~A~%CHANNEL/USER-MAP: ~A~3%" chan theuserstate this-user this-channel channel/user-map)
+     (if (ignored channel/user-map)
+         (progn
+           (make-user-unignored this-channel this-user channel/user-map)
+           t)))
+  ;; (let ((bot-irc-channel-name (find-channel connection sender)))
+  ;;   )
+  )
 
 (defun ignoring-whom ()
   "Convenience function to print out who's on the global ignore list."
   (maphash #'(lambda (k v)
-               (if (ignored v)
-                   (format t "~&IGNORING: ~A on CHANNEL: ~A~%" k (channel-name v)))) *users*))
+               ;; (format t "~2&[~A]~2%" v)
+               (if (ignored (third v))
+                   (log:debug "~&IGNORING: ~A on CHANNEL: ~A~%" k (channel-name (second v))))
+               ) *users*))
 
 ;; Two functions used for the triggering mechanism about the chainer.
 
@@ -182,9 +183,9 @@ allowing for leading and trailing punctuation characters in the match."
 	(trigger-word (find-if #'(lambda (s) (member s token-list :test #'string-equal)) (trigger-list channel))))
     (cond ((> 10 (length (trigger-list channel)))
 	   (progn
-	     (format t "[~&in triggered] ~A~%" (trigger-list channel))
+	     (log:debug "[~&in triggered] ~A~%" (trigger-list channel))
 	     (setf (trigger-list channel) (append (trigger-list channel) token-list))
-	     (format t "[~&after append token list in triggered] ~A~%" (trigger-list channel))
+	     (log:debug "[~&after append token list in triggered] ~A~%" (trigger-list channel))
 	     (when (< 10 (length (trigger-list channel)))
 	       (setf (trigger-list channel) (subseq (trigger-list channel) 0 10)))
 	     nil)
@@ -209,22 +210,56 @@ allowing for leading and trailing punctuation characters in the match."
 (defun extract-urls (text)
   (all-matches-as-strings "((http|https)://[^\\s]+)|(www[.][^\\s.][^\\s]*[.][^\\s.][^\\s]*)" text))
 
-(defun ignoring (connection sender text reply)
+(defun find-the-bot-state (cname)
+  "Given a name return the bot's 'BOT-IRC-CHANNEL protocol state"
+  (let ((col (list)))
+    (loop for cxn being the hash-values in *irc-connections*
+          do
+             (loop for k being the hash-keys in (channels cxn)
+                     using (hash-value v)
+                   do
+                      (progn
+                        (if (string= k cname)
+                            (push v col)))))
+    (if col
+        (progn
+          (log:debug "We have some ham: ~A~%" col)
+          (first col))
+        nil)))
+
+(defun ignoring (connection sender text reply channel channel-name)
   "Apply commands related to ignoring/not ignoring the speaker.  Return t if
    the rest of the bot should ignore this utterance; return nil otherwise."
+  (log:debug "~&ENBIGGENATE~{~A ~^| ~}" (list connection sender text reply channel channel-name))
   (let ((ignore-phrase "NOTIFY:: Help, I'm a bot!"))
     (cond ((string= ignore-phrase text)
-	   (when (start-ignoring connection sender)
+           (log:debug "Caught BOT Ignore Phrase, ignoring cousin from across the river: ~A on channel: ~A"
+                      sender channel)
+	   (when (start-ignoring connection sender channel-name)
 	     (privmsg connection sender ignore-phrase)))
+          
 	  ((string-equal text "!ignoreme off")
-	   (if (stop-ignoring connection sender)
+	   (if (stop-ignoring connection sender channel-name)
 	       (funcall reply (format nil "No longer ignoring ~A." sender))
 	       (funcall reply (format nil "I wasn't ignoring you, ~A." sender))))
+          
 	  ((scan (create-caseless-scanner "^!ignoreme") text)
-	   (when (start-ignoring connection sender)
+	   (when (start-ignoring connection sender channel-name)
 	     (funcall reply (format nil "Now ignoring ~A.  Use !IGNOREME OFF when you want me to hear you again." sender))))
-	  ;; If there wasn't an ignore toggle command, look up the speaker's ignore status and return it.
-	  (t (return-from ignoring (ignored (gethash sender *users*)))))
+          
+	  ;; If there wasn't an ignore toggle command, look up the
+	  ;; speaker's ignore status and return it. 
+	  (t (progn
+               (log:debug "~2&HOOOOON! Sender ignored?: ~A on channel: ~A~2%" sender channel)
+               ;; the ignore-sticky slot in the channel object
+               ;; contains a hash table, which should itself contain
+               ;; CHANNEL-USER objects, keyed by the username of the
+               ;; respective user.
+               (log:debug "~&KKKKK ~A ~2%" (gethash sender (ignore-sticky channel)))
+               (let ((sticky-channel-state (ignored (gethash sender (ignore-sticky channel)))))
+                 (log:debug "~&NOTHING IS BETTER THAN PRINT DEBUGGING:: IGNORED: ~A~%" sticky-channel-state)
+                 (return-from ignoring sticky-channel-state)))))
+    
     ;; As there was an ignore toggle command, it's been handled and so should be ignored.
     t))
 
@@ -248,12 +283,14 @@ allowing for leading and trailing punctuation characters in the match."
          ;; naively strip tracking components from pasted URLs.
 	 (urls (mapcar #'de-utm-url (extract-urls text))))
 
-    (flet ((reply (s) (qmess connection reply-to s)))
+    (flet ((irc-reply (s) (qmess connection reply-to s)))
       (setf (last-message connection) message)
-      (format t "Message: ~A~%" (raw-message-string message))
-      (format t "   connection=~A channel=~A~%" connection channel-name)
-
-      (unless (ignoring connection sender text #'reply)
+      (log:debug "Message: ~A~%" (raw-message-string message))
+      (log:debug "MSG-HOOK flet/reply   connection=~A channel=~A~%" connection channel-name)
+      ;; (if (ignoring connection sender text #'irc-reply channel channel-name)
+      ;;     (log:debug t "~&~A~%" :TRUE-CHANNELS-FOREVER!)
+      ;;     (log:debug "~&~A~%" :NEVERMORE-NEVERMORE))
+      (unless (ignoring connection sender text #'irc-reply channel channel-name)
 	(cond ((scan "^![^!]" command)
 	       (run-plugin (make-instance
 			    'plugin-request :botcmd command
@@ -270,15 +307,15 @@ allowing for leading and trailing punctuation characters in the match."
 		     (setf url (format nil "http://~A" url)))
 		   (multiple-value-bind (short title) (lookup-url *the-url-store* context url sender)
 		     (if (and short title)
-			 (reply (format nil "[ ~A ]::[ ~A ]" short title))
-			 (reply (format nil "[ ~A ]::Couldn't fetch this page." url)))))))
+			 (irc-reply (format nil "[ ~A ]::[ ~A ]" short title))
+			 (irc-reply (format nil "[ ~A ]::Couldn't fetch this page." url)))))))
 	      ((and channel (not action))
 	       (let ((trigger-tokens (triggered context token-text-list sender channel)))
 		 (chain-in context token-text-list)
 		 (when trigger-tokens
 		   (let ((outgoing (chain context (first trigger-tokens) (second trigger-tokens))))
 		     (unless (not (mismatch trigger-tokens outgoing :test #'string-equal))
-		       (reply (format nil "~{~A~^ ~}" outgoing)))))))
+		       (irc-reply (format nil "~{~A~^ ~}" outgoing)))))))
 	      (t nil))))))
 
 (defun nye-hack ()
@@ -328,7 +365,7 @@ allowing for leading and trailing punctuation characters in the match."
   (make-thread #'(lambda ()
 		   (let* ((connection (connection message))
 			  (sender (source message)))
-                     (format t "~2&[WAT?!] really? ~A || ~A~2%" connection sender)
+                     (log:debug "~2&[WAT?!] really? ~A || ~A~2%" connection sender)
 		     (setf (last-message connection) message)
 		     ;; (stop-ignoring connection sender) ;; The user's ignore state should persist.
                      ))))
@@ -363,38 +400,61 @@ allowing for leading and trailing punctuation characters in the match."
   (let* ((connection (connection message))
          (sender (source message))
          (text (regex-replace-all "\\ca" (second (arguments message)) "")))
-    (format t "~2&[NOTICE]:| ~A ~A ~A" connection sender text)))
+    (log:debug "~2&[NOTICE]:| ~A ~A ~A" connection sender text)))
+
+(defgeneric map-user-and-channel-to-sticky-state (botchannel userstring &key cumap &allow-other-keys)
+  (:documentation "return the channel-user object recording the bot's disposition toward
+a specific user in a specific channel."))
+
+(defmethod map-user-and-channel-to-sticky-state ((botchannel bot-channel) (user string) &key (cumap nil))
+  (let* ((channel-name (channel-name botchannel)))
+    (if cumap
+        cumap
+        (get-channel-user-mapping (get-bot-channel-for-name channel-name)
+                                       (get-user-for-handle user)))))
 
 (defun user-join (message)
   "Handle channel join events, manage channel rota for persistent state (ignores)"
   (let* ((connection (connection message))
          (sender (source message))
          (channel-name (car (arguments message)))
-         (channel (gethash channel-name (channels connection) nil))
+         (channel (gethash channel-name (channels connection) )) ;; 'BOT-IRC-CHANNEL object
          (text (regex-replace-all "\\ca" (second (arguments message)) ""))
          (token-text-list (split "\\s+" text))
          (command (string-upcase (first token-text-list)))
-         (uobject (get-user-for-handle sender :channel channel-name)))
-    (declare (ignorable channel command))
+         (cobject (get-bot-channel-for-name channel-name))
+         (uobject (get-user-for-handle sender :channel channel-name))
+         (channel/user-map (get-channel-user-mapping cobject uobject)))
+    (declare (ignorable command))
     ;;=============================================================================================================
     ;;        connection                              sender   channel-name  channel text  token-text-list  command
     ;; #<BOT-IRC-CONNECTION irc.srh.org {1023CB5133}> SR-4     #trinity      NIL     NIL   NIL              NIL
     ;;=============================================================================================================
-    (format t "~2&>> ~A <<~2%" message)
-    (describe uobject)
-    (if uobject
-        (progn
-          (format t "~2&[NEW USER OBJECT FOR USER JOIN] -> ~A" (describe uobject))
-          (setf (gethash (current-handle uobject) *users*) uobject)
-          (when uobject
-            (if (ignored uobject)
-                (progn
-                  (format t "~2& IGNORING USER: ~A~%" (current-handle uobject))
-                  (start-ignoring connection sender))
-                (progn
-                  (format t "~2&(user-join ~A) Making new channel user: ~A" message sender)
-                  (let ((uobject (make-new-harlie-user sender channel-name)))
-                    (setf (gethash sender *users*) uobject)))))))))
+    (log:debug "~2&|USER-JOIN|>> ~A <<|USER-JOIN|~2%" channel/user-map)
+    ;; (when channel/user-map
+    ;;   (progn
+    ;;     (format t "~2&[NEW USER OBJECT FOR USER JOIN] -> [ ~A ][ ~A ]" uobject (current-handle uobject))
+    ;;     (setf (gethash (current-handle uobject) (ignore-sticky channel)) channel/user-map)
+
+    ;;     (if (ignored channel/user-map)
+    ;;         (progn
+    ;;           (format t "~2& IGNORING USER: ~A~%" (current-handle uobject))
+    ;;           (start-ignoring connection sender channel-name))
+    ;;         (progn
+    ;;           (format t "~2&(user-join ~A) Making new channel user: ~A~2%" message sender)
+    ;;           (let* ((uobject (get-user-for-handle sender))
+    ;;                  (cobject (make-bot-channel channel-name))
+    ;;                  (cuo (get-channel-user-mapping cobject uobject))
+    ;;                  (channel-users (if (listp cuo)
+    ;;                                     (first cuo)
+    ;;                                     cuo)))
+    ;;             ;; (setf (gethash sender *users*) (list uobject cobject channel-users))
+    ;;             (map-user-and-channel-to-sticky-state cobject (harlie-user-name uobject) :cumap channel-users)
+    ;;             )))
+        
+    ;;     )
+    ;;   )
+    ))
 
 (defun irc-nick-change (message)
   (let* ((connection (connection message))
@@ -407,7 +467,7 @@ allowing for leading and trailing punctuation characters in the match."
     ;;        connection                              sender   channel-name  channel text  token-text-list  command
     ;; #<BOT-IRC-CONNECTION irc.srh.org {1023CB5133}> SR-4     #trinity      NIL     NIL   NIL              NIL
 
-    (format t "~2&[NICK CHANGE ~A -> ~A] -- ~{~A~^ ~}~2%"
+    (log:debug "~2&[NICK CHANGE ~A -> ~A] -- ~{~A~^ ~}~2%"
             sender channel-name
             (list connection sender channel-name channel text token-text-list command))
     
@@ -415,7 +475,7 @@ allowing for leading and trailing punctuation characters in the match."
     ;; hash table in *users* appropriately.
     (let* ((uobject (get-user-for-handle sender))) ;; get a new channel-user object from db
       (when uobject
-        (format t "~2&[NEW USER OBJECT FOR NICK CHANGE] -> ~A" (describe uobject))
+        (log:debug "~2&[NEW USER OBJECT FOR NICK CHANGE] -> ~A" (describe uobject))
         (remhash sender *users*) ;; remove the previously cached object from *users*
         (setf (current-handle uobject) channel-name) ;; update the current-handle slot with the new name
         (setf (prev-handle uobject) sender) ;; set the prev-handle slot to the previous handle
@@ -424,18 +484,18 @@ allowing for leading and trailing punctuation characters in the match."
         (setf (current-handle uobject) *users*))))) ;; save the updated object to the cache in *users*
 
 (defun channel-rota (message)
-  (format t "~&[ChannelROTA]| ~A~%~%" (describe message))
+  (log:debug "~&[ChannelROTA]| ~A~%~%" (describe message))
   (let* ((connection (connection message))
          (sender (source message)))
     (declare (ignorable connection))
-    (format t "[ROTAx] ~A ~A" sender message)))
+    (log:debug "[ROTAx] ~A ~A" sender message)))
 
 (defparameter *users* (make-hash-table :test 'equalp :synchronized t))
 
 (defun show-known-users ()
   (loop for k being the hash-keys of *users*
-                using (hash-value value)
-              do (format t "User: ~A~%Object:~%~A" k (describe value))))
+          using (hash-value value)
+        do (log:debug "User: ~A~%Object:~%~A" k (describe value))))
 
 (defun ignoring-users-list ()
   (loop for k being the hash-keys of *users*
@@ -443,9 +503,19 @@ allowing for leading and trailing punctuation characters in the match."
         when (ignored v)
           collect v))
 
+(defgeneric get-channel-object-from-connection (connection cname)
+  (:documentation "The bot partitions who it knows about by channel, which are objects
+with slots for various states that we care about, including the
+triggerlist and the persistent ignore metadata. We need a means to
+access this object when we aren't in the throes of a message event."))
+
+(defmethod get-channel-object-from-connection ((connection bot-irc-connection) (cname string))
+  (gethash cname (channels connection)))
+
+
 (defmethod cl-irc::default-hook :after ((message irc-rpl_namreply-message))
   "when the bot joins an irc channel, it catches a message of type
-'irc-rpl_namreply-message (sic) which will catch this hook from the
+'IRC-RPL_NAMREPLY-MESSAGE (sic) which will snag this hook from the
 messaging event loop as an :after method to the default combination.
 It isn't totally clear to me why the cl-irc library establishes pretty
 thorough generic function protocols around this eventing, and then
@@ -455,27 +525,73 @@ hook runs before the default-hook, extended here."
     (destructuring-bind
 	(nick chan-visibility channel names)
 	(arguments message)
-      (declare (ignorable chan-visibility channel))
-      (format t "~2&[[[~{ ~A~^ ~}]]]" (list nick chan-visibility channel names))
-      (format t "~2&CHANNEL JOIN DEFAULT HOOK, NAMES:: ~A~2%" names)
-      (let ((name-list (channel-member-list-on-join message)))
-	(loop for name in name-list
-	      :do (progn
-                    (when (not (string= nick name)) ;; don't act on ourself
-                      ;; establish user objects.
-                      ;; print the name of the user, and the enclosing channel.
-                      (format t "~2&->->-> Acting for user: ~A on channel: ~A" name channel)
-                      (let ((user (get-user-for-handle name :channel channel)))
-                        (if user
-                            (progn
-                              (format t "~2&Adding user ~A to channel ~A~2%" (current-handle user) channel)
-                              (setf (gethash (channel-user user) *users*) user)
-                              (when (ignored user)
-                                (start-ignoring connection (current-handle user))))
-                            (let* ((this-user (make-new-harlie-user name))
-                                   (this-channel (get-this-harlie-channel channel)))
-                              (format t "~2&Creating user ~A in channel ~A~2%" (current-handle this-user) )
-                              (setf (gethash (channel-user this-user) *users*) this-user)))))))))))
+      (declare (ignorable chan-visibility ))
+
+      (let* ((chan-obj-hash (get-channel-object-from-connection connection channel)))
+        (log:debug "~4&This is your channel object hash: ~A. There are many like it, but this one is yours.~2%" chan-obj-hash)
+        ;;  (log:debug "~2&[[[~{ ~A~^| ~}]]]~2%" (list nick chan-visibility channel names))
+        (log:debug "~2&CHANNEL: ~A JOIN DEFAULT HOOK, NAMES:: ~A~2%" channel names)
+
+        (let ((name-list (channel-member-list-on-join message))) ;; seems redundant but this cleans punctuation
+          (loop for name in name-list
+                :do (progn
+                      (when (not (string= nick name)) ;; don't act on ourself
+                        ;; establish user objects.
+                        ;; print the name of the user, and the enclosing channel.
+                        (log:debug "~2&->->-> Acting for user: ~A on channel: ~A" name channel)
+                        (with-channel-user channel name
+                          (let ((this-user-name (harlie-user-name this-user)))
+                            (if this-user
+                                (progn
+                                  (log:debug "~2&Adding user ~A to channel ~A~2%"
+                                             (current-handle this-user)
+                                             (channel-name this-channel))
+                                  ;; set us up all the state.
+                                  (setf (gethash (list this-user-name channel) *users*)
+                                        (list this-user this-channel channel/user-map)
+                                        ;; set the channel/user-map state in the BOT-IRC-CHANNEL object
+                                        (gethash this-user-name (ignore-sticky chan-obj-hash)) channel/user-map)
+                                  ;; if the name is ignored in the database, ignore it in the world
+                                  (when (ignored channel/user-map)
+                                    (start-ignoring connection this-user-name channel)))
+
+                                (progn
+                                  (log:debug "~2&Creating user ~A in channel ~A~2%"
+                                             (current-handle this-user)
+                                             (channel-name this-channel))
+                                  (setf (gethash (list (harlie-user-name this-user) (channel-name this-channel)) *users*)
+                                        (list this-user this-channel channel/user-map)
+                                        (gethash this-user-name (ignore-sticky chan-obj-hash)) channel/user-map)
+                                  )
+                                )))
+                        ;; (let*  ((this-user (get-user-for-handle name :channel channel))
+                        ;;         (this-user-name (harlie-user-name this-user)))
+                        ;;   (if this-user
+
+                        ;;       ;; THEN
+                        ;;       (let* ((this-channel (get-bot-channel-for-name channel))
+                        ;;              (channel/usermap (get-channel-user-mapping this-channel this-user)))
+                        ;;         (format t "~2&Adding user ~A to channel ~A~2%"
+                        ;;                 (current-handle this-user)
+                        ;;                 (channel-name this-channel))
+                        ;;         ;; key by username and channel -- FIXME: redundant 
+                        ;;         (setf (gethash (list this-user-name channel) *users*)
+                        ;;               (list this-user this-channel channel/usermap)
+                        ;;               ;; set the channel/usermap state in the BOT-IRC-CHANNEL object
+                        ;;               (gethash this-user-name (ignore-sticky chan-obj-hash)) channel/usermap)
+                        ;;         (when (ignored channel/usermap)
+                        ;;           (start-ignoring connection (current-handle this-user) channel)))
+
+                        ;;       ;; ELSE
+                        ;;       (let* ((this-user (get-user-for-handle name :channel channel))
+                        ;;              (this-channel (get-bot-channel-for-name channel))
+                        ;;              (channel/usermap (get-channel-user-mapping this-channel this-user)))
+                        ;;         (format t "~2&Creating user ~A in channel ~A~2%"
+                        ;;                 (current-handle this-user)
+                        ;;                 (channel-name this-channel))
+                        ;;         (setf (gethash (list (harlie-user-name this-user) (channel-name this-channel)) *users*)
+                        ;;               (list this-user this-channel channel/usermap)))))
+                        ))))))))
 
 
 (defun make-irc-client-instance-thunk (nickname channels ircserver connection)
@@ -483,16 +599,16 @@ hook runs before the default-hook, extended here."
   (declare (ignorable nickname ircserver))
   (lambda ()
     (setf (bot-irc-client-thread connection) (bt:current-thread))
-    (format t "~2&Channels: ~A" channels)
+    (log:debug "~2&Channels: ~A" channels)
 
     (if (listp channels)
         (let ((ch (first channels))
               (pass (second channels)))
-          (format t "||| Channel : ~A, Password: ~A |||~3%" ch pass)
+          (log:debug "||| Channel : ~A, Password: ~A |||~3%" ch pass)
           (cl-irc:join connection ch :password pass)
           (privmsg connection ch (format nil "NOTIFY:: Help, I'm a bot!")))
         (progn
-          (format t "||| Channel (nopass) : ~A, Password: ~A |||~3%" channel nil)
+          (log:debug "||| Channel (nopass) : ~A, Password: ~A |||~3%" channel nil)
           (cl-irc:join connection channel)
           (privmsg connection channel (format nil "NOTIFY:: Help, I'm a bot!"))))
     
@@ -560,7 +676,7 @@ hook runs before the default-hook, extended here."
       (dolist (nick-spec (cadr server-spec))
 	(let ((nickname (car nick-spec))
 	      (channels (cadr nick-spec)))
-	  (format t "~&~{~A~^~%~}~%~%" (list ircserver nickname channels)))))))
+	  (log:debug "~&~{~A~^~%~}~%~%" (list ircserver nickname channels)))))))
 
 (defun stop-threaded-irc-client-instances ()
   "Shut down a session with an IRC server, and clean up."

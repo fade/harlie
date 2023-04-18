@@ -31,3 +31,5 @@
   (:shadowing-import-from :postmodern :encode-json-to-string)
   (:export #:run-bot
 	   #:kill-bot))
+
+(local-time:set-local-time-cl-postgres-readers)

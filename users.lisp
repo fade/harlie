@@ -75,7 +75,7 @@
                    (make-instance 'bot-channel
                                   :channel-name channel-name
                                   :server server-name))))
-      (log:debug "~2&TYPE OF BCO:[ ~S ][ ~S ]~2%" (type-of bco) bco)
+      (log:debug "~2&TYPE OF BCO:[ ~S ] :: [ ~S ]~2%" (type-of bco) bco)
       (upsert-dao bco)
       bco)))
 
@@ -166,7 +166,7 @@
    CHANNEL/USER-MAP -> per channel state for each user
    in the database."
   `(let* ((chan (find-the-bot-state ,channel))
-          (theuserstate (gethash ,user (ignore-sticky chan))) ;;(list ,user)
+          (theuserstate (gethash ,user (ignore-sticky chan)))
           (this-user (get-user-for-handle ,user))
           (this-channel (get-bot-channel-for-name ,channel))
           (channel/user-map (get-channel-user-mapping this-channel this-user)))
@@ -178,14 +178,20 @@
 
 (defmethod get-channel-user-mapping ((channel bot-channel) (user harlie-user))
   (with-connection (psql-botdb-credentials *bot-config*)
-    (let ((c/u-map (select-dao 'channel-user (:and (:= 'channel-id (bot-channel-id channel))
-                                                   (:= 'user-id (harlie-user-id user))))))
-      (if (and (listp c/u-map) (>= (length c/u-map) 1))
-          (values (first c/u-map))
+    (let ((c/u-map
+            (select-dao 'channel-user (:and (:= 'channel-id (bot-channel-id channel))
+                                            (:= 'user-id (harlie-user-id user))))))
+      (if (or (and (listp c/u-map) (>= (length c/u-map) 1))
+              (typep c/u-map 'channel-user))
+          ;; this is ugly.
+          (if (typep c/u-map 'channel-user)
+              (values c/u-map)
+              (values (first c/u-map)))
           (let* ((c/u-map (make-instance 'channel-user
                                          :channel-id (bot-channel-id channel)
                                          :user-id (harlie-user-id user))))
-            (update-dao c/u-map)
+            (log:debug "~&[GCUM]~A~%" (describe c/u-map))
+            (save-dao c/u-map)
             (values c/u-map))))))
 
 (defun get-channel-sticky-state (channel)
@@ -203,11 +209,10 @@
   "Given a HANDLE, return the user from the database, or create one."
   (with-connection (psql-botdb-credentials *bot-config*)
     (let ((this-user (or (first (select-dao 'harlie-user (:= 'current-handle handle)))
-                         (make-instance 'harlie-user :harlie-user-name handle :current-handle handle))))
-      ;; (format t "~2&[HANDLE] : ~A [CHANNEL] : ~A~%" (current-handle this-user) channel)
+                         (make-instance 'harlie-user :harlie-user-name handle :current-handle handle :fetch-defaults t))))
       (log:debug "~2&[HANDLE] : ~A [CHANNEL] : ~A~%" (current-handle this-user) channel)
 
-      (update-dao this-user)
+      (upsert-dao this-user)
       this-user)))
 
 ;; (defgeneric update-channel-user ((user channel-user) &key (:email :prev-handle :current-handle )))
@@ -262,8 +267,9 @@
                          :harlie-user nick-message
                          :current-handle nick-message
                          :prev-handle nil
-                         :authenticated nil)))
-    (update-dao this-user)))
+                         :authenticated nil
+                         :fetch-defaults t)))
+    (upsert-dao this-user)))
 
 (defun make-a-new-harlie-user (nick)
   (with-connection (psql-botdb-credentials *bot-config*)

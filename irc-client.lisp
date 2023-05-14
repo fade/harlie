@@ -126,6 +126,7 @@ sender wasn't being ignored; true otherwise."))
   "Given a user, listen intently, forever."
   (declare (ignorable channel))
   (setf (ignored channel/user-map) nil)
+  (log:debug "~&MAKE-USER-UNIGNORED:: ~A / ~A~%" channel channel/user-map)
   (handler-case
       (with-connection (psql-botdb-credentials *bot-config*)
         (update-dao this-user)
@@ -134,25 +135,30 @@ sender wasn't being ignored; true otherwise."))
       (log:debug "~2&Caught condition ~A in database, unignoring ~A" c this-user))))
 
 (defmethod start-ignoring ((connection bot-irc-connection) (sender string) (channel string))
-  (log:debug "~3& #'START-IGNORING: CHANNEL: ~A ~A~2%" (type-of channel) channel)
-  (let ((bot-irc-channel-name channel))
+  (log:debug "~& #'START-IGNORING: CHANNEL: ~A ~A~%" (type-of channel) channel)
+  (let* ((bot-irc-channel-name channel)
+         ;; (gethash "Faed" (ignore-sticky (gethash "#busted" (channels (some-connection)))))
+         (stored-state (gethash sender (ignore-sticky (gethash bot-irc-channel-name (channels connection))))))
     (log:debug "Super tired, this is a mess. ~A" bot-irc-channel-name)
-    (with-channel-user bot-irc-channel-name  sender 
+    (with-channel-user bot-irc-channel-name  sender
+      (if (eq channel/user-map stored-state)
+          (log:debug "Too many!"))
       (if (not (ignored channel/user-map))
           (progn
             (log:debug "~2&ignoring a fafo: ~A // ~A //~%" sender (current-handle this-user))
-            (make-user-ignored this-channel this-user channel/user-map))))))
+            (make-user-ignored this-channel this-user channel/user-map))
+          (progn
+            (log:debug "~&START-IGNORING call on ignored user::CHAN: ~A~%THEUSERSTATE: ~A~%THIS-USER: ~A~%THIS-CHANNEL: ~A~%CHANNEL/USER-MAP: ~A~%" chan theuserstate this-user this-channel channel/user-map))))))
 
 (defmethod stop-ignoring ((connection bot-irc-connection) sender channel)
   (with-channel-user channel sender
-     (log:debug "~3&BLIXIT: CHAN: ~A~%THEUSERSTATE: ~A~%THIS-USER: ~A~%THIS-CHANNEL: ~A~%CHANNEL/USER-MAP: ~A~3%" chan theuserstate this-user this-channel channel/user-map)
-     (if (ignored channel/user-map)
-         (progn
-           (make-user-unignored this-channel this-user channel/user-map)
-           t)))
-  ;; (let ((bot-irc-channel-name (find-channel connection sender)))
-  ;;   )
-  )
+    (log:debug "~&BLIXIT: CHAN: ~A~%THEUSERSTATE: ~A~%THIS-USER: ~A~%THIS-CHANNEL: ~A~%CHANNEL/USER-MAP: ~A~%" chan theuserstate this-user this-channel channel/user-map)
+    (if (ignored channel/user-map)
+        (progn
+          (make-user-unignored this-channel this-user channel/user-map)
+          t)
+        (progn
+          (log:debug "~&STOP-IGNORING call on an unignored user:: CHAN: ~A~%THEUSERSTATE: ~A~%THIS-USER: ~A~%THIS-CHANNEL: ~A~%CHANNEL/USER-MAP: ~A~%" chan theuserstate this-user this-channel channel/user-map)))))
 
 (defun ignoring-whom ()
   "Convenience function to print out who's on the global ignore list."
@@ -211,7 +217,8 @@ allowing for leading and trailing punctuation characters in the match."
   (all-matches-as-strings "((http|https)://[^\\s]+)|(www[.][^\\s.][^\\s]*[.][^\\s.][^\\s]*)" text))
 
 (defun find-the-bot-state (cname)
-  "Given a name return the bot's 'BOT-IRC-CHANNEL protocol state"
+  "Given a channel name as a string, return the bot's 'BOT-IRC-CHANNEL
+   protocol state"
   (let ((col (list)))
     (loop for cxn being the hash-values in *irc-connections*
           do
@@ -230,7 +237,11 @@ allowing for leading and trailing punctuation characters in the match."
 (defun ignoring (connection sender text reply channel channel-name)
   "Apply commands related to ignoring/not ignoring the speaker.  Return t if
    the rest of the bot should ignore this utterance; return nil otherwise."
-  (log:debug "~&ENBIGGENATE~{~A ~^| ~}" (list connection sender text reply channel channel-name))
+
+  (log:debug "~&ENBIGGENATE~%~{+ ~A ~^~% ~}" (list connection sender text reply channel channel-name))
+
+  ;; bot continues to ignore after !ignoreme off
+  
   (let ((ignore-phrase "NOTIFY:: Help, I'm a bot!"))
     (cond ((string= ignore-phrase text)
            (log:debug "Caught BOT Ignore Phrase, ignoring cousin from across the river: ~A on channel: ~A"
@@ -250,7 +261,7 @@ allowing for leading and trailing punctuation characters in the match."
 	  ;; If there wasn't an ignore toggle command, look up the
 	  ;; speaker's ignore status and return it. 
 	  (t (progn
-               (log:debug "~2&HOOOOON! Sender ignored?: ~A on channel: ~A~2%" sender channel)
+               (log:debug "~&HOOOOON! Sender ignored?: ~A on channel: ~A~%" sender channel)
                ;; the ignore-sticky slot in the channel object
                ;; contains a hash table, which should itself contain
                ;; CHANNEL-USER objects, keyed by the username of the

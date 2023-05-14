@@ -481,20 +481,27 @@ a specific user in a specific channel."))
     ;; #<BOT-IRC-CONNECTION irc.srh.org {1023CB5133}> SR-4     #trinity      NIL     NIL   NIL              NIL
 
     (log:debug "~2&[NICK CHANGE ~A -> ~A] -- ~{~A~^ ~}~2%"
-            sender channel-name
-            (list connection sender channel-name channel text token-text-list command))
+               sender channel-name
+               (list connection sender channel-name channel text token-text-list command))
     
     ;; the nick is changing, so we need to update the channel-user
     ;; hash table in *users* appropriately.
-    (let* ((uobject (get-user-for-handle sender))) ;; get a new channel-user object from db
-      (when uobject
-        (log:debug "~2&[NEW USER OBJECT FOR NICK CHANGE] -> ~A" (describe uobject))
-        (remhash sender *users*) ;; remove the previously cached object from *users*
-        (setf (current-handle uobject) channel-name) ;; update the current-handle slot with the new name
-        (setf (prev-handle uobject) sender) ;; set the prev-handle slot to the previous handle
-        (with-connection (psql-botdb-credentials *bot-config*)
-          (update-dao uobject)) ;; save the updated info in the database
-        (setf (current-handle uobject) *users*))))) ;; save the updated object to the cache in *users*
+
+    (with-channel-user channel-name sender
+      (log:debug "~&[USER OBJECT FOR NICK CHANGE] -> ~A" (describe this-user))
+      (setf (prev-handle this-user) sender
+            (current-handle this-user) channel-name)
+      (update-dao this-user))
+    ;; (let* ((uobject (get-user-for-handle sender))) ;; get a new channel-user object from db
+    ;;   (when uobject
+    ;;     (log:debug "~2&[NEW USER OBJECT FOR NICK CHANGE] -> ~A" (describe uobject))
+    ;;     (remhash sender *users*) ;; remove the previously cached object from *users*
+    ;;     (setf (current-handle uobject) channel-name) ;; update the current-handle slot with the new name
+    ;;     (setf (prev-handle uobject) sender) ;; set the prev-handle slot to the previous handle
+    ;;     (with-connection (psql-botdb-credentials *bot-config*)
+    ;;       (update-dao uobject)) ;; save the updated info in the database
+    ;;     (setf (current-handle uobject) *users*)))
+    )) ;; save the updated object to the cache in *users*
 
 (defun channel-rota (message)
   (log:debug "~&[ChannelROTA]| ~A~%~%" (describe message))

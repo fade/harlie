@@ -18,6 +18,7 @@
 (defun kill-bot ()
   "Disconnect from the IRC server, clean up persistent data, shut down the Web servers."
   (stop-threaded-irc-client-instances)
+
   (setf *users* nil)
   (stop-web-servers)
   (stop-web-client))

@@ -436,35 +436,37 @@ a specific user in a specific channel."))
          (cobject (get-bot-channel-for-name channel-name))
          (uobject (get-user-for-handle sender :channel channel-name))
          (channel/user-map (get-channel-user-mapping cobject uobject)))
-    (declare (ignorable command))
+    (declare (ignorable command channel))
     ;;=============================================================================================================
     ;;        connection                              sender   channel-name  channel text  token-text-list  command
     ;; #<BOT-IRC-CONNECTION irc.srh.org {1023CB5133}> SR-4     #trinity      NIL     NIL   NIL              NIL
     ;;=============================================================================================================
     (log:debug "~2&|USER-JOIN|>> ~A <<|USER-JOIN|~2%" channel/user-map)
-    ;; (when channel/user-map
-    ;;   (progn
-    ;;     (format t "~2&[NEW USER OBJECT FOR USER JOIN] -> [ ~A ][ ~A ]" uobject (current-handle uobject))
-    ;;     (setf (gethash (current-handle uobject) (ignore-sticky channel)) channel/user-map)
+    ;; (if (eq channel/user-map channel)
+    ;;     (log:debug "~&|USER-STATE comparison ~A ~A" channel channel/user-map))
+    (when channel/user-map
+      (progn
+        (log:debug "~2&[NEW USER OBJECT FOR USER JOIN] -> [ ~A ][ ~A ]" uobject (current-handle uobject))
+        (log:debug "~2& ~A~%" (describe uobject))
 
-    ;;     (if (ignored channel/user-map)
-    ;;         (progn
-    ;;           (format t "~2& IGNORING USER: ~A~%" (current-handle uobject))
-    ;;           (start-ignoring connection sender channel-name))
-    ;;         (progn
-    ;;           (format t "~2&(user-join ~A) Making new channel user: ~A~2%" message sender)
-    ;;           (let* ((uobject (get-user-for-handle sender))
-    ;;                  (cobject (make-bot-channel channel-name))
-    ;;                  (cuo (get-channel-user-mapping cobject uobject))
-    ;;                  (channel-users (if (listp cuo)
-    ;;                                     (first cuo)
-    ;;                                     cuo)))
-    ;;             ;; (setf (gethash sender *users*) (list uobject cobject channel-users))
-    ;;             (map-user-and-channel-to-sticky-state cobject (harlie-user-name uobject) :cumap channel-users)
-    ;;             )))
-        
-    ;;     )
-    ;;   )
+        ;; (setf (gethash (current-handle uobject) (ignore-sticky channel)) channel/user-map)
+
+        (if (ignored channel/user-map)
+            (progn
+              (log:debug "~2& IGNORING USER: ~A~%" (current-handle uobject))
+              (start-ignoring connection sender channel-name))
+            (progn
+              (log:debug "~2&(user-join ~A) Making new channel user: ~A~2%" message sender)
+              (let* ((uobject (get-user-for-handle sender))
+                     (cobject (make-bot-channel channel-name))
+                     (cuo (get-channel-user-mapping cobject uobject))
+                     (channel-users (if (listp cuo)
+                                        (first cuo)
+                                        cuo)))
+                ;; (setf (gethash sender *users*) (list uobject cobject channel-users))
+                (map-user-and-channel-to-sticky-state cobject (harlie-user-name uobject) :cumap channel-users))))
+        )
+      )
     ))
 
 (defun irc-nick-change (message)
@@ -549,7 +551,7 @@ hook runs before the default-hook, extended here."
                       (when (not (string= nick name)) ;; don't act on ourself
                         ;; establish user objects.
                         ;; print the name of the user, and the enclosing channel.
-                        (log:debug "~2&->->-> Acting for user: ~A on channel: ~A" name channel)
+                        (log:debug "~&->->-> Acting for user: ~A on channel: ~A~%" name channel)
                         (with-channel-user channel name
                           (let ((this-user-name (harlie-user-name this-user)))
                             (if this-user
@@ -582,7 +584,7 @@ hook runs before the default-hook, extended here."
                         ;;       ;; THEN
                         ;;       (let* ((this-channel (get-bot-channel-for-name channel))
                         ;;              (channel/usermap (get-channel-user-mapping this-channel this-user)))
-                        ;;         (format t "~2&Adding user ~A to channel ~A~2%"
+                        ;;         (log:debug "~2&Adding user ~A to channel ~A~2%"
                         ;;                 (current-handle this-user)
                         ;;                 (channel-name this-channel))
                         ;;         ;; key by username and channel -- FIXME: redundant 
@@ -597,7 +599,7 @@ hook runs before the default-hook, extended here."
                         ;;       (let* ((this-user (get-user-for-handle name :channel channel))
                         ;;              (this-channel (get-bot-channel-for-name channel))
                         ;;              (channel/usermap (get-channel-user-mapping this-channel this-user)))
-                        ;;         (format t "~2&Creating user ~A in channel ~A~2%"
+                        ;;         (log:debug "~2&Creating user ~A in channel ~A~2%"
                         ;;                 (current-handle this-user)
                         ;;                 (channel-name this-channel))
                         ;;         (setf (gethash (list (harlie-user-name this-user) (channel-name this-channel)) *users*)
@@ -624,8 +626,8 @@ hook runs before the default-hook, extended here."
           (privmsg connection channel (format nil "NOTIFY:: Help, I'm a bot!"))))
     
     ;; (dolist (channel channels)
-    ;;   (format t "~2&Type of 'channel: ~A~3%" (type-of channel))
-    ;;   (format t "~&~S~3%" channel)
+    ;;   (log:debug "~2&Type of 'channel: ~A~3%" (type-of channel))
+    ;;   (log:debug "~&~S~3%" channel)
     ;;   )
 
     ;; Protocol processing. server joins, messages, user tracking

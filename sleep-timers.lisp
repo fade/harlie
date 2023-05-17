@@ -39,7 +39,8 @@
                       while s
                       do (sleep s)
                          (funcall (task-function task)))
-		(format t "Outer thunk exiting.~%"))
+		;;(format t "Outer thunk exiting.~%")
+                )
               :name (task-name task))))
      (return-from start-task task)
    :oops

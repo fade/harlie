@@ -170,7 +170,7 @@
           (this-user (get-user-for-handle ,user))
           (this-channel (get-bot-channel-for-name ,channel))
           (channel/user-map (get-channel-user-mapping this-channel this-user)))
-     (log:debug "~2&<<~%THEUSERSTATE: ~A~% THIS-USER:~A /~% USER-NAME:~A~% THIS-CHANNEL:~A~% CHANNEL/USER-MAP:~A~%>>~2%" theuserstate this-user (harlie-user-name this-user) this-channel channel/user-map)
+     (log:debug "~2&<< [WITH-CHANNEL-USER] ~%THEUSERSTATE: ~A~% THIS-USER:~A /~% USER-NAME:~A~% THIS-CHANNEL:~A~% CHANNEL/USER-MAP:~A~%>>~2%" theuserstate this-user (harlie-user-name this-user) this-channel channel/user-map)
      ,@body))
 
 (defgeneric get-channel-user-mapping (channel user)

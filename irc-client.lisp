@@ -252,8 +252,6 @@ allowing for leading and trailing punctuation characters in the match."
   "Apply commands related to ignoring/not ignoring the speaker.  Return t if
    the rest of the bot should ignore this utterance; return nil otherwise."
 
-  (log:debug "~&ENBIGGENATE~%~{+ ~A ~^~% ~}" (list connection sender text reply channel channel-name))
-
   ;; bot continues to ignore after !ignoreme off
   
   (let ((ignore-phrase "NOTIFY:: Help, I'm a bot!"))
@@ -581,22 +579,21 @@ hook runs before the default-hook, extended here."
                                              (current-handle this-user)
                                              (channel-name this-channel))
                                   ;; set us up all the state.
-                                  (setf (gethash (list this-user-name channel) *users*)
-                                        (list this-user this-channel channel/user-map)
-                                        ;; set the channel/user-map state in the BOT-IRC-CHANNEL object
-                                        (gethash this-user-name (ignore-sticky chan-obj-hash)) channel/user-map)
+                                  ;; set the channel/user-map state in the BOT-IRC-CHANNEL object
+                                  (setf                                   
+                                   (gethash this-user-name (ignore-sticky chan-obj-hash)) channel/user-map)
                                   ;; if the name is ignored in the database, ignore it in the world
                                   (when (ignored channel/user-map)
                                     (start-ignoring connection this-user-name channel)))
 
-                                (progn
-                                  (log:debug "~2&Creating user ~A in channel ~A~2%"
-                                             (current-handle this-user)
-                                             (channel-name this-channel))
-                                  (setf (gethash (list (harlie-user-name this-user) (channel-name this-channel)) *users*)
-                                        (list this-user this-channel channel/user-map)
-                                        (gethash this-user-name (ignore-sticky chan-obj-hash)) channel/user-map)
-                                  )
+                                ;; (progn
+                                ;;   (log:debug "~2&Creating user ~A in channel ~A~2%"
+                                ;;              (current-handle this-user)
+                                ;;              (channel-name this-channel))
+                                ;;   (setf (gethash (list (harlie-user-name this-user) (channel-name this-channel)) *users*)
+                                ;;         (list this-user this-channel channel/user-map)
+                                ;;         (gethash this-user-name (ignore-sticky chan-obj-hash)) channel/user-map)
+                                ;;   )
                                 )))
                         ;; (let*  ((this-user (get-user-for-handle name :channel channel))
                         ;;         (this-user-name (harlie-user-name this-user)))

@@ -21,9 +21,9 @@
 
 (defun start-task (task interval &optional (function (task-function task)))
   (tagbody
-     (format t "Entering start-task~%")
+     (log:info "Entering start-task~%")
      (bordeaux-threads:with-recursive-lock-held ((task-control-lock task))
-       (format t "Inside recursive lock in start-task~%")
+       (log:info "Inside recursive lock in start-task~%")
        (when (task-interval task)
          (let ((thread (task-thread task)))
            (when (and thread (bordeaux-threads:thread-alive-p thread))
@@ -33,7 +33,7 @@
              (slot-value task 'thread)
              (bordeaux-threads:make-thread
               (lambda ()
-		(format t "Entering outer thunk.~%")
+		(log:info "Entering outer thunk.~%")
                 (loop for s = (bordeaux-threads:with-recursive-lock-held ((task-lock task))
                                 (task-interval task))
                       while s

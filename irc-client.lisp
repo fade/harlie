@@ -65,7 +65,7 @@
 (defun make-mq-thunk (connection)
   "A closure to generate the function which gets called periodically to flush the queue."
   #'(lambda ()
-      (log:debug "Entering the inner thunk.~%")
+      ;; (log:debug "Entering the inner thunk.~%")
       (if (not (jpl-queues:empty? (message-q connection)))
 	  (dqmess connection)
 	  (setf (task-interval (mq-task connection)) nil))))
@@ -113,10 +113,12 @@ sender wasn't being ignored; true otherwise."))
 (defun make-user-ignored (channel this-user channel/user-map)
   "Given a user, ignore the hell out of them, stickily."
   (declare (ignorable channel))
+
   (setf (ignored channel/user-map) t)
+  (log:debug "~&MAKE-USER-IGNORED:: THIS-USER IS: ~A" this-user)
   (handler-case
       (with-connection (psql-botdb-credentials *bot-config*)
-        (update-dao this-user)
+        ;; (update-dao this-user)
         (update-dao channel/user-map))
     (error (c)
       (log:debug "Caught condition ~A in database update operation in MAKE-USER-IGNORED." c)
@@ -124,7 +126,8 @@ sender wasn't being ignored; true otherwise."))
 
 (defun make-user-unignored (channel this-user channel/user-map)
   "Given a user, listen intently, forever."
-  (declare (ignorable channel))
+  ;; (declare (ignorable channel))
+  
   (setf (ignored channel/user-map) nil)
   (log:debug "~&MAKE-USER-UNIGNORED:: ~A / ~A~%" channel channel/user-map)
   (handler-case

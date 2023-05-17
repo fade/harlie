@@ -7,6 +7,11 @@
 ;; this sets the logging verbosity. 
 (log:config :debug)
 
+(defparameter *bot-database-credentials*
+  '("botdb" "your-username" nil :unix))
+
+
+;; these are exmaples.
 (defparameter *harlot-config*
   (make-config :irc-server-name "irc.srh.org"
 	       :irc-nickchannels '(("Harlot" ("#trinity")))
@@ -39,7 +44,8 @@
                :web-server-name "coruscant.deepsky.com"
                :web-server-ports '(7080 8080 8090 9099)
                :url-store-type :psql
-               :psql-botdb-credentials '("botdb" "semaphor" nil :unix)))
+               ;; :psql-botdb-credentials '("botdb" "semaphor" nil :unix)
+               :psql-botdb-credentials *bot-database-credentials*))
 
 (defparameter *bot-config* *combined-config*)
 

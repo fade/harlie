@@ -134,28 +134,39 @@ sender wasn't being ignored; true otherwise."))
     (error (c)
       (log:debug "~2&Caught condition ~A in database, unignoring ~A" c this-user))))
 
+
 (defmethod start-ignoring ((connection bot-irc-connection) (sender string) (channel string))
   (log:debug "~& #'START-IGNORING: CHANNEL: ~A ~A~%" (type-of channel) channel)
   (let* ((bot-irc-channel-name channel)
          ;; (gethash "Faed" (ignore-sticky (gethash "#busted" (channels (some-connection)))))
          (stored-state (gethash sender (ignore-sticky (gethash bot-irc-channel-name (channels connection))))))
-    (log:debug "Super tired, this is a mess. ~A" bot-irc-channel-name)
+    (log:debug "Super tired, this is a mess. ~A || ~A" bot-irc-channel-name stored-state)
     (with-channel-user bot-irc-channel-name  sender
       (if (eq channel/user-map stored-state)
           (log:debug "Too many!"))
       (if (not (ignored channel/user-map))
           (progn
             (log:debug "~2&ignoring a fafo: ~A // ~A //~%" sender (current-handle this-user))
-            (make-user-ignored this-channel this-user channel/user-map))
+            ;; we change the database channel/user state in make-user-ignored
+            (make-user-ignored this-channel this-user channel/user-map)
+            ;; and then the cached value in the connection object of
+            ;; the channel/user-map is a source of races in this code.
+            (setf
+             (gethash sender (ignore-sticky (gethash bot-irc-channel-name (channels connection))))
+             channel/user-map)
+            t)
           (progn
             (log:debug "~&START-IGNORING call on ignored user::CHAN: ~A~%THEUSERSTATE: ~A~%THIS-USER: ~A~%THIS-CHANNEL: ~A~%CHANNEL/USER-MAP: ~A~%" chan theuserstate this-user this-channel channel/user-map))))))
 
 (defmethod stop-ignoring ((connection bot-irc-connection) sender channel)
   (with-channel-user channel sender
-    (log:debug "~&BLIXIT: CHAN: ~A~%THEUSERSTATE: ~A~%THIS-USER: ~A~%THIS-CHANNEL: ~A~%CHANNEL/USER-MAP: ~A~%" chan theuserstate this-user this-channel channel/user-map)
+    ;; (log:debug "~&BLIXIT: CHAN: ~A~%THEUSERSTATE: ~A~%THIS-USER: ~A~%THIS-CHANNEL: ~A~%CHANNEL/USER-MAP: ~A~%" chan theuserstate this-user this-channel channel/user-map)
     (if (ignored channel/user-map)
         (progn
           (make-user-unignored this-channel this-user channel/user-map)
+          (setf
+           (gethash sender (ignore-sticky (gethash channel (channels connection))))
+           channel/user-map)
           t)
         (progn
           (log:debug "~&STOP-IGNORING call on an unignored user:: CHAN: ~A~%THEUSERSTATE: ~A~%THIS-USER: ~A~%THIS-CHANNEL: ~A~%CHANNEL/USER-MAP: ~A~%" chan theuserstate this-user this-channel channel/user-map)))))

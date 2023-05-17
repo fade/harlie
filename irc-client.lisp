@@ -4,8 +4,6 @@
 
 (declaim (optimize (debug 3) (safety 3) (speed 0)))
 
-(log:config :debug)
-
 (defvar *irc-connections* (make-synchronized-hash-table :test 'equal))
 
 (defun some-connection ()

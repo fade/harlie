@@ -4,6 +4,9 @@
 
 (in-package #:harlie)
 
+;; this sets the logging verbosity. 
+(log:config :debug)
+
 (defparameter *harlot-config*
   (make-config :irc-server-name "irc.srh.org"
 	       :irc-nickchannels '(("Harlot" ("#trinity")))

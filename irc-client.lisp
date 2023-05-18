@@ -277,7 +277,6 @@ allowing for leading and trailing punctuation characters in the match."
                ;; respective user.
                (log:debug "~&HOON:: ~A ~2%" (gethash sender (ignore-sticky channel)))
                (let ((sticky-channel-state (ignored (gethash sender (ignore-sticky channel)))))
-                 (log:debug "~&NOTHING IS BETTER THAN PRINT DEBUGGING:: IGNORED: ~A~%" sticky-channel-state)
                  (return-from ignoring sticky-channel-state)))))
     
     ;; As there was an ignore toggle command, it's been handled and so should be ignored.

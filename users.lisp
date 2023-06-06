@@ -128,12 +128,6 @@
                    :initform nil
                    :accessor authenticated?)
 
-   ;; follows some persistent states we want tracked
-   ;; (ignored :col-type boolean
-   ;;          :initarg :ignored
-   ;;          :initform nil
-   ;;          :accessor ignored)
-
    (first-seen :col-type timestamptz
                :initarg :first-seen
                :initform (local-time:now)

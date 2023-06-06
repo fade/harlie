@@ -50,11 +50,11 @@ or an error message, as appropriate."
                         ;; of query parameters, which causes a link
                         ;; failure in some cases.
                         ((scan "\\?+" (request-uri*))
-                         (format t "~&BELLICOSE QUERY PARAMETERS:: ~A~2%" (split "\\?+" (subseq (request-uri*) 1)))
+                         (log:info "~&BELLICOSE QUERY PARAMETERS:: ~A~2%" (split "\\?+" (subseq (request-uri*) 1)))
                          (car (split "\\?+" (subseq (request-uri*) 1))))
                         (t (subseq (request-uri*) 1))))
 	       (url (get-url-from-shortstring *the-url-store* short)))
-	  (format t "~2&SHORTTHING: [~A]~2%" short)
+	  (log:info "~2&SHORTTHING: [~A]~2%" short)
 	  (if url
 	      (redirect url)
 	      (let* ((short (subseq (request-uri*) 4))
@@ -63,7 +63,7 @@ or an error message, as appropriate."
 		    (redirect url)
 		    (html-apology)))))
 	(let ((page (make-webpage-listing-urls *the-url-store*)))
-	  ;; (format t "~&passed.. prepare to get a page!~&~A" page)
+	  (log:error "~&passed.. prepare to get a page!~&~A" page)
 	  (values (format nil "~A" page))))))
 
 (defun help-dispatch ()
@@ -114,7 +114,7 @@ or an error message, as appropriate."
 
 (defun source-dispatch ()
   "Dispatcher for a brane-dead file server out of the bot."
-  (format t "~A" (request-uri*))
+  (log:info "~A" (request-uri*))
   (if (not (scan (create-caseless-scanner "^/source/?$") (request-uri*)))
       (fetch-file (subseq (request-uri*) 8))
       (fetch-source-dir)))

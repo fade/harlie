@@ -63,7 +63,6 @@ or an error message, as appropriate."
 		    (redirect url)
 		    (html-apology)))))
 	(let ((page (make-webpage-listing-urls *the-url-store*)))
-	  (log:error "~&passed.. prepare to get a page!~&~A" page)
 	  (values (format nil "~A" page))))))
 
 (defun help-dispatch ()

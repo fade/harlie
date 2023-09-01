@@ -304,14 +304,14 @@ allowing for leading and trailing punctuation characters in the match."
 		       channel-name))
          ;; naively strip tracking components from pasted URLs.
 	 (urls (mapcar #'de-utm-url (extract-urls text))))
-
+    
     (flet ((irc-reply (s) (qmess connection reply-to s)))
+      ;; who what where...
+      (log:info "~&connection: ~A channel-name: ~A channel: ~A sender: ~A command: ~A context: ~A reply-to: ~A~%" connection channel-name channel sender command context reply-to)
+      
       (setf (last-message connection) message)
       (log:debug "Message: ~A~%" (raw-message-string message))
       (log:debug "MSG-HOOK flet/reply   connection=~A channel=~A~%" connection channel-name)
-      ;; (if (ignoring connection sender text #'irc-reply channel channel-name)
-      ;;     (log:debug t "~&~A~%" :TRUE-CHANNELS-FOREVER!)
-      ;;     (log:debug "~&~A~%" :NEVERMORE-NEVERMORE))
       (unless (ignoring connection sender text #'irc-reply channel channel-name)
 	(cond ((scan "^![^!]" command)
 	       (run-plugin (make-instance
@@ -485,21 +485,26 @@ a specific user in a specific channel."))
          (text (regex-replace-all "\\ca" (second (arguments message)) ""))
 	 (token-text-list (split "\\s+" text))
 	 (command (string-upcase (first token-text-list))))
+    ;;=============================================================================================================
     ;;        connection                              sender   channel-name  channel text  token-text-list  command
     ;; #<BOT-IRC-CONNECTION irc.srh.org {1023CB5133}> SR-4     #trinity      NIL     NIL   NIL              NIL
+    ;;=============================================================================================================
 
     (log:debug "~2&[NICK CHANGE ~A -> ~A] -- ~{~A~^ ~}~2%"
                sender channel-name
                (list connection sender channel-name channel text token-text-list command))
     
     ;; the nick is changing, so we need to update the channel-user
-    ;; hash table in *users* appropriately.
+    ;; in the bot-irc-channel object appropriately.
 
-    (with-channel-user channel-name sender
-      (log:debug "~&[USER OBJECT FOR NICK CHANGE] -> ~A" (describe this-user))
-      (setf (prev-handle this-user) sender
-            (current-handle this-user) channel-name)
-      (update-dao this-user))
+    ()
+    
+    ;; (with-channel-user channel-name sender
+    ;;   (log:debug "~&[USER OBJECT FOR NICK CHANGE] -> ~A" (describe this-user))
+    ;;   (setf (prev-handle this-user) sender
+    ;;         (current-handle this-user) channel-name)
+    ;;   (update-dao this-user))
+    
     ;; (let* ((uobject (get-user-for-handle sender))) ;; get a new channel-user object from db
     ;;   (when uobject
     ;;     (log:debug "~2&[NEW USER OBJECT FOR NICK CHANGE] -> ~A" (describe uobject))

@@ -270,14 +270,17 @@ allowing for leading and trailing punctuation characters in the match."
           
 	  ;; If there wasn't an ignore toggle command, look up the
 	  ;; speaker's ignore status and return it. 
-	  (t (progn
-               ;; the ignore-sticky slot in the channel object
-               ;; contains a hash table, which should itself contain
-               ;; CHANNEL-USER objects, keyed by the username of the
-               ;; respective user.
-               (log:debug "~&HOON:: ~A ~2%" (gethash sender (ignore-sticky channel)))
-               (let ((sticky-channel-state (ignored (gethash sender (ignore-sticky channel)))))
-                 (return-from ignoring sticky-channel-state)))))
+	  (t (if channel
+                 (progn
+                   ;; the ignore-sticky slot in the channel object
+                   ;; contains a hash table, which should itself contain
+                   ;; CHANNEL-USER objects, keyed by the username of the
+                   ;; respective user.
+                   (log:debug "~&HOON:: ~A ~2%" (gethash sender (ignore-sticky channel)))
+                   (let* ((channel-user-ignored? (gethash sender (ignore-sticky channel))))
+                     (if channel-user-ignored?
+                         (return-from ignoring (ignored channel-user-ignored?))
+                         (return-from ignoring nil)))))))
     
     ;; As there was an ignore toggle command, it's been handled and so should be ignored.
     t))

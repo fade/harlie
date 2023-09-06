@@ -177,8 +177,8 @@ sender wasn't being ignored; true otherwise."))
   (maphash #'(lambda (k v)
                ;; (format t "~2&[~A]~2%" v)
                (if (ignored (third v))
-                   (log:debug "~&IGNORING: ~A on CHANNEL: ~A~%" k (channel-name (second v))))
-               ) *users*))
+                   (log:debug "~&IGNORING: ~A on CHANNEL: ~A~%" k (channel-name (second v)))))
+           *users*))
 
 ;; Two functions used for the triggering mechanism about the chainer.
 
@@ -311,7 +311,7 @@ allowing for leading and trailing punctuation characters in the match."
       
       (setf (last-message connection) message)
       (log:debug "Message: ~A~%" (raw-message-string message))
-      (log:debug "MSG-HOOK flet/reply   connection=~A channel=~A~%" connection channel-name)
+      (log:debug "MSG-HOOK flet/reply   connection=~A channel-name=~A~%" connection channel-name)
       (unless (ignoring connection sender text #'irc-reply channel channel-name)
 	(cond ((scan "^![^!]" command)
 	       (run-plugin (make-instance

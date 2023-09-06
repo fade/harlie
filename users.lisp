@@ -205,8 +205,10 @@
     (let ((this-user (or (first (select-dao 'harlie-user (:= 'current-handle handle)))
                          (make-instance 'harlie-user :harlie-user-name handle :current-handle handle :fetch-defaults t))))
       (log:debug "~2&[HANDLE] : ~A [CHANNEL] : ~A~%" (current-handle this-user) channel)
-
-      (upsert-dao this-user)
+      ;; #'select-dao returns a list. Account for it.
+      (if (listp this-user)
+          (upsert-dao (first this-user))
+          (upsert-dao this-user))
       this-user)))
 
 ;; (defgeneric update-channel-user ((user channel-user) &key (:email :prev-handle :current-handle )))

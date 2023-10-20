@@ -204,8 +204,9 @@
   (with-connection (psql-botdb-credentials *bot-config*)
     (let ((this-user (or (first (select-dao 'harlie-user (:= 'current-handle handle)))
                          (make-instance 'harlie-user :harlie-user-name handle :current-handle handle :fetch-defaults t))))
-      (log:debug "~2&[HANDLE] : ~A [CHANNEL] : ~A~%" (current-handle this-user) channel)
-      ;; #'select-dao returns a list. Account for it.
+      (log:debug "~&[HANDLE] : ~A [CHANNEL] : ~A~%" (current-handle this-user) channel)
+      (assert (eq (type-of this-user) 'harlie-user))
+      ;; #'select-dao can return a nested list. Account for it.
       (if (listp this-user)
           (upsert-dao (first this-user))
           (upsert-dao this-user))

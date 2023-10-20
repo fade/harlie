@@ -49,15 +49,15 @@ or an error message, as appropriate."
                         ;; add all kinds of tracking spooj in the form
                         ;; of query parameters, which causes a link
                         ;; failure in some cases.
-                        ((scan "\\?+" (request-uri*))
-                         (log:info "~&BELLICOSE QUERY PARAMETERS:: ~A~2%" (split "\\?+" (subseq (request-uri*) 1)))
-                         (car (split "\\?+" (subseq (request-uri*) 1))))
-                        (t (subseq (request-uri*) 1))))
+                        ((scan "\\?+" uri)
+                         (log:info "~&BELLICOSE QUERY PARAMETERS:: ~A~2%" (split "\\?+" (subseq uri 1)))
+                         (car (split "\\?+" (subseq uri 1))))
+                        (t (subseq uri 1))))
 	       (url (get-url-from-shortstring *the-url-store* short)))
 	  (log:info "~2&SHORTTHING: [~A]~2%" short)
 	  (if url
 	      (redirect url)
-	      (let* ((short (subseq (request-uri*) 4))
+	      (let* ((short (subseq uri 4))
 		     (url (get-url-from-shortstring *the-url-store* short)))
 		(if url
 		    (redirect url)

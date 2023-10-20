@@ -516,25 +516,6 @@ a specific user in a specific channel."))
     ;;     (setf (current-handle uobject) *users*)))
     )) ;; save the updated object to the cache in *users*
 
-(defun channel-rota (message)
-  (log:debug "~&[ChannelROTA]| ~A~%~%" (describe message))
-  (let* ((connection (connection message))
-         (sender (source message)))
-    (declare (ignorable connection))
-    (log:debug "[ROTAx] ~A ~A" sender message)))
-
-(defparameter *users* (make-hash-table :test 'equalp :synchronized t))
-
-(defun show-known-users ()
-  (loop for k being the hash-keys of *users*
-          using (hash-value value)
-        do (log:debug "User: ~A~%Object:~%~A" k (describe value))))
-
-(defun ignoring-users-list ()
-  (loop for k being the hash-keys of *users*
-          using (hash-value v)
-        when (ignored v)
-          collect v))
 
 (defgeneric get-channel-object-from-connection (connection cname)
   (:documentation "The bot partitions who it knows about by channel, which are objects

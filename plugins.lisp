@@ -405,17 +405,6 @@
 		    "hoursStr=most+recent+only"
 		    "submitmet=Submit")) location))
 
-(defclass metar-data ()
-  ((text :initarg :text :accessor metar-text)
-   (temperature :initarg :temperature :accessor temperature)
-   (dewpoint :initarg :dewpoint :accessor dewpoint)
-   (altimeter :initarg :altimeter :accessor altimeter)
-   (barometer :initarg :barometer :accessor sea-level-pressure)
-   (winds :initarg :winds :accessor winds)
-   (visibility :initarg :visibility :accessor visibility)
-   (roof :initarg :roof :accessor roof)
-   (clouds :initarg :clouds :accessor clouds)))
-
 (defplugin metar (plug-request)
   (case (plugin-action plug-request)
     (:docstring (format nil "Print a human-readable weather report based on METAR data.  Usage: !metar <ICAO>"))

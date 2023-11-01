@@ -32,9 +32,9 @@
      (:body
       (:h1
        (htm
-       (:p "With apologies")
-       (:p "I don't have that URL...")
-       (:p "Perhaps you mistyped?")))))
+        (:p "With apologies")
+        (:p "I don't have that URL...")
+        (:p "Perhaps you mistyped?")))))
     s))
 
 (defun redirect-shortener-dispatch ()

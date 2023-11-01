@@ -548,25 +548,25 @@ hook runs before the default-hook, extended here."
 
         (let ((name-list (channel-member-list-on-join message))) ;; seems redundant but this cleans punctuation
           (loop for name in name-list
-                :do ((progn
-                       when (not (string= nick name)) ;; don't act on ourself
-                       ;; establish user objects.
-                       ;; print the name of the user, and the enclosing channel.
-                       (log:debug "~&->->-> Acting for user: ~A on channel: ~A~%" name channel)
-                       (with-channel-user channel name
-                         (let ((this-user-name (harlie-user-name this-user)))
-                           (if this-user
-                               (progn
-                                 (log:debug "~2&Adding user ~A to channel ~A~2%"
-                                            (current-handle this-user)
-                                            (channel-name this-channel))
-                                 ;; set us up all the state.
-                                 ;; set the channel/user-map state in the BOT-IRC-CHANNEL object
-                                 (setf                                   
-                                  (gethash this-user-name (ignore-sticky chan-obj-hash)) channel/user-map)
-                                 ;; if the name is ignored in the database, ignore it in the world
-                                 (when (ignored channel/user-map)
-                                   (start-ignoring connection this-user-name channel))))))))))))))
+                :do (progn
+                      (when (not (string= nick name)) ;; don't act on ourself
+                        ;; establish user objects.
+                        ;; print the name of the user, and the enclosing channel.
+                        (log:debug "~&->->-> Acting for user: ~A on channel: ~A~%" name channel)
+                        (with-channel-user channel name
+                          (let ((this-user-name (harlie-user-name this-user)))
+                            (if this-user
+                                (progn
+                                  (log:debug "~2&Adding user ~A to channel ~A~2%"
+                                             (current-handle this-user)
+                                             (channel-name this-channel))
+                                  ;; set us up all the state.
+                                  ;; set the channel/user-map state in the BOT-IRC-CHANNEL object
+                                  (setf                                   
+                                   (gethash this-user-name (ignore-sticky chan-obj-hash)) channel/user-map)
+                                  ;; if the name is ignored in the database, ignore it in the world
+                                  (when (ignored channel/user-map)
+                                    (start-ignoring connection this-user-name channel))))))))))))))
 
 
 (defun make-irc-client-instance-thunk (nickname channels ircserver connection)

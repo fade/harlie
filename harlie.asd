@@ -10,6 +10,7 @@
 	       ;; #:cl-log
                #:log4cl
 	       #:cl-json
+               #:com.inuoe.jzon
                #:cl-csv
                #:jsown
 	       #:cl-ppcre

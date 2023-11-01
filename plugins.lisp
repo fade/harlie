@@ -357,18 +357,19 @@
       (declare (ignore tempnonce))
     (aref temp-substrings 0)))
 
-(defun metar-extract-data (metar-line)
+(defun metar-extract-data (metar-data)
   "Extract the values from various fields in a METAR record."
-  (let* ((station-name (scan-to-first-string "^([^\\s]*)\\s*" metar-line))
-	 (reading-time (scan-to-first-string "([0-9]{6}Z)" metar-line))
-	 (wind-speed (scan-to-first-string "([0-9]{2})(MPS|KT)" metar-line))
-	 (wind-units (scan-to-first-string "[0-9]{2}(MPS|KT)" metar-line))
-	 (metar-temps (multiple-value-list (scan-to-strings "\\s(M?[0-9]+)[/](M?[0-9]+)?\\s" metar-line)))
-	 (metar-temp (aref (second metar-temps) 0))
-	 (metar-dewpoint (aref (second metar-temps) 1))
-	 (windspeed-kmh (metar-windspeed-to-kmh (parse-integer wind-speed) wind-units))
-	 (temperature-c (metar-temp-to-c metar-temp))
-	 (dewpoint-c (if metar-dewpoint (metar-temp-to-c metar-dewpoint) nil)))
+  (let* ((md metar-data)
+         (station-name (gethash "name" md))
+	 (reading-time (gethash "reportTime" md))
+	 (wind-speed (gethash "wspd" md))
+         ;; TODO: Is the following really derriving the windspeed unit?
+	 (wind-units (scan-to-first-string "[0-9]{2}(MPS|KT)" (gethash "rawOb" md))) 
+	 (metar-temp (gethash "temp" md))
+	 (metar-dewpoint (gethash "dewp" md))
+	 (windspeed-kmh (metar-windspeed-to-kmh wind-speed wind-units))
+	 (temperature-c metar-temp)
+	 (dewpoint-c (if metar-dewpoint metar-dewpoint)))
     (values station-name reading-time windspeed-kmh temperature-c dewpoint-c)))
 
 (defun calculate-wind-chill (ambient windspeed)
@@ -396,11 +397,24 @@
 (defun form-metar-query-string (location)
   (format nil
 	  (format nil "~{~A~^&~}"
-		  '("http://www.aviationweather.gov/adds/metars/?station_ids=\~\A"
+		  '(;; "http://www.aviationweather.gov/adds/metars/?station_ids=\~\A"
+                    ;; "https://aviationweather.gov/cgi-bin/data/metar.php?ids=\~\A&hours=0&format=decoded"
+                    "https://aviationweather.gov/cgi-bin/data/metar.php?ids=\~\A&hours=0&format=json"
 		    "std_trans=standard"
 		    "chk_metars=on"
 		    "hoursStr=most+recent+only"
 		    "submitmet=Submit")) location))
+
+(defclass metar-data ()
+  ((text :initarg :text :accessor metar-text)
+   (temperature :initarg :temperature :accessor temperature)
+   (dewpoint :initarg :dewpoint :accessor dewpoint)
+   (altimeter :initarg :altimeter :accessor altimeter)
+   (barometer :initarg :barometer :accessor sea-level-pressure)
+   (winds :initarg :winds :accessor winds)
+   (visibility :initarg :visibility :accessor visibility)
+   (roof :initarg :roof :accessor roof)
+   (clouds :initarg :clouds :accessor clouds)))
 
 (defplugin metar (plug-request)
   (case (plugin-action plug-request)
@@ -414,11 +428,10 @@
 	    (units (if (<= 3 (length tokens))
 		       (metar-units-symbol (third tokens))
 		       :Centigrade))
-	    (metar-tree (http-request (form-metar-query-string location)
-			 :preserve-uri t :redirect 16))
-	    (metar-line (find-metar metar-tree)))
-       (if metar-line
-	   (multiple-value-bind (station-name time-string windspeed cur-temp dew-temp) (metar-extract-data metar-line)
+	    (metar-data (svref (com.inuoe.jzon:parse (http-request (form-metar-query-string location)
+                                                                   :preserve-uri t :redirect 16)) 0)))
+       (if metar-data
+	   (multiple-value-bind (station-name time-string windspeed cur-temp dew-temp) (metar-extract-data metar-data)
 	     (if (and station-name time-string windspeed cur-temp dew-temp)
 		 (let ((windchill (calculate-wind-chill cur-temp windspeed))
 		       (humidex (calculate-humidex cur-temp dew-temp)))

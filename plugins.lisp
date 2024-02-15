@@ -388,11 +388,11 @@
 	humidex
 	nil)))
 
-(defun metar-units-symbol (s)
-  "Return the temperature-scale-name symbol corresponding to the specified string."
-  (cond ((scan "^[kK]" s) :Kelvin)
-	((scan "^[fFiI]" s) :Fahrenheit)
-	(t :Centigrade)))
+;; (defun metar-units-symbol (s)
+;;   "Return the temperature-scale-name symbol corresponding to the specified string."
+;;   (cond ((scan "^[kK]" s) :Kelvin)
+;; 	((scan "^[fFiI]" s) :Fahrenheit)
+;; 	(t :Centigrade)))
 
 (defun form-metar-query-string (location)
   (format nil
@@ -415,6 +415,9 @@
 	    (units (if (<= 3 (length tokens))
 		       (metar-units-symbol (third tokens))
 		       :Centigrade))
+            ;; FIXME: if we pass a bad code to the remote, we get a
+            ;; null return in the form of an empty vector. we need to
+            ;; test for that.
 	    (metar-data (svref (com.inuoe.jzon:parse (http-request (form-metar-query-string location)
                                                                    :preserve-uri t :redirect 16)) 0)))
        (if metar-data

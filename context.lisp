@@ -13,7 +13,7 @@
 (defmethod initialize-instance :after ((context bot-context) &key)
   (with-connection (psql-botdb-credentials *bot-config*)
     (let* ((context-query-head '(:select 'context-name 'irc-server 'irc-channel
-				         'web-server 'web-port 'web-uri-prefix
+                                 'web-server 'web-port 'web-uri-prefix
 				 :from 'contexts))
 	   (context-query (cond ((bot-nick context)
 				 (append context-query-head
@@ -31,16 +31,23 @@
 	(setf (bot-web-port context) (fifth conlist))
 	(setf (bot-uri-prefix context) (sixth conlist))))))
 
-(defgeneric chain-read-context-id (context)
-  (:documentation "Returns the context ID for reading the chaining DB in a given context."))
-
 (defun chain-context (nick)
+  (log:debug "|||]> ~A <[|||" nick)
   (with-connection (psql-botdb-credentials *bot-config*)
     (query (:select 'context-id
 	    :from 'contexts
 	    :where (:= (:raw "lower(context_name)")
 		       (string-downcase nick)))
 	   :single)))
+
+;; (defun chain-context (nick)
+;;   (log:debug "|||]> ~A <[|||" nick)
+;;   (if (string= nick "SR-4")
+;;       1
+;;       2))
+
+(defgeneric chain-read-context-id (context)
+  (:documentation "Returns the context ID for reading the chaining DB in a given context."))
 
 (defmethod chain-read-context-id ((context bot-context)) 
   (chain-context (bot-nick context)))

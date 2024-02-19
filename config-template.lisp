@@ -41,7 +41,7 @@
 			      ("Bootsy" ("#funkrehab"))
 			      ("shogun" ("#walled"))
 			      ("thugster" ("#wallednoc")))))
-               :web-server-name "coruscant.deepsky.com"
+               :web-server-name "deepsky.com"
                :web-server-ports '(7080 8080 8090 9099)
                :url-store-type :psql
                ;; :psql-botdb-credentials '("botdb" "semaphor" nil :unix)

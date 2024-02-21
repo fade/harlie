@@ -32,7 +32,6 @@
 	(setf (bot-uri-prefix context) (sixth conlist))))))
 
 (defun chain-context (nick)
-  (log:debug "|||]> ~A <[|||" nick)
   (with-connection (psql-botdb-credentials *bot-config*)
     (query (:select 'context-id
 	    :from 'contexts

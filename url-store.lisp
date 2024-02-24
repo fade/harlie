@@ -103,10 +103,12 @@
     (multiple-value-bind (badurls goodurls) (scan-urls-with-fn #'url-resolves-p :urls urls)
       (with-connection dbconn
 	(loop for url in badurls :do (progn
+                                       (log:debug "Setting dead: ~A" (input-url url))
 				       (set-dead url)
 				       (update-dao url)))
 	(loop for url in goodurls :do (progn
 					(reset-title url)
+                                        (log:debug "Resetting title: ~A" (title url))
 					(update-dao url)))))))
 
 (defparameter *letterz* "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")

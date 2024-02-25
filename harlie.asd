@@ -4,6 +4,7 @@
   :serial t
   :depends-on (#:alexandria
 	       #:bordeaux-threads
+               #:lparallel
                #:cl-cron
 	       #:cl-fad
 	       #:cl-irc

@@ -57,10 +57,10 @@
    writing.] ... the first value is the list of 'bad' urls. the
    second, the ones with status returns < 400."
   (loop for url in urls
-	:if (funcall fn url)
-	:collect url into good
+	:if (lparallel:pfuncall fn url)
+          :collect url into good
 	:else
-	:collect url into bad
+          :collect url into bad
 	:finally (return (values bad good))))
 
 (defun url-resolves-p (urlobj)

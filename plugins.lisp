@@ -475,6 +475,18 @@
 			     'papal-anchor
 			     'papal-extractor))))
 
+(defplugin roll (plug-request)
+  (case (plugin-action plug-request)
+    (:docstring (format nil "Roll N of P polyhedral dice and return the sum."))
+    (:priority 3.0)
+    (:run (let* ((n (parse-integer (second (plugin-token-text-list plug-request)) :junk-allowed t))
+                 (p (parse-integer (third (plugin-token-text-list plug-request)) :junk-allowed t)))
+            (loop for dice from 1 to n
+                  for roll = (random p)
+                  summing roll into total-roll
+                  finally (return total-roll))))))
+
+
 ;; ===[ hyperspace motivator follows. ]===
 
 (defun plugin-docs ()

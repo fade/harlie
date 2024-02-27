@@ -485,7 +485,7 @@
                           for roll = (random p)
                           summing roll into total-roll
                           finally (return total-roll))))
-            (format nil "You roll ~A d~A... the roll is ~A!" n p v)))))
+            (format nil "You roll ~A d-~A... the roll is ~:d!" n p v)))))
 
 
 ;; ===[ hyperspace motivator follows. ]===

@@ -284,46 +284,46 @@
 				  (format nil "~A" (caar stack))
 				  (format nil "~F" (caar stack)))
 			      (format nil "Stack (top): [~{~A~^ ~}]" (maplist #'(lambda (x) (car x)) stack))))
-		    (let ((opname (string-upcase x)))
-		      (cond ((scan "^[0-9]+$" x)
-			     (push (list (parse-integer x) nil) stack))
-			    ((scan "^[0-9]*[.][0-9]+$" x)
-			     (push (list (parse-number:parse-number x) nil) stack))
-			    ((scan "^NEG$" opname)
-			     (setf (caar stack) (- (caar stack))))
-			    ; Commutative binary operators
-			    ((scan "^[+*]$" opname)
-			     (push (list (funcall (intern opname) (car (pop stack)) (car (pop stack))) nil) stack))
-			    ; Non-commutative binary operators
-			    ((scan "^[/-]|EXPT|LOG|MOD$" opname)
-			     (let ((a (car (pop stack)))
-				   (b (car (pop stack))))
-			       (push (list (funcall (intern opname) b a) nil) stack)))
-			    ; Forth-style stack modifying operators
-			    ((scan "^SWAP$" opname)
-			     (setf stack (append (reverse (subseq stack 0 2)) (cddr stack))))
-			    ((scan "^DROP$" opname)
-			     (pop stack))
-			    ((scan "^DUP$" opname)
-			     (push (car stack) stack))
-			    ; Unary operators whose names match those in Common Lisp
-			    ((scan "^SIN|COS|TAN|ASIN|ACOS|ATAN|SQRT|EXP$" opname)
-			     (push (list (funcall (intern opname) (car (pop stack))) nil) stack))
-			    ; Binary operators expecting and requiring integer arguments
-			    ((scan "^GCD|LCM$" opname)
-			     (handler-case
-				 (push (list (funcall (intern opname) (car (pop stack)) (car (pop stack))) nil) stack)
-			       (type-error () (return-from rpn-calculator "Type error: expected integer."))))
-			    ((scan "^RAND(OM)?$" opname)
-			     (push (list (random (car (pop stack))) nil) stack))
-			    ((scan "^LN$" opname)
-			     (push (list (log (pop stack)) nil) stack))
-			    (t (error 'unrecognized-operator-error
-				      :unrecognized-operator x)))))
-
+          (let ((opname (string-upcase x)))
+            (cond ((scan "^[0-9]+$" x)
+                   (push (list (parse-integer x) nil) stack))
+                  ((scan "^[0-9]*[.][0-9]+$" x)
+                   (push (list (parse-number:parse-number x) nil) stack))
+                  ((scan "^NEG$" opname)
+                   (setf (caar stack) (- (caar stack))))
+                                        ; Commutative binary operators
+                  ((scan "^[+*]$" opname)
+                   (push (list (funcall (intern opname) (car (pop stack)) (car (pop stack))) nil) stack))
+                                        ; Non-commutative binary operators
+                  ((scan "^[/-]|EXPT|LOG|MOD$" opname)
+                   (let ((a (car (pop stack)))
+                         (b (car (pop stack))))
+                     (push (list (funcall (intern opname) b a) nil) stack)))
+                                        ; Forth-style stack modifying operators
+                  ((scan "^SWAP$" opname)
+                   (setf stack (append (reverse (subseq stack 0 2)) (cddr stack))))
+                  ((scan "^DROP$" opname)
+                   (pop stack))
+                  ((scan "^DUP$" opname)
+                   (push (car stack) stack))
+                                        ; Unary operators whose names match those in Common Lisp
+                  ((scan "^SIN|COS|TAN|ASIN|ACOS|ATAN|SQRT|EXP$" opname)
+                   (push (list (funcall (intern opname) (car (pop stack))) nil) stack))
+                                        ; Binary operators expecting and requiring integer arguments
+                  ((scan "^GCD|LCM$" opname)
+                   (handler-case
+                       (push (list (funcall (intern opname) (car (pop stack)) (car (pop stack))) nil) stack)
+                     (type-error () (return-from rpn-calculator "Type error: expected integer."))))
+                  ((scan "^RAND(OM)?$" opname)
+                   (push (list (random (car (pop stack))) nil) stack))
+                  ((scan "^LN$" opname)
+                   (push (list (log (pop stack)) nil) stack))
+                  (t (error 'unrecognized-operator-error
+                            :unrecognized-operator x)))))
+      (division-by-zero () (format nil "Bald Monkey! You will not trick me into dividing by zero!"))
       (simple-type-error () (if (= (length stack) 0)
-				 (format nil "Stack underflow.")
-				 (format nil "Type error.")))
+                                (format nil "Stack underflow.")
+                                (format nil "Type error.")))
       (unrecognized-operator-error (x) (format nil "Unrecognized operator: ~A" (unrecognized-operator x))))))
 
 (defplugin rpn (plug-request)

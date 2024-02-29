@@ -59,7 +59,10 @@
   (declare (ignorable fn))
   (let ((good (list))
         (bad (list)))
-    (lparallel:pmapc #'url-resolves-p urls)
+    (lparallel:pmapc #'(lambda (url)
+                         (if (url-resolves-p url)
+                             (push url good)
+                             (push url bad))) urls)
     (values bad good)))
 
 (defun url-resolves-p (urlobj)

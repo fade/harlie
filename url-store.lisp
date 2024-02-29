@@ -56,12 +56,11 @@
    #<URLS {1008D19D81}> #<URLS {1008D19DA1}>)[at time of this
    writing.] ... the first value is the list of 'bad' urls. the
    second, the ones with status returns < 400."
-  (loop for url in urls
-	:if (lparallel:pfuncall fn url)
-          :collect url into good
-	:else
-          :collect url into bad
-	:finally (return (values bad good))))
+  (declare (ignorable fn))
+  (let ((good (list))
+        (bad (list)))
+    (lparallel:pmapc #'url-resolves-p urls)
+    (values bad good)))
 
 (defun url-resolves-p (urlobj)
   "the url resolves if the get status is not in the 400 range. If it
@@ -76,7 +75,7 @@
 	    (format t "~&URL BAD: [~A]" (input-url urlobj))
 	    nil))
       (when stream
-	(close stream)))))
+        (close stream)))))
 
 (defun bad-url-indexes (&key (urls (list-n-urls 10)))
   (let ((urls (scan-urls-with-fn #'url-resolves-p :urls urls)))

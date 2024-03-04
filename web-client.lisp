@@ -83,7 +83,7 @@ Only the first match is returned."
                               "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.142 Safari/537.36"))
 
 (defun fetch-title (url)
-"Extract the title from a Web page.  Return three values.
+  "Extract the title from a Web page.  Return three values.
 If the first value is nil, then no actual title could be found.  If non-nil,
 then this value will be the title scraped from the page.
 The second value is identical to the first if a title was found.  If not, then
@@ -94,17 +94,21 @@ This is a very confusing API."
   (let ((page-exists-p nil)
 	(store-redirect-uri nil))
     (dolist (user-agent *user-agents*)
-      (multiple-value-bind (webtext status nonsense redirect-uri) (webget url :redirect 10 :user-agent user-agent)
-	(declare (ignore nonsense))
-	(when (and webtext status (< status 400))
-	  (setf page-exists-p t
-		store-redirect-uri redirect-uri)
-	  (if (stringp webtext)
-	      (let* ((document (chtml:parse webtext (chtml:make-lhtml-builder)))
-		     (title (cleanup-title (find-title document))))
-		(when title
-		  (return-from fetch-title (values title title redirect-uri))))
-	      (return-from fetch-title (values nil "Binary data" redirect-uri))))))
+      (handler-case
+          (multiple-value-bind (webtext status nonsense redirect-uri) (webget url :redirect 10 :user-agent user-agent)
+            (declare (ignore nonsense))
+            (when (and webtext status (< status 400))
+              (setf page-exists-p t
+                    store-redirect-uri redirect-uri)
+              (if (stringp webtext)
+                  (let* ((document (chtml:parse webtext (chtml:make-lhtml-builder)))
+                         (title (cleanup-title (find-title document))))
+                    (when title
+                      (return-from fetch-title (values title title redirect-uri))))
+                  (return-from fetch-title (values nil "Binary data" redirect-uri)))))
+        (sb-int:invalid-array-index-error (c)
+          (log:error "Caught error: ~A" c)
+          (values "Remote contains invalid language encoding..."))))
     (values nil (if page-exists-p "No title found" nil) store-redirect-uri)))
 
 ;;; alternative scraping system which uses an STP document structure

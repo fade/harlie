@@ -113,7 +113,7 @@ sender wasn't being ignored; true otherwise."))
   (declare (ignorable channel))
 
   (setf (ignored channel/user-map) t)
-  (log:debug "~&MAKE-USER-IGNORED:: THIS-USER IS: ~A" this-user)
+  (log:info "~&MAKE-USER-IGNORED:: THIS-USER IS: ~A" this-user)
   (handler-case
       (with-connection (psql-botdb-credentials *bot-config*)
         ;; (update-dao this-user)
@@ -127,7 +127,7 @@ sender wasn't being ignored; true otherwise."))
   ;; (declare (ignorable channel))
   
   (setf (ignored channel/user-map) nil)
-  (log:debug "~&MAKE-USER-UNIGNORED:: ~A / ~A~%" channel channel/user-map)
+  (log:info "~&MAKE-USER-UNIGNORED:: ~A / ~A~%" channel channel/user-map)
   (handler-case
       (with-connection (psql-botdb-credentials *bot-config*)
         (update-dao this-user)
@@ -137,7 +137,7 @@ sender wasn't being ignored; true otherwise."))
 
 
 (defmethod start-ignoring ((connection bot-irc-connection) (sender string) (channel string))
-  (log:debug "~& #'START-IGNORING: CHANNEL: ~A ~A~%" (type-of channel) channel)
+  (log:info "~& #'START-IGNORING: CHANNEL: ~A ~A~%" (type-of channel) channel)
   (let* ((bot-irc-channel-name channel)
          ;; (gethash "Faed" (ignore-sticky (gethash "#busted" (channels (some-connection)))))
          (stored-state (gethash sender (ignore-sticky (gethash bot-irc-channel-name (channels connection))))))
@@ -147,7 +147,7 @@ sender wasn't being ignored; true otherwise."))
           (log:debug "Too many!"))
       (if (not (ignored channel/user-map))
           (progn
-            (log:debug "~2&ignoring a fafo: ~A // ~A //~%" sender (current-handle this-user))
+            (log:info "~2&ignoring a fafo: ~A // ~A //~%" sender (current-handle this-user))
             ;; we change the database channel/user state in make-user-ignored
             (make-user-ignored this-channel this-user channel/user-map)
             ;; and then the cached value in the connection object of
@@ -310,7 +310,7 @@ allowing for leading and trailing punctuation characters in the match."
       (log:info "~&connection: ~A channel-name: ~A channel: ~A sender: ~A command: ~A context: ~A reply-to: ~A~%" connection channel-name channel sender command context reply-to)
       
       (setf (last-message connection) message)
-      (log:debug "Message: ~A~%" (raw-message-string message))
+      (log:info "Message: ~A~%" (raw-message-string message))
       (log:debug "MSG-HOOK flet/reply   connection=~A channel-name=~A~%" connection channel-name)
       (unless (ignoring connection sender text #'irc-reply channel channel-name)
 	(cond ((scan "^![^!]" command)
@@ -544,7 +544,7 @@ hook runs before the default-hook, extended here."
       (let* ((chan-obj-hash (get-channel-object-from-connection connection channel)))
         (log:debug "~4&This is your channel object hash: ~A. There are many like it, but this one is yours.~2%" chan-obj-hash)
         ;;  (log:debug "~2&[[[~{ ~A~^| ~}]]]~2%" (list nick chan-visibility channel names))
-        (log:debug "~2&CHANNEL: ~A JOIN DEFAULT HOOK, NAMES:: ~A~2%" channel names)
+        (log:debug "~2&CHANNEL:: ~A JOIN DEFAULT HOOK, NAMES:: ~A~2%" channel names)
 
         (let ((name-list (channel-member-list-on-join message))) ;; seems redundant but this cleans punctuation
           (loop for name in name-list
@@ -552,7 +552,7 @@ hook runs before the default-hook, extended here."
                       (when (not (string= nick name)) ;; don't act on ourself
                         ;; establish user objects.
                         ;; print the name of the user, and the enclosing channel.
-                        (log:debug "~&->->-> Acting for user: ~A on channel: ~A~%" name channel)
+                        (log:info "~&->->-> Acting for user: ~A on channel: ~A~%" name channel)
                         (with-channel-user channel name
                           (let ((this-user-name (harlie-user-name this-user)))
                             (if this-user

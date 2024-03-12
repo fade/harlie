@@ -526,7 +526,6 @@ access this object when we aren't in the throes of a message event."))
 (defmethod get-channel-object-from-connection ((connection bot-irc-connection) (cname string))
   (gethash cname (channels connection)))
 
-
 (defmethod cl-irc::default-hook :after ((message irc-rpl_namreply-message))
   "when the bot joins an irc channel, it catches a message of type
 'IRC-RPL_NAMREPLY-MESSAGE (sic) which will snag this hook from the

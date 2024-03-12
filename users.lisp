@@ -52,10 +52,10 @@
   ((bot-channel-id :col-type serial
                    :reader bot-channel-id)
    (channel-name :col-type text
-            :initarg :channel-name
-            :col-unique t
-            :initform ""
-            :accessor channel-name)
+                 :initarg :channel-name
+                 :col-unique t
+                 :initform ""
+                 :accessor channel-name)
    (server :col-type text
            :initarg :server
            :initform "" :accessor server))
@@ -65,8 +65,6 @@
   (:metaclass postmodern:dao-class)
   ;; (:table-name bot-channels)
   (:keys bot-channel-id))
-
-
 
 (defun make-bot-channel (channel-name &optional (server-name nil))
   (log:debug "~2&Creating a channel object for channel: ~A~%" channel-name)
@@ -222,7 +220,7 @@
 
 (defun make-bot-channels ()
   (with-connection (psql-botdb-credentials *bot-config*)
-   (query (dao-table-definition 'bot-channel))))
+    (query (dao-table-definition 'bot-channel))))
 
 (defun zero-channel-users ()
   "destroy and recreate the table to hold a channel's persistent users."
@@ -231,7 +229,7 @@
 
 (defun make-channel-users ()
   (with-connection (psql-botdb-credentials *bot-config*)
-   (query (dao-table-definition 'channel-user))))
+    (query (dao-table-definition 'channel-user))))
 
 (defun zero-harlie-users ()
   "destroy the table that holds the users known to the bot."

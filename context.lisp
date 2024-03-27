@@ -39,12 +39,6 @@
 		       (string-downcase nick)))
 	   :single)))
 
-;; (defun chain-context (nick)
-;;   (log:debug "|||]> ~A <[|||" nick)
-;;   (if (string= nick "SR-4")
-;;       1
-;;       2))
-
 (defgeneric chain-read-context-id (context)
   (:documentation "Returns the context ID for reading the chaining DB in a given context."))
 

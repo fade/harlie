@@ -1,3 +1,4 @@
+
 - Move METAR utility functions to their own file?
 - CLOS-ize trigger lists
 - Fix the random chain start once and for all

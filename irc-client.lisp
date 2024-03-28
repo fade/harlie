@@ -37,6 +37,7 @@
 (defclass bot-irc-channel (cl-irc:channel)
   ((trigger-list :initarg :trigger-list :initform nil :accessor trigger-list)
    (ignore-sticky :initarg :ignore-sticky
+                  ;; this make-hash-table with a synchronized target is not portable.
                   :initform (make-hash-table :test #'equalp :synchronized t) :accessor ignore-sticky)))
 
 ;; Here, we insinuate ourselves into the cl-irc plumbing by subclassing the irc channel

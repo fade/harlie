@@ -8,7 +8,6 @@
                #:cl-cron
 	       #:cl-fad
 	       #:cl-irc
-	       ;; #:cl-log
                #:log4cl
 	       #:cl-json
                #:com.inuoe.jzon
@@ -17,12 +16,18 @@
 	       #:cl-ppcre
                #:cl-interpol
 	       #:cl-who
+               ;; webscraping
 	       #:closure-html
-	       #:colorize
+               #:dexador
+               #:plump
+               #:lquery
 	       #:cxml-stp
-	       #:drakma
-               ;; #:fxr
+               ;; /webscraping
+               ;; web server and client
+	       #:colorize
+	       #:drakma ;; TODO remove me in favour of dexador.
 	       #:hunchentoot
+               ;; /web server and client
 	       #:jpl-queues
 	       #:local-time
                #:cl-postgres+local-time

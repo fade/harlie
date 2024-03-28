@@ -98,7 +98,7 @@ the chain, and also the number of trials before finding it."
 
 (defun acceptable-word-p (w)
   (and (not (string= (string #\Newline) w))
-       (>= (length w) 4) ;; Redundant, but let's leave it in for example's sake
+       (>= (length w) 6) ;; Redundant, but let's leave it in for example's sake
        (scan "^[a-zA-Z]*$" w)))
 
 (defparameter *words-safe* nil)

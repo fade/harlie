@@ -92,23 +92,24 @@ The third value is the redirected URI for the page retrieved, if the page
 was retrieved.  If the page couldn't be retrieved, the third value is nil.
 This is a very confusing API."
   (let ((page-exists-p nil)
-	(store-redirect-uri nil))
-    (dolist (user-agent *user-agents*)
-      (handler-case
-          (multiple-value-bind (webtext status nonsense redirect-uri) (webget url :redirect 10 :user-agent user-agent)
-            (declare (ignore nonsense))
-            (when (and webtext status (< status 400))
-              (setf page-exists-p t
-                    store-redirect-uri redirect-uri)
-              (if (stringp webtext)
-                  (let* ((document (chtml:parse webtext (chtml:make-lhtml-builder)))
-                         (title (cleanup-title (find-title document))))
-                    (when title
-                      (return-from fetch-title (values title title redirect-uri))))
-                  (return-from fetch-title (values nil "Binary data" redirect-uri)))))
-        (sb-int:invalid-array-index-error (c)
-          (log:error "Caught error: ~A" c)
-          (values "Remote contains invalid language encoding..."))))
+	(store-redirect-uri nil)
+        (user-agent (random-elt *user-agents*)))
+    (handler-case
+        (multiple-value-bind (webtext status nonsense redirect-uri) (webget url :redirect 10 :user-agent user-agent)
+          (declare (ignore nonsense))
+          (when (and webtext status (< status 400))
+            (setf page-exists-p t
+                  store-redirect-uri redirect-uri)
+            (if (stringp webtext)
+                (let* ((document (chtml:parse webtext (chtml:make-lhtml-builder)))
+                       (title (cleanup-title (find-title document))))
+                  (when title
+                    (return-from fetch-title (values title title redirect-uri))))
+                (return-from fetch-title (values nil "Binary data" redirect-uri)))))
+      (sb-int:invalid-array-index-error (c)
+        (log:error "Caught error: ~A" c)
+        (values "Remote contains invalid language encoding...")))
+
     (values nil (if page-exists-p "No title found" nil) store-redirect-uri)))
 
 ;;; alternative scraping system which uses an STP document structure

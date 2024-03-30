@@ -111,7 +111,7 @@ the chain, and also the number of trials before finding it."
       (unless (member readconid *words-safe*)
 	(if (= 0 (query (:select (:raw "count(*)") :from 'words :where (:= 'context-id readconid)) :single))
 	    (progn
-	      (format t "Your words database is empty.  There are no trigger words.")
+	      (log:info "Your words database is empty.  There are no trigger words.")
 	      (return-from random-words nil))
 	    (push readconid *words-safe*)))
       (let ((table-length (query

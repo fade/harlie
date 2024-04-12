@@ -363,7 +363,6 @@
          (station-name (gethash "name" md))
 	 (reading-time (gethash "reportTime" md))
 	 (wind-speed (gethash "wspd" md))
-         ;; TODO: Is the following really deriving the windspeed unit?
 	 (wind-units (scan-to-first-string "[0-9]{2}(MPS|KT)" (gethash "rawOb" md))) 
 	 (metar-temp (gethash "temp" md))
 	 (metar-dewpoint (gethash "dewp" md))

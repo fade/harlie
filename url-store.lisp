@@ -57,12 +57,14 @@
    writing.] ... the first value is the list of 'bad' urls. the
    second, the ones with status returns < 400."
   (declare (ignorable fn))
+  (setf lparallel:*kernel* (lparallel:make-kernel *threads*))
   (let ((good (list))
         (bad (list)))
     (lparallel:pmapc #'(lambda (url)
                          (if (url-resolves-p url)
                              (push url good)
                              (push url bad))) urls)
+    (lparallel:end-kernel)
     (values bad good)))
 
 (defun url-resolves-p (urlobj)

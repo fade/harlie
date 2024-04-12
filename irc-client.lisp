@@ -250,9 +250,7 @@ allowing for leading and trailing punctuation characters in the match."
   "Apply commands related to ignoring/not ignoring the speaker.  Return t if
    the rest of the bot should ignore this utterance; return nil otherwise."
 
-  ;; bot continues to ignore after !ignoreme off
-  
-  (let ((ignore-phrase "NOTIFY:: Help, I'm a bot!"))
+  (let ((ignore-phrase *ignore-phrase*))
     (cond ((string= ignore-phrase text)
            (log:debug "Caught BOT Ignore Phrase, ignoring cousin from across the river: ~A on channel: ~A"
                       sender channel)
@@ -314,6 +312,7 @@ allowing for leading and trailing punctuation characters in the match."
       (setf (last-message connection) message)
       (log:info "Message: ~A~%" (raw-message-string message))
       (log:debug "MSG-HOOK flet/reply   connection=~A channel-name=~A~%" connection channel-name)
+      ;; in following if channel is nil we're in a query.
       (unless (ignoring connection sender text #'irc-reply channel channel-name)
 	(cond ((scan "^![^!]" command)
 	       (run-plugin (make-instance

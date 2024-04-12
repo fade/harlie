@@ -7,6 +7,12 @@
 ;; this sets the logging verbosity. 
 (log:config :debug)
 
+;; the phrase the bot utters to self-identify to other bots (and people). This must be
+;; coordinated with other bot herders.
+(defparameter *threads* 20 "The threads to use to check stored URLs in parallel.")
+(defparameter *ignore-phrase* "NOTIFY:: Help, I'm a bot!")
+
+;; database access credentials.
 (defparameter *bot-database-credentials*
   '("botdb" "your-username" nil :unix))
 

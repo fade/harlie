@@ -10,6 +10,7 @@
 (defparameter *bot-database-credentials*
   '("botdb" "your-username" nil :unix))
 
+(defparameter *ignore-phrase* "NOTIFY:: Help, I'm a bot!")
 
 ;; these are exmaples.
 (defparameter *harlot-config*

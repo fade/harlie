@@ -475,16 +475,17 @@
 			     'papal-extractor))))
 
 (defplugin roll (plug-request)
-  (case (plugin-action plug-request)
-    (:docstring (format nil "Roll N of P polyhedral dice and return the sum."))
-    (:priority 3.0)
-    (:run (let* ((n (parse-integer (second (plugin-token-text-list plug-request)) :junk-allowed t))
-                 (p (parse-integer (third (plugin-token-text-list plug-request)) :junk-allowed t))
-                 (v (loop for dice from 1 to n
-                          for roll = (random p)
-                          summing roll into total-roll
-                          finally (return total-roll))))
-            (format nil "You roll ~A d~A... the roll is ~:d!" n p v)))))
+  (let ((random-state (make-random-state)))
+    (case (plugin-action plug-request)
+      (:docstring (format nil "Roll N of P polyhedral dice and return the sum."))
+      (:priority 3.0)
+      (:run (let* ((n (parse-integer (second (plugin-token-text-list plug-request)) :junk-allowed t))
+                   (p (parse-integer (third (plugin-token-text-list plug-request)) :junk-allowed t))
+                   (v (loop for dice from 1 to n
+                            for roll = (max (random p random-state) 1)
+                            summing roll into total-roll
+                            finally (return total-roll))))
+              (format nil "You roll ~A d~A... the roll is ~:d!" n p v))))))
 
 
 ;; ===[ hyperspace motivator follows. ]===

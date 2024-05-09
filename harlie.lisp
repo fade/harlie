@@ -19,5 +19,6 @@
   "Disconnect from the IRC server, clean up persistent data, shut down the Web servers."
   (stop-threaded-irc-client-instances)
   (setf *users* nil)
+  (setf *random-state* nil)  
   (stop-web-servers)
   (stop-web-client))

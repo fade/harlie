@@ -10,9 +10,9 @@
     (with-html-output-to-string (s)
       (:html
        (:head
-	(:title (str (format nil "Short URL index for ~A on ~A" (bot-nick context) (bot-irc-channel context)))))
+	(:title (str (format nil "URL index for ~A on ~A" (bot-nick context) (bot-irc-channel context)))))
        (:body
-	(:h2 "URL Index")
+	(:h2 (str (format nil "URL Index for ~A on ~A" (bot-nick context) (bot-irc-channel context))))
 	(:br)
 	(:ul
 	 (dolist (link (get-urls-and-headlines store (make-instance 'bot-context :bot-web-port (acceptor-port (request-acceptor *request*)))))
@@ -23,19 +23,20 @@
 	       (:a :href target (str (escape-string link-description))))))))))
       s)))
 
-(defun html-apology ()
-  "Return HTML for a page explaining that a browser has struck out."
-  (with-html-output-to-string (s)
-    (:html
-     (:head
-      (:title "You are in a maze of twisty little redirects, all alike."))
-     (:body
-      (:h1
-       (htm
-        (:p "With apologies")
-        (:p "I don't have that URL...")
-        (:p "Perhaps you mistyped?")))))
-    s))
+(defun url-index-ass-dispatch (store &key (rport 5807))
+  (let* ((request-port (if (boundp 'hunchentoot:*request*)
+                           (acceptor-port (request-acceptor *request*))
+                           rport))
+         (context (make-instance 'bot-context :bot-web-port request-port)))
+    (with-output-to-string (s nil)
+      (dolist (link (get-urls-and-headlines store context))
+        (let ((target (first link))
+              (link-description (second link))
+              (who-link (third link))
+              (tstamp (fourth link)))
+          (log:debug "~2& ~A ~A ~A" tstamp target link-description)
+          ;;date tab link tab description
+          (format s "~&~A~A~A~A[~A]~A~%" date #\tab target #\tab who-link link-description))))))
 
 (defun redirect-shortener-dispatch ()
   "Dispatcher for the Web pages served by the bot.
@@ -64,6 +65,27 @@ or an error message, as appropriate."
 		    (html-apology)))))
 	(let ((page (make-webpage-listing-urls *the-url-store*)))
 	  (values (format nil "~A" page))))))
+
+(defun ass-url-index ()
+  "Dispatcher for the list of stored web links in the index, returned
+according to https://tilde.town/~dzwdz/ass/"
+  (let ((uri (request-uri*)))
+    (log:debug "~2&~A" uri)
+    (url-index-ass-dispatch *the-url-store*)))
+
+(defun html-apology ()
+  "Return HTML for a page explaining that a browser has struck out."
+  (with-html-output-to-string (s)
+    (:html
+     (:head
+      (:title "You are in a maze of twisty little redirects, all alike."))
+     (:body
+      (:h1
+       (htm
+        (:p "With apologies")
+        (:p "I don't have that URL...")
+        (:p "Perhaps you mistyped?")))))
+    s))
 
 (defun help-dispatch ()
   "Dispatcher for the help page served by the bot."
@@ -151,6 +173,8 @@ or an error message, as appropriate."
 			 :message-log-destination (make-pathname-in-lisp-subdir "harlie/logs/http-error.log"))
 	  *acceptors*)
     (glom-on-prefix "/" 'redirect-shortener-dispatch)
+    ;; (glom-on-prefix "/ass" 'url-index-ass-dispatch)
+    (glom-on-prefix "/ass/" 'ass-url-index)
     (glom-on-static-file "/robots.txt" "harlie/robots.txt")
     (glom-on-regex "^/help/?$" 'help-dispatch)
     (glom-on-regex "^/source" 'source-dispatch)

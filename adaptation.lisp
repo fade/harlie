@@ -1,8 +1,9 @@
 (in-package #:harlie)
+
 #+sbcl
 (defun make-synchronized-hash-table (&key
 				       (test 'eql)
-				       (size sb-impl::+min-hash-table-size+)
+				       (size 40)
 				       (rehash-size 1.5)
 				       (rehash-threshold 1))
   (make-hash-table :test test

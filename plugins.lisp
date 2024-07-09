@@ -433,13 +433,12 @@
 ;; temperature conversions
 
 (defun temperature-convert (temp &key (scale :celsius))
-  (let ((tt (ignore-errors (parse-number temp))))
-    ;; (assert (numberp tt))
-    (when (numberp tt)
-      (case scale
-	(:celsius (+ (* tt 9/5) 32))
-	(:fahrenheit (* (- tt 32) 5/9))
-	))))
+  (let ((tt (if (numberp temp)
+                temp
+                (ignore-errors (parse-number temp)))))
+    (case scale
+      (:celsius (+ (* tt 9/5) 32))
+      (:fahrenheit (* (- tt 32) 5/9)))))
 
 ;; ftoc fahrenheit -> celsius
 

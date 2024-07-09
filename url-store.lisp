@@ -111,8 +111,8 @@
 				       (set-dead url)
 				       (update-dao url)))
 	(loop for url in goodurls :do (progn
-					(reset-title url)
-                                        (log:debug "Resetting title: ~A" (title url))
+					(log:debug "Resetting title: ~A" (title url))
+                                        (reset-title url)
 					(update-dao url)))))))
 
 (defparameter *letterz* "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")

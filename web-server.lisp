@@ -70,7 +70,7 @@ or an error message, as appropriate."
   "Dispatcher for the list of stored web links in the index, returned
 according to https://tilde.town/~dzwdz/ass/"
   (let ((uri (request-uri*)))
-    (log:debug "~2&~A" uri)
+    (log:debug "~2&/ass/~A" uri)
     (url-index-ass-dispatch *the-url-store*)))
 
 (defun html-apology ()

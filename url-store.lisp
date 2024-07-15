@@ -16,6 +16,7 @@
    (from-nick :col-type string :initarg :from-nick :accessor from-nick)
    (tstamp :col-type integer :initform (timestamp-to-unix (now)) :accessor tstamp)
    (dead :col-type boolean :initform nil :accessor url-dead-p)
+   (date-time :col-type timestamp :accessor url-date-time)
    (context-id :col-type integer :initarg :context-id :accessor context-id))
   (:metaclass dao-class)
   (:keys url-id))

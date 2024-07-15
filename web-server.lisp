@@ -4,6 +4,8 @@
 
 (defparameter *acceptors* nil)
 
+(setf hunchentoot:*show-lisp-errors-p* t)
+
 (defun make-webpage-listing-urls (store)
   "Generate HTML for the Web page listing the Web links in the database."
   (let ((context (make-instance 'bot-context :bot-web-port (acceptor-port (request-acceptor *request*)))))
@@ -36,7 +38,14 @@
               (tstamp (fourth link)))
           (log:debug "~2& ~A ~A ~A" tstamp target link-description)
           ;;date tab link tab description
-          (format s "~&~A~A~A~A[~A]~A~%" date #\tab target #\tab who-link link-description))))))
+          (format s "~&~A~A~A~A[~A]~A~%" tstamp #\tab target #\tab who-link link-description))))))
+
+(defun ass-url-index ()
+  "Dispatcher for the list of stored web links in the index, returned
+according to https://tilde.town/~dzwdz/ass/"
+  (let ((uri (request-uri*)))
+    (log:debug "~2&/ass/~A" uri)
+    (url-index-ass-dispatch *the-url-store*)))
 
 (defun redirect-shortener-dispatch ()
   "Dispatcher for the Web pages served by the bot.
@@ -65,13 +74,6 @@ or an error message, as appropriate."
 		    (html-apology)))))
 	(let ((page (make-webpage-listing-urls *the-url-store*)))
 	  (values (format nil "~A" page))))))
-
-(defun ass-url-index ()
-  "Dispatcher for the list of stored web links in the index, returned
-according to https://tilde.town/~dzwdz/ass/"
-  (let ((uri (request-uri*)))
-    (log:debug "~2&/ass/~A" uri)
-    (url-index-ass-dispatch *the-url-store*)))
 
 (defun html-apology ()
   "Return HTML for a page explaining that a browser has struck out."

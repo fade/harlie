@@ -463,7 +463,7 @@ a specific user in a specific channel."))
     (when channel/user-map
       (progn
         (log:debug "~2&[NEW USER OBJECT FOR USER JOIN] -> [ ~A ][ ~A ]" uobject (current-handle uobject))
-        (log:debug "~2& ~A~%" (describe uobject))
+        ;; (log:debug "~2& ~A~%" (describe uobject))
 
         ;; (setf (gethash (current-handle uobject) (ignore-sticky channel)) channel/user-map)
 
@@ -645,6 +645,7 @@ hook runs before the default-hook, extended here."
       (dolist (nick-spec (cadr server-spec))
 	(let ((nickname (car nick-spec))
 	      (channels (cadr nick-spec)))
+          (log:debug "THUNK for: ~A ~A ~A" ircserver nickname channels)
 	  (start-threaded-irc-client-instance ircserver nickname channels))))))
 
 (defun print-bot-config (botconfig)

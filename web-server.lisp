@@ -4,8 +4,6 @@
 
 (defparameter *acceptors* nil)
 
-(setf hunchentoot:*show-lisp-errors-p* t)
-
 (defun make-webpage-listing-urls (store)
   "Generate HTML for the Web page listing the Web links in the database."
   (let ((context (make-instance 'bot-context :bot-web-port (acceptor-port (request-acceptor *request*)))))

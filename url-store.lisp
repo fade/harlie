@@ -194,7 +194,7 @@
 (defmethod get-urls-and-headlines ((store postmodern-url-store) (context bot-context))
   (with-connection (readwrite-url-db store)
     (query (:order-by
-	    (:select 'redirected-url 'title 'from_nick 'tstamp
+	    (:select 'redirected-url 'title 'from_nick 'date-time
                      :from 'urls
                      :where (:and
                              (:= 'context-id (url-read-context-id context))

@@ -23,6 +23,8 @@
 	       (:a :href target (str (escape-string link-description))))))))))
       s)))
 
+(defconstant +ass-timestamp-format+ '((:YEAR 4) #\- (:MONTH 2) #\- (:DAY 2)))
+
 (defun url-index-ass-dispatch (store &key (rport 5807))
   (let* ((request-port (if (boundp 'hunchentoot:*request*)
                            (acceptor-port (request-acceptor *request*))
@@ -32,11 +34,11 @@
       (dolist (link (get-urls-and-headlines store context))
         (let ((target (first link))
               (link-description (second link))
-              (who-link (third link))
-              (tstamp (fourth link)))
+              ;; (who-link (third link))
+              (tstamp (local-time:format-timestring nil (fourth link) :format +ass-timestamp-format+)))
           (log:debug "~2& ~A ~A ~A" tstamp target link-description)
           ;;date tab link tab description
-          (format s "~&~A~A~A~A[~A]~A~%" tstamp #\tab target #\tab who-link link-description))))))
+          (format s "~&~A~A~A~A~A~%" tstamp #\tab target #\tab link-description))))))
 
 (defun ass-url-index ()
   "Dispatcher for the list of stored web links in the index, returned

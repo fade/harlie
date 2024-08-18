@@ -639,15 +639,18 @@ hook runs before the default-hook, extended here."
      :name (format nil "IRC Client thread: server ~A, nick ~A"
 		   ircserver nickname))))
 
-(defun start-threaded-irc-client-instances ()
+(defun start-threaded-irc-client-instances (&key (go? nil))
   "Spawn a thread to run a session with an IRC server."
   (dolist (server-spec (irc-joins *bot-config*))
     (let ((ircserver (car server-spec)))
+      (log:debug "~&IRC Server for joins: ~A" ircserver)
       (dolist (nick-spec (cadr server-spec))
+        ;; (log:debug "~&[[[ how is this even?? ~A ]]]" nick-spec)
 	(let ((nickname (car nick-spec))
 	      (channels (cadr nick-spec)))
-          (log:debug "THUNK for: ~A ~A ~A" ircserver nickname channels)
-	  (start-threaded-irc-client-instance ircserver nickname channels))))))
+          (log:debug "IRC handle: ~A on channel:~A" nickname channels)
+          (when go?
+            (start-threaded-irc-client-instance ircserver nickname channels)))))))
 
 (defun print-bot-config (botconfig)
   "print the contents of the bot's configuration class."

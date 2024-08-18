@@ -36,9 +36,9 @@
               (link-description (second link))
               ;; (who-link (third link))
               (tstamp (local-time:format-timestring nil (fourth link) :format +ass-timestamp-format+)))
-          (log:debug "~2& ~A ~A ~A" tstamp target link-description)
+          ;; (log:debug "~2& ~A ~A ~A" tstamp target link-description)
           ;;date tab link tab description
-          (format s "~&~A~A~A~A~A~%" tstamp #\tab target #\tab link-description))))))
+          (format s "~&<p>~A~A~A~A~A~%" tstamp #\tab target #\tab link-description))))))
 
 (defun ass-url-index ()
   "Dispatcher for the list of stored web links in the index, returned

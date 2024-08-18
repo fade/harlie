@@ -11,7 +11,7 @@
   (setf *random-state* (make-random-state t))
   (start-web-client)
   (start-web-servers)
-  (start-threaded-irc-client-instances)
+  (start-threaded-irc-client-instances :go? t)
   (start-cron)
   (add-canonical-crons))
 

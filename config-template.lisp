@@ -4,16 +4,18 @@
 
 (in-package #:harlie)
 
-;; this sets the logging verbosity. 
-(log:config :debug)
-
 (defparameter *threads* 20 "The threads to use to check stored URLs in parallel.")
 
 ;; the phrase the bot utters to self-identify to other bots (and people). This must be
 ;; coordinated with other bot herders.
-(defparameter *ignore-phrase* "NOTIFY:: Help, I'm a bot!" "Bot emits this phrase on channel join to announce its botness.")
 
-;; database access credentials.
+(defparameter *ignore-phrase* "NOTIFY:: Help, I'm a bot!"
+  "Bot emits this phrase on channel join to announce its botness.")
+
+;; this sets the logging verbosity. 
+(log:config :debug)
+
+;; database access credentials. CHANGE THIS PER YOUR SITE
 (defparameter *bot-database-credentials*
   '("botdb" "your-username" nil :unix))
 

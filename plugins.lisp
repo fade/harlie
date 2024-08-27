@@ -387,11 +387,11 @@
 	humidex
 	nil)))
 
-;; (defun metar-units-symbol (s)
-;;   "Return the temperature-scale-name symbol corresponding to the specified string."
-;;   (cond ((scan "^[kK]" s) :Kelvin)
-;; 	((scan "^[fFiI]" s) :Fahrenheit)
-;; 	(t :Centigrade)))
+(defun metar-units-symbol (s)
+  "Return the temperature-scale-name symbol corresponding to the specified string."
+  (cond ((scan "^[kK]" s) :Kelvin)
+	((scan "^[fFiI]" s) :Fahrenheit)
+	(t :Centigrade)))
 
 (defun form-metar-query-string (location)
   (format nil
@@ -417,18 +417,20 @@
             ;; FIXME: if we pass a bad code to the remote, we get a
             ;; null return in the form of an empty vector. we need to
             ;; test for that.
-	    (metar-data (svref (com.inuoe.jzon:parse (http-request (form-metar-query-string location)
-                                                                   :preserve-uri t :redirect 16)) 0)))
+            (raw-data (com.inuoe.jzon:parse (http-request (form-metar-query-string location)
+                                                          :preserve-uri t :redirect 16)))
+            (metar-data (if (> (length raw-data) 0)
+                            (svref raw-data 0))))
        (if metar-data
-	   (multiple-value-bind (station-name time-string windspeed cur-temp dew-temp) (metar-extract-data metar-data)
-	     (if (and station-name time-string windspeed cur-temp dew-temp)
-		 (let ((windchill (calculate-wind-chill cur-temp windspeed))
-		       (humidex (calculate-humidex cur-temp dew-temp)))
-		   (apply #'format nil "~A ~A   Current temperature ~A~@[, wind chill ~A~]~@[, humidex ~A~], dewpoint ~A"
-			  station-name time-string
-			  (mapcar #'(lambda (x) (metar-temp-value x units)) (list cur-temp windchill humidex dew-temp))))
-		 (format nil "Sorry, no weather at ~A." location)))
-	   (format nil "Sorry, I don't know from ~A." location))))))
+           (multiple-value-bind (station-name time-string windspeed cur-temp dew-temp) (metar-extract-data metar-data)
+             (if (and station-name time-string windspeed cur-temp dew-temp)
+                 (let ((windchill (calculate-wind-chill cur-temp windspeed))
+                       (humidex (calculate-humidex cur-temp dew-temp)))
+                   (apply #'format nil "~A ~A   Current temperature ~A~@[, wind chill ~A~]~@[, humidex ~A~], dewpoint ~A"
+                          station-name time-string
+                          (mapcar #'(lambda (x) (metar-temp-value x units)) (list cur-temp windchill humidex dew-temp))))
+                 (format nil "Sorry, no weather at ~A." location)))
+           (format nil "Sorry, I don't know from ~A. Try a valid ICAO code." location))))))
 
 ;; temperature conversions
 

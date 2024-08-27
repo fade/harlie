@@ -414,9 +414,7 @@
 	    (units (if (<= 3 (length tokens))
 		       (metar-units-symbol (third tokens))
 		       :Centigrade))
-            ;; FIXME: if we pass a bad code to the remote, we get a
-            ;; null return in the form of an empty vector. we need to
-            ;; test for that.
+            ;; the remote site check will return an empty vector if the location string is invalid.
             (raw-data (com.inuoe.jzon:parse (http-request (form-metar-query-string location)
                                                           :preserve-uri t :redirect 16)))
             (metar-data (if (> (length raw-data) 0)

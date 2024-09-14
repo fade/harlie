@@ -474,7 +474,7 @@
 			     'papal-extractor))))
 
 (defplugin roll (plug-request)
-  (let ((random-state (make-random-state)))
+  (let ((random-state (make-random-state t)))
     (case (plugin-action plug-request)
       (:docstring (format nil "Roll N of P polyhedral dice and return the sum."))
       (:priority 3.0)

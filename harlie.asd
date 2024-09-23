@@ -15,6 +15,7 @@
                #:jsown
 	       #:cl-ppcre
                #:cl-interpol
+               #:spinneret
 	       #:cl-who
                ;; webscraping
 	       #:closure-html

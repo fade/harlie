@@ -9,7 +9,7 @@
 	;; #:cl-log
         #:log4cl
 	#:cl-ppcre
-	#:cl-who
+	;; #:cl-who
 	#:closure-html
 	#:cxml-stp
 	#:drakma
@@ -26,7 +26,7 @@
    :host :*header-stream* :cookie-path :cookie-expires :cookie-name
                           :cookie-domain :parameter-error :cookie-value :url-encode)
   (:shadowing-import-from :cl-irc :connect)
-  (:shadowing-import-from :cl-who :with-html-output)
+  ;; (:shadowing-import-from :cl-who :with-html-output)
   (:shadowing-import-from :drakma :header-value)
   ;; (:shadowing-import-from :cl-log :log-message :make-timestamp :timestamp)
   (:shadowing-import-from :postmodern :encode-json-to-string)

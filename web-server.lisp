@@ -6,24 +6,26 @@
 
 (defun make-webpage-listing-urls (store)
   "Generate HTML for the Web page listing the Web links in the database."
-  (let ((context (make-instance 'bot-context :bot-web-port (acceptor-port (request-acceptor *request*)))))
-    (with-html-output-to-string (s)
+  (let* ((context (make-instance 'bot-context :bot-web-port (acceptor-port (request-acceptor *request*))))
+         (bothandle (bot-nick context))
+         (channel (bot-irc-channel context)))
+    (spinneret:with-html-string
       (:html
        (:head
-	(:title (str (format nil "URL index for ~A on ~A" (bot-nick context) (bot-irc-channel context)))))
+        (:link :rel "stylesheet" :href "https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css")
+        (:title (format nil "URL index for ~A on ~A" bothandle channel)))
        (:body
-	(:h2 (str (format nil "URL Index for ~A on ~A" (bot-nick context) (bot-irc-channel context))))
-	(:br)
-	(:ul
-	 (dolist (link (get-urls-and-headlines store (make-instance 'bot-context :bot-web-port (acceptor-port (request-acceptor *request*)))))
+        (:h2 (format nil "URL index for ~A on ~A" bothandle channel))
+        (:br)
+        (:ul
+         ;; context delimited by web port, so selecting the port here, selects the instance/channel of the bot.
+         (dolist (link (get-urls-and-headlines store (make-instance 'bot-context :bot-web-port (acceptor-port (request-acceptor *request*)))))
 	   (let ((target (car link))
 		 (link-description (cadr link)))
-	     (htm
-	      (:li
-	       (:a :href target (str (escape-string link-description))))))))))
-      s)))
+             (:li
+              (:a :href target link-description ))))))))))
 
-(defconstant +ass-timestamp-format+ '((:YEAR 4) #\- (:MONTH 2) #\- (:DAY 2)))
+(defvar +ass-timestamp-format+ '((:YEAR 4) #\- (:MONTH 2) #\- (:DAY 2)))
 
 (defun url-index-ass-dispatch (store &key (rport 5807))
   (let* ((request-port (if (boundp 'hunchentoot:*request*)
@@ -77,17 +79,16 @@ or an error message, as appropriate."
 
 (defun html-apology ()
   "Return HTML for a page explaining that a browser has struck out."
-  (with-html-output-to-string (s)
+  (spinneret:with-html-string
     (:html
      (:head
+      (:link :rel "stylesheet" :href "https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css")
       (:title "You are in a maze of twisty little redirects, all alike."))
      (:body
       (:h1
-       (htm
-        (:p "With apologies")
-        (:p "I don't have that URL...")
-        (:p "Perhaps you mistyped?")))))
-    s))
+       (:p "With apologies")
+       (:p "I don't have that URL...")
+       (:p "Perhaps you mistyped?"))))))
 
 (defun help-dispatch ()
   "Dispatcher for the help page served by the bot."

@@ -223,27 +223,28 @@
 
 (defun html-help ()
   "Return HTML for a page giving help with the bot's plugin commands."
-  (with-html-output-to-string (s)
-    (:html
-     (:head
-      (:title "Bot Help Page"))
-     (:body
-      (:h1 "Bot Command Help")
-      (:dl
-       (let ((oldpriority 0.0))
-	 (dolist (doc (sort (plugin-docs) 'sort-docs))
-	   (multiple-value-bind (n f) (floor (third doc))
-	     (declare (ignore n))
-	     (format t "~A ~A~%" oldpriority (third doc))
-	     (if (> (third doc) 0.0)
-		 (progn
-		   (if (and (< oldpriority (third doc)) (= f 0.0))
-		       (htm
-			(:br)))
-		   (htm
-		    (:dt (:b (str (format nil "!~A:" (first doc)))))
-		    (:dd (str (escape-string (format nil "~A" (second doc))))))
-		 (setf oldpriority (third doc))))))))))))
+  (let* ((context (make-instance 'bot-context :bot-web-port (acceptor-port (request-acceptor *request*))))
+         (bothandle (bot-nick context)))
+    (spinneret:with-html-string
+      (:html
+       (:head
+        (:link :rel "stylesheet" :href "https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css")
+        (:title (format nil "~A Help Page" bothandle)))
+       (:body
+        (:h1 (format nil "~A Help Page" bothandle))
+        (:dl
+         (let ((oldpriority 0.0))
+           (dolist (doc (sort (plugin-docs) 'sort-docs))
+             (multiple-value-bind (n f) (floor (third doc))
+               (declare (ignore n))
+               (log:debug "~A ~A~%" oldpriority (third doc))
+               (if (> (third doc) 0.0)
+                   (progn
+                     (when (and (< oldpriority (third doc)) (= f 0.0))
+                       (:br))
+                     (:dt (:b (format nil "!~A:" (first doc))))
+                     (:dd (format nil "~A" (second doc)))
+                     (setf oldpriority (third doc)))))))))))))
 
 (defplugin 8ball (plug-request)
   (case (plugin-action plug-request)

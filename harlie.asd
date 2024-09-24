@@ -16,7 +16,7 @@
 	       #:cl-ppcre
                #:cl-interpol
                #:spinneret
-	       #:cl-who
+	       ;; #:cl-who ;TODO: remove cl-who from asd
                ;; webscraping
 	       #:closure-html
                #:dexador

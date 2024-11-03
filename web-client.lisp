@@ -82,6 +82,22 @@ Only the first match is returned."
                               "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/12.1.2 Safari/605.1.15"
                               "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.142 Safari/537.36"))
 
+(defparameter *atom-xml-namespace-url* "http://www.w3.org/2005/Atom")
+
+(defun xml-feed-title (feed)
+  (xpath:string-value (let* ((k (dexador:get feed))
+                             (ns (cxml:parse k (stp:make-builder))))
+                        (print (xpath:string-value
+                                (xpath:with-namespaces (("atom" *atom-xml-namespace-url*))
+                                  (xpath:evaluate "//atom:title" ns)))))))
+
+(defun bad-suffix (url &key (suffixes *binary-url-suffixes*))
+  (when (mapc (lambda (suffix)
+                (when (cl-strings:ends-with url suffix)
+                  (return-from bad-suffix t))
+                nil) suffixes))
+  nil)
+
 (defun fetch-title (url)
   "Extract the title from a Web page.  Return three values.
 If the first value is nil, then no actual title could be found.  If non-nil,
@@ -94,21 +110,22 @@ This is a very confusing API."
   (let ((page-exists-p nil)
 	(store-redirect-uri nil)
         (user-agent (random-elt *user-agents*)))
-    (handler-case
-        (multiple-value-bind (webtext status nonsense redirect-uri) (webget url :redirect 10 :user-agent user-agent)
-          (declare (ignore nonsense))
-          (when (and webtext status (< status 400))
-            (setf page-exists-p t
-                  store-redirect-uri redirect-uri)
-            (if (stringp webtext)
-                (let* ((document (chtml:parse webtext (chtml:make-lhtml-builder)))
-                       (title (cleanup-title (find-title document))))
-                  (when title
-                    (return-from fetch-title (values title title redirect-uri))))
-                (return-from fetch-title (values nil "Binary data" redirect-uri)))))
-      (sb-int:invalid-array-index-error (c)
-        (log:error "Caught error: ~A" c)
-        (values "Remote contains invalid language encoding...")))
+    (unless (bad-suffix url)
+      (handler-case
+          (multiple-value-bind (webtext status nonsense redirect-uri) (webget url :redirect 10 :user-agent user-agent)
+            (declare (ignore nonsense))
+            (when (and webtext status (< status 400))
+              (setf page-exists-p t
+                    store-redirect-uri redirect-uri)
+              (if (stringp webtext)
+                  (let* ((document (chtml:parse webtext (chtml:make-lhtml-builder)))
+                         (title (cleanup-title (find-title document))))
+                    (when title
+                      (return-from fetch-title (values title title redirect-uri))))
+                  (return-from fetch-title (values nil "Unknown data" redirect-uri)))))
+        (sb-int:invalid-array-index-error (c)
+          (log:error "Caught error: ~A" c)
+          (values "Remote contains invalid language encoding..."))))
 
     (values nil (if page-exists-p "No title found" nil) store-redirect-uri)))
 

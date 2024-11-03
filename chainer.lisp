@@ -98,7 +98,7 @@ the chain, and also the number of trials before finding it."
 
 (defun acceptable-word-p (w)
   (and (not (string= (string #\Newline) w))
-       (>= (length w) 6) ;; Redundant, but let's leave it in for example's sake
+       (>= (length w) 5) ;; no triggers shorter than five letters.
        (scan "^[a-zA-Z]*$" w)))
 
 (defparameter *words-safe* nil)
@@ -116,8 +116,8 @@ the chain, and also the number of trials before finding it."
 	    (push readconid *words-safe*)))
       (let ((table-length (query
 			   (:select
-			    (:raw "max(row_num)")
-			    :from 'words) :single))
+                               (:raw "max(row_num)")
+                             :from 'words) :single))
 	    (context-id readconid))
 	(loop appending
 	      (remove-if-not wordp

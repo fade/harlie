@@ -481,12 +481,14 @@
       (:priority 3.0)
       (:run (let* ((n (parse-integer (second (plugin-token-text-list plug-request)) :junk-allowed t))
                    (base (parse-integer (third (plugin-token-text-list plug-request)) :junk-allowed t))
-                   (p (1+ base))
-                   (v (loop for dice from 1 to n
-                            for roll = (max (random p random-state) 1)
-                            summing roll into total-roll
-                            finally (return total-roll))))
-              (format nil "You roll ~A d~A... the roll is ~:d!" n base v))))))
+                   (p (1+ base)))
+              (assert (< n 1000))
+              (multiple-value-bind (total-roll runs) (loop for dice from 1 to n
+                                                           for roll = (max (random p random-state) 1)
+                                                           collecting roll into runs
+                                                           summing roll into total-roll
+                                                           finally (return (values total-roll runs))) 
+                (format nil "You roll ~A d~A ~A... the roll is ~:d!" n base runs total-roll)))))))
 
 
 ;; ===[ hyperspace motivator follows. ]===

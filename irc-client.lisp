@@ -139,7 +139,7 @@ sender wasn't being ignored; true otherwise."))
 (defmethod start-ignoring ((connection bot-irc-connection) (sender string) (channel string))
   (log:info "~& #'START-IGNORING: CHANNEL: ~A ~A~%" (type-of channel) channel)
   (let* ((bot-irc-channel-name channel)
-         ;; (gethash "Faed" (ignore-sticky (gethash "#busted" (channels (some-connection)))))
+
          (stored-state (gethash sender (ignore-sticky (gethash bot-irc-channel-name (channels connection))))))
     (log:debug "Super tired, this is a mess. ~A || ~A" bot-irc-channel-name stored-state)
     (with-channel-user bot-irc-channel-name  sender

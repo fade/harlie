@@ -14,7 +14,6 @@
    (server :col-type text
            :initarg :server
            :initform "" :accessor server))
-  
   (:documentation "Metadata for each channel the bot monitors. Not to be confused with
 'BOT-IRC-CHANNEL. MURGH.")
   (:metaclass postmodern:dao-class)

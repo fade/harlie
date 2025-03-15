@@ -403,6 +403,14 @@
 		    "hoursStr=most+recent+only"
 		    "submitmet=Submit")) location))
 
+(defun get-metar (site)
+  "when the remote site goes down or changes, it's difficult to see in
+the plugin code, so this function returns the parsed json or the get
+error."
+  (let* ((raw-data (com.inuoe.jzon:parse (http-request (form-metar-query-string site)
+                                                       :preserve-uri t :redirect 16))))
+    raw-data))
+
 (defplugin metar (plug-request)
   (case (plugin-action plug-request)
     (:docstring (format nil "Print a human-readable weather report based on METAR data.  Usage: !metar <ICAO>"))

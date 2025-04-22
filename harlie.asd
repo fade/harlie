@@ -64,4 +64,5 @@
 	       (:file "web-client")
 	       (:file "web-server")
 	       (:file "sleep-timers")
+               (:file "init-first-run")
 	       (:file "harlie")))

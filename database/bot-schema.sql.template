@@ -1,0 +1,487 @@
+--
+-- PostgreSQL database dump
+--
+
+-- Dumped from database version 13.14 (Debian 13.14-0+deb11u1)
+-- Dumped by pg_dump version 13.14 (Debian 13.14-0+deb11u1)
+
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET idle_in_transaction_session_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SELECT pg_catalog.set_config('search_path', '', false);
+SET check_function_bodies = false;
+SET xmloption = content;
+SET client_min_messages = warning;
+SET row_security = off;
+
+SET default_tablespace = '';
+
+SET default_table_access_method = heap;
+
+--
+-- Name: bot_channel; Type: TABLE; Schema: public; Owner: <bot_runner_uid>
+--
+
+CREATE TABLE public.bot_channel (
+    bot_channel_id integer NOT NULL,
+    channel_name text NOT NULL,
+    server text NOT NULL
+);
+
+
+ALTER TABLE public.bot_channel OWNER TO <bot_runner_uid>;
+
+--
+-- Name: bot_channel_bot_channel_id_seq; Type: SEQUENCE; Schema: public; Owner: <bot_runner_uid>
+--
+
+CREATE SEQUENCE public.bot_channel_bot_channel_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.bot_channel_bot_channel_id_seq OWNER TO <bot_runner_uid>;
+
+--
+-- Name: bot_channel_bot_channel_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: <bot_runner_uid>
+--
+
+ALTER SEQUENCE public.bot_channel_bot_channel_id_seq OWNED BY public.bot_channel.bot_channel_id;
+
+
+--
+-- Name: channel_user; Type: TABLE; Schema: public; Owner: <bot_runner_uid>
+--
+
+CREATE TABLE public.channel_user (
+    channel_id integer NOT NULL,
+    user_id integer NOT NULL,
+    ignored boolean DEFAULT false NOT NULL
+);
+
+
+ALTER TABLE public.channel_user OWNER TO <bot_runner_uid>;
+
+--
+-- Name: contexts; Type: TABLE; Schema: public; Owner: <bot_runner_uid>
+--
+
+CREATE TABLE public.contexts (
+    context_id bigint NOT NULL,
+    context_name text,
+    irc_server text,
+    irc_channel text,
+    web_server text,
+    web_port integer,
+    web_uri_prefix text
+);
+
+
+ALTER TABLE public.contexts OWNER TO <bot_runner_uid>;
+
+--
+-- Name: contexts_context_id_seq; Type: SEQUENCE; Schema: public; Owner: <bot_runner_uid>
+--
+
+CREATE SEQUENCE public.contexts_context_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.contexts_context_id_seq OWNER TO <bot_runner_uid>;
+
+--
+-- Name: contexts_context_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: <bot_runner_uid>
+--
+
+ALTER SEQUENCE public.contexts_context_id_seq OWNED BY public.contexts.context_id;
+
+
+--
+-- Name: harlie_user; Type: TABLE; Schema: public; Owner: <bot_runner_uid>
+--
+
+CREATE TABLE public.harlie_user (
+    harlie_user_id integer NOT NULL,
+    harlie_user_name text NOT NULL,
+    current_handle text NOT NULL,
+    prev_handle text NOT NULL,
+    email_address text,
+    authenticated_ boolean NOT NULL,
+    first_seen timestamp with time zone NOT NULL,
+    last_seen timestamp with time zone NOT NULL,
+    harlie_user_memo text NOT NULL
+);
+
+
+ALTER TABLE public.harlie_user OWNER TO <bot_runner_uid>;
+
+--
+-- Name: harlie_user_harlie_user_id_seq; Type: SEQUENCE; Schema: public; Owner: <bot_runner_uid>
+--
+
+CREATE SEQUENCE public.harlie_user_harlie_user_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.harlie_user_harlie_user_id_seq OWNER TO <bot_runner_uid>;
+
+--
+-- Name: harlie_user_harlie_user_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: <bot_runner_uid>
+--
+
+ALTER SEQUENCE public.harlie_user_harlie_user_id_seq OWNED BY public.harlie_user.harlie_user_id;
+
+
+--
+-- Name: icao_code_seq; Type: SEQUENCE; Schema: public; Owner: <bot_runner_uid>
+--
+
+CREATE SEQUENCE public.icao_code_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.icao_code_seq OWNER TO <bot_runner_uid>;
+
+--
+-- Name: icao_code; Type: TABLE; Schema: public; Owner: <bot_runner_uid>
+--
+
+CREATE TABLE public.icao_code (
+    icao_id integer DEFAULT nextval('public.icao_code_seq'::regclass) NOT NULL,
+    region text,
+    iata text,
+    icao text,
+    airport text,
+    location text,
+    latlong text
+);
+
+
+ALTER TABLE public.icao_code OWNER TO <bot_runner_uid>;
+
+--
+-- Name: urls; Type: TABLE; Schema: public; Owner: <bot_runner_uid>
+--
+
+CREATE TABLE public.urls (
+    title text,
+    input_url text,
+    short_url text,
+    from_nick text,
+    tstamp integer,
+    url_id integer NOT NULL,
+    redirected_url text,
+    context_id integer DEFAULT 1,
+    dead boolean DEFAULT false,
+    date_time timestamp with time zone GENERATED ALWAYS AS (to_timestamp((tstamp)::double precision)) STORED
+);
+
+
+ALTER TABLE public.urls OWNER TO <bot_runner_uid>;
+
+--
+-- Name: urls_url_id_seq; Type: SEQUENCE; Schema: public; Owner: <bot_runner_uid>
+--
+
+CREATE SEQUENCE public.urls_url_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.urls_url_id_seq OWNER TO <bot_runner_uid>;
+
+--
+-- Name: urls_url_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: <bot_runner_uid>
+--
+
+ALTER SEQUENCE public.urls_url_id_seq OWNED BY public.urls.url_id;
+
+
+--
+-- Name: user_alias; Type: TABLE; Schema: public; Owner: <bot_runner_uid>
+--
+
+CREATE TABLE public.user_alias (
+    id integer NOT NULL,
+    alias_for_id integer NOT NULL,
+    user_alias text NOT NULL
+);
+
+
+ALTER TABLE public.user_alias OWNER TO <bot_runner_uid>;
+
+--
+-- Name: user_alias_id_seq; Type: SEQUENCE; Schema: public; Owner: <bot_runner_uid>
+--
+
+CREATE SEQUENCE public.user_alias_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.user_alias_id_seq OWNER TO <bot_runner_uid>;
+
+--
+-- Name: user_alias_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: <bot_runner_uid>
+--
+
+ALTER SEQUENCE public.user_alias_id_seq OWNED BY public.user_alias.id;
+
+
+--
+-- Name: words; Type: TABLE; Schema: public; Owner: <bot_runner_uid>
+--
+
+CREATE TABLE public.words (
+    word1 text,
+    word2 text,
+    word3 text,
+    incidence integer,
+    row_num integer NOT NULL,
+    context_id integer DEFAULT 1
+);
+
+
+ALTER TABLE public.words OWNER TO <bot_runner_uid>;
+
+--
+-- Name: words_row_num_seq; Type: SEQUENCE; Schema: public; Owner: <bot_runner_uid>
+--
+
+CREATE SEQUENCE public.words_row_num_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.words_row_num_seq OWNER TO <bot_runner_uid>;
+
+--
+-- Name: words_row_num_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: <bot_runner_uid>
+--
+
+ALTER SEQUENCE public.words_row_num_seq OWNED BY public.words.row_num;
+
+
+--
+-- Name: bot_channel bot_channel_id; Type: DEFAULT; Schema: public; Owner: <bot_runner_uid>
+--
+
+ALTER TABLE ONLY public.bot_channel ALTER COLUMN bot_channel_id SET DEFAULT nextval('public.bot_channel_bot_channel_id_seq'::regclass);
+
+
+--
+-- Name: contexts context_id; Type: DEFAULT; Schema: public; Owner: <bot_runner_uid>
+--
+
+ALTER TABLE ONLY public.contexts ALTER COLUMN context_id SET DEFAULT nextval('public.contexts_context_id_seq'::regclass);
+
+
+--
+-- Name: harlie_user harlie_user_id; Type: DEFAULT; Schema: public; Owner: <bot_runner_uid>
+--
+
+ALTER TABLE ONLY public.harlie_user ALTER COLUMN harlie_user_id SET DEFAULT nextval('public.harlie_user_harlie_user_id_seq'::regclass);
+
+
+--
+-- Name: urls url_id; Type: DEFAULT; Schema: public; Owner: <bot_runner_uid>
+--
+
+ALTER TABLE ONLY public.urls ALTER COLUMN url_id SET DEFAULT nextval('public.urls_url_id_seq'::regclass);
+
+
+--
+-- Name: user_alias id; Type: DEFAULT; Schema: public; Owner: <bot_runner_uid>
+--
+
+ALTER TABLE ONLY public.user_alias ALTER COLUMN id SET DEFAULT nextval('public.user_alias_id_seq'::regclass);
+
+
+--
+-- Name: words row_num; Type: DEFAULT; Schema: public; Owner: <bot_runner_uid>
+--
+
+ALTER TABLE ONLY public.words ALTER COLUMN row_num SET DEFAULT nextval('public.words_row_num_seq'::regclass);
+
+
+--
+-- Name: bot_channel bot_channel_channel_name_key; Type: CONSTRAINT; Schema: public; Owner: <bot_runner_uid>
+--
+
+ALTER TABLE ONLY public.bot_channel
+    ADD CONSTRAINT bot_channel_channel_name_key UNIQUE (channel_name);
+
+
+--
+-- Name: bot_channel bot_channel_pkey; Type: CONSTRAINT; Schema: public; Owner: <bot_runner_uid>
+--
+
+ALTER TABLE ONLY public.bot_channel
+    ADD CONSTRAINT bot_channel_pkey PRIMARY KEY (bot_channel_id);
+
+
+--
+-- Name: channel_user channel_user_pkey; Type: CONSTRAINT; Schema: public; Owner: <bot_runner_uid>
+--
+
+ALTER TABLE ONLY public.channel_user
+    ADD CONSTRAINT channel_user_pkey PRIMARY KEY (channel_id, user_id);
+
+
+--
+-- Name: contexts contexts_pkey; Type: CONSTRAINT; Schema: public; Owner: <bot_runner_uid>
+--
+
+ALTER TABLE ONLY public.contexts
+    ADD CONSTRAINT contexts_pkey PRIMARY KEY (context_id);
+
+
+--
+-- Name: harlie_user harlie_user_current_handle_key; Type: CONSTRAINT; Schema: public; Owner: <bot_runner_uid>
+--
+
+ALTER TABLE ONLY public.harlie_user
+    ADD CONSTRAINT harlie_user_current_handle_key UNIQUE (current_handle);
+
+
+--
+-- Name: harlie_user harlie_user_harlie_user_name_key; Type: CONSTRAINT; Schema: public; Owner: <bot_runner_uid>
+--
+
+ALTER TABLE ONLY public.harlie_user
+    ADD CONSTRAINT harlie_user_harlie_user_name_key UNIQUE (harlie_user_name);
+
+
+--
+-- Name: harlie_user harlie_user_pkey; Type: CONSTRAINT; Schema: public; Owner: <bot_runner_uid>
+--
+
+ALTER TABLE ONLY public.harlie_user
+    ADD CONSTRAINT harlie_user_pkey PRIMARY KEY (harlie_user_id);
+
+
+--
+-- Name: icao_code icao_code_pkey; Type: CONSTRAINT; Schema: public; Owner: <bot_runner_uid>
+--
+
+ALTER TABLE ONLY public.icao_code
+    ADD CONSTRAINT icao_code_pkey PRIMARY KEY (icao_id);
+
+
+--
+-- Name: urls urls_pkey; Type: CONSTRAINT; Schema: public; Owner: <bot_runner_uid>
+--
+
+ALTER TABLE ONLY public.urls
+    ADD CONSTRAINT urls_pkey PRIMARY KEY (url_id);
+
+
+--
+-- Name: urls urls_unique_shorturl; Type: CONSTRAINT; Schema: public; Owner: <bot_runner_uid>
+--
+
+ALTER TABLE ONLY public.urls
+    ADD CONSTRAINT urls_unique_shorturl UNIQUE (short_url);
+
+
+--
+-- Name: user_alias user_alias_pkey; Type: CONSTRAINT; Schema: public; Owner: <bot_runner_uid>
+--
+
+ALTER TABLE ONLY public.user_alias
+    ADD CONSTRAINT user_alias_pkey PRIMARY KEY (alias_for_id, user_alias);
+
+
+--
+-- Name: urls_urlid_idx; Type: INDEX; Schema: public; Owner: <bot_runner_uid>
+--
+
+CREATE INDEX urls_urlid_idx ON public.urls USING btree (url_id);
+
+
+--
+-- Name: word_row_idx; Type: INDEX; Schema: public; Owner: <bot_runner_uid>
+--
+
+CREATE INDEX word_row_idx ON public.words USING btree (row_num);
+
+
+--
+-- Name: words_contexts_idx; Type: INDEX; Schema: public; Owner: <bot_runner_uid>
+--
+
+CREATE INDEX words_contexts_idx ON public.words USING btree (context_id);
+
+
+--
+-- Name: words_prefixes_idx; Type: INDEX; Schema: public; Owner: <bot_runner_uid>
+--
+
+CREATE INDEX words_prefixes_idx ON public.words USING btree (upper(word1), upper(word2));
+
+
+--
+-- Name: channel_user channel_user_channel_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: <bot_runner_uid>
+--
+
+ALTER TABLE ONLY public.channel_user
+    ADD CONSTRAINT channel_user_channel_id_fkey FOREIGN KEY (channel_id) REFERENCES public.bot_channel(bot_channel_id) ON UPDATE RESTRICT ON DELETE CASCADE;
+
+
+--
+-- Name: channel_user channel_user_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: <bot_runner_uid>
+--
+
+ALTER TABLE ONLY public.channel_user
+    ADD CONSTRAINT channel_user_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.harlie_user(harlie_user_id) ON UPDATE RESTRICT ON DELETE CASCADE;
+
+
+--
+-- Name: urls urls_context_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: <bot_runner_uid>
+--
+
+ALTER TABLE ONLY public.urls
+    ADD CONSTRAINT urls_context_id_fkey FOREIGN KEY (context_id) REFERENCES public.contexts(context_id);
+
+
+--
+-- Name: words words_context_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: <bot_runner_uid>
+--
+
+ALTER TABLE ONLY public.words
+    ADD CONSTRAINT words_context_id_fkey FOREIGN KEY (context_id) REFERENCES public.contexts(context_id);
+
+
+--
+-- PostgreSQL database dump complete
+--
+

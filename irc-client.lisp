@@ -280,7 +280,6 @@ allowing for leading and trailing punctuation characters in the match."
                             (return-from ignoring (ignored channel-user-ignored?))
                             (return-from ignoring nil))))
                     (t (return-from ignoring nil))))))
-    
     ;; As there was an ignore toggle command, it's been handled and so should be ignored.
     nil))
 

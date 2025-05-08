@@ -25,9 +25,12 @@
         (let ((bco (first (select-dao 'bot-channel (:= :channel-name channel-name)))))
           (if bco
               (values bco)
-              (make-instance 'bot-channel
-                             :channel-name channel-name
-                             :server server-name)))
+              (let ((bco (make-instance 'bot-channel
+                                        :channel-name channel-name
+                                        :server server-name
+                                        :fetch-defaults t)))
+                (save-dao bco)
+                (values bco))))
       (database-error (e)
         (log:debug "DB ERROR: ~A" e)
         ;; we need to save the dao instance when it's created, or we
@@ -42,17 +45,10 @@
 (defun make-bot-channel (channel-name &optional (server-name nil))
   (log:debug "~2&Creating a channel object for channel: ~A~%" channel-name)
   (with-connection (psql-botdb-credentials *bot-config*)
-    (let ((bco (make-bot-channel-aux channel-name server-name))
-          ;; (bco (or (first (select-dao 'bot-channel (:= :channel-name channel-name)))
-          ;;          (make-instance 'bot-channel
-          ;;                         :channel-name channel-name
-          ;;                         :server server-name)))
-          )
+    (let ((bco (make-bot-channel-aux channel-name server-name)))
       (log:debug "~2&TYPE OF BCO:[ ~S ] :: [ ~S ]~2%" (type-of bco) bco)
-      (if (listp bco)
-          (upsert-dao (first bco))
-          (save-dao bco))
-      bco)))
+      
+      (values bco))))
 
 (defun get-bot-channel-for-name (name &optional (server-name ""))
   "Given a NAME, return the associated BOT-CHANNEL object."

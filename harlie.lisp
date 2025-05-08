@@ -11,6 +11,9 @@
   (setf *random-state* (make-random-state t))
   (start-web-client)
   (start-web-servers)
+  ;; if the database isn't configured, do it.
+  (initialize-startup-maybe :go? t)
+  (sleep 3)
   (start-threaded-irc-client-instances :go? t)
   (start-cron)
   (add-canonical-crons))

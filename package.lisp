@@ -6,10 +6,8 @@
 	#:bt
         ;; #:lparallel
         #:cl-cron
-	;; #:cl-log
         #:log4cl
 	#:cl-ppcre
-	;; #:cl-who
 	#:closure-html
 	#:cxml-stp
 	#:drakma

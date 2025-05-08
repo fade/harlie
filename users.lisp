@@ -17,18 +17,41 @@
   (:documentation "Metadata for each channel the bot monitors. Not to be confused with
 'BOT-IRC-CHANNEL. MURGH.")
   (:metaclass postmodern:dao-class)
-  ;; (:table-name bot-channels)
   (:keys bot-channel-id))
+
+(defun make-bot-channel-aux (channel-name server-name)
+  (with-connection (psql-botdb-credentials *bot-config*)
+    (handler-case
+        (let ((bco (first (select-dao 'bot-channel (:= :channel-name channel-name)))))
+          (if bco
+              (values bco)
+              (make-instance 'bot-channel
+                             :channel-name channel-name
+                             :server server-name)))
+      (database-error (e)
+        (log:debug "DB ERROR: ~A" e)
+        ;; we need to save the dao instance when it's created, or we
+        ;; don't get the id created in the database. Like so:
+        (let ((bco (make-instance 'bot-channel
+                                  :channel-name channel-name
+                                  :fetch-defaults t
+                                  :server server-name)))
+          (save-dao bco)
+          (values bco))))))
 
 (defun make-bot-channel (channel-name &optional (server-name nil))
   (log:debug "~2&Creating a channel object for channel: ~A~%" channel-name)
   (with-connection (psql-botdb-credentials *bot-config*)
-    (let ((bco (or (first (select-dao 'bot-channel (:= :channel-name channel-name)))
-                   (make-instance 'bot-channel
-                                  :channel-name channel-name
-                                  :server server-name))))
+    (let ((bco (make-bot-channel-aux channel-name server-name))
+          ;; (bco (or (first (select-dao 'bot-channel (:= :channel-name channel-name)))
+          ;;          (make-instance 'bot-channel
+          ;;                         :channel-name channel-name
+          ;;                         :server server-name)))
+          )
       (log:debug "~2&TYPE OF BCO:[ ~S ] :: [ ~S ]~2%" (type-of bco) bco)
-      (upsert-dao bco)
+      (if (listp bco)
+          (upsert-dao (first bco))
+          (save-dao bco))
       bco)))
 
 (defun get-bot-channel-for-name (name &optional (server-name ""))

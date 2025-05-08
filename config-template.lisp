@@ -19,6 +19,16 @@
 (defparameter *bot-database-credentials*
   '("botdb" "your-username" nil :unix))
 
+;; where the hell is this system located?
+;; (uiop/os:getcwd)
+(defparameter *here-db* (asdf:system-relative-pathname "harlie" "database/"))
+
+(defparameter *trig* (alexandria:shuffle (str:split-omit-nulls #\Newline
+                                                               (rutils:slurp (merge-pathnames
+                                                                              (asdf:system-relative-pathname :harlie "constants/") "initial-triggerlist.txt"))))
+  "a list of common english words to seed the bot's triggerlist before it
+has a chaining database. shuffled for freshness.")
+
 (defparameter *binary-url-suffixes*
   (list ".png" ".jpg" ".mov" ".mkv" ".webv" ".avi" ".mp4" ".atom" ".rss" ".doc" ".xls" ".odt")
   "a list of suffixes for which we will not do an http get request to get a title element.")

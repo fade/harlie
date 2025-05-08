@@ -103,30 +103,39 @@ the chain, and also the number of trials before finding it."
 
 (defparameter *words-safe* nil)
 
+(defun random-canned-words (n)
+  "return N words from *trig* which is randomized at init."
+  (loop for i from 1 to n collect (random-elt *trig*)))
+
 (defun random-words (context n &optional (wordp #'identity))
   "Return n random words from the chaining db, filtering with predicate wordp."
   (let ((readcreds (psql-botdb-credentials *bot-config*))
-	(readconid (chain-read-context-id context)))
-    (with-connection readcreds
-      (unless (member readconid *words-safe*)
-	(if (= 0 (query (:select (:raw "count(*)") :from 'words :where (:= 'context-id readconid)) :single))
-	    (progn
-	      (format t "Your words database is empty.  There are no trigger words.")
-	      (return-from random-words nil))
-	    (push readconid *words-safe*)))
-      (let ((table-length (query
-			   (:select
-			    (:raw "max(row_num)")
-			    :from 'words) :single))
-	    (context-id readconid))
-	(loop appending
-	      (remove-if-not wordp
-			     (mapcar #'car
-				     (query (make-random-words-query
-					     context-id 100 table-length))))
-		into rwords
-	      until (>= (length rwords) n)
-	      finally (return (subseq rwords 0 n)))))))
+        (readconid (chain-read-context-id context))
+        (default-trigger ()))
+    (handler-case
+        (with-connection readcreds
+          (unless (member readconid *words-safe*)
+            (if (= 0 (query (:select (:raw "count(*)") :from 'words :where (:= 'context-id readconid)) :single))
+                (progn
+                  (format t "Your words database is empty.  There are no trigger words. Defaulting... ")
+                  (return-from random-words default-trigger))
+                (push readconid *words-safe*)))
+          (let ((table-length (query
+                               (:select
+                                   (:raw "max(row_num)")
+                                 :from 'words) :single))
+                (context-id readconid))
+            (loop appending
+                  (remove-if-not wordp
+                                 (mapcar #'car
+                                         (query (make-random-words-query
+                                                 context-id 100 table-length))))
+                    into rwords
+                  until (>= (length rwords) n)
+                  finally (return (subseq rwords 0 n)))))
+      (database-error (e)
+        (log:debug "RECOVERING db error in random-words: ~A" e)
+        (values default-trigger)))))
 
 (defun chain-next (context word1 word2)
   "Retrieve a random word to go next in the chain."

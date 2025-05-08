@@ -33,9 +33,13 @@
 (defun list-n-urls (n &key (urls (list-all-urls)))
   "take the first n urls retrieved from the urlstore. primarily to
    limit for testing other janitorial features."
-  (loop for i to (1- n) ;; indexes start at 0. ask for 12, get 12.
-	for url in urls
-	:collect url))
+  (declare (ignorable urls))
+  (let ((dbconn (readwrite-url-db *the-url-store*)))
+    (with-connection dbconn (select-dao 'urls (format nil "true order by random() limit ~A" n))))
+  ;; (loop for i to (1- n) ;; indexes start at 0. ask for 12, get 12.
+  ;;       for url in urls
+  ;;       :collect url)
+  )
 
 (defun none-title-urls ()
   "This query will select for a condition that only happens in a

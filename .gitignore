@@ -13,3 +13,4 @@ config.lisp
 /locale.org
 
 /database/bot-schema.sql
+/.idea/

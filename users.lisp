@@ -25,11 +25,10 @@
         (let ((bco (first (select-dao 'bot-channel (:= :channel-name channel-name)))))
           (if bco
               (values bco)
-              (let ((bco (make-instance 'bot-channel
-                                        :fetch-defaults t
-                                        :channel-name channel-name
-                                        :server server-name)))
-                (save-dao bco)
+              (let ((bco (make-dao 'bot-channel
+                                   :channel-name channel-name
+                                   :server server-name)))
+                ;; (save-dao bco)
                 (values bco))))
       (database-error (e)
         (log:debug "DB ERROR: ~A" e)
@@ -152,15 +151,13 @@
           (if (typep c/u-map 'channel-user)
               (values c/u-map)
               (values (first c/u-map)))
-          (let* ((c/u-map (make-instance 'channel-user
-                                         :channel-id (bot-channel-id channel)
-                                         :user-id (harlie-user-id user))))
-            (log:debug "~&[GCUM]~A~%" (describe c/u-map))
+          (let* ((c/u-map (make-dao 'channel-user
+                                    :channel-id (bot-channel-id channel)
+                                    :user-id (harlie-user-id user))))
+
+            ;; (log:debug "~&[GCUM]~A~%" (describe c/u-map))
             (save-dao c/u-map)
             (values c/u-map))))))
-
-(defun get-channel-sticky-state (channel)
-  (let* ((sstate ()))))
 
 (defun get-user-for-id (id)
   "Given an ID of type integer, return the associated channel user handle."
@@ -174,7 +171,8 @@
   "Given a HANDLE, return the user from the database, or create one."
   (with-connection (psql-botdb-credentials *bot-config*)
     (let ((this-user (or (first (select-dao 'harlie-user (:= 'current-handle handle)))
-                         (make-instance 'harlie-user :harlie-user-name handle :current-handle handle :fetch-defaults t))))
+                         (make-dao 'harlie-user :harlie-user-name handle
+                                                :current-handle handle :fetch-defaults t))))
       (log:debug "~&[HANDLE] : ~A [CHANNEL] : ~A~%" (current-handle this-user) channel)
       (assert (eq (type-of this-user) 'harlie-user))
       ;; #'select-dao can return a nested list. Account for it.
@@ -231,12 +229,12 @@
 'harlie-user dao class."
   (log:debug "~2&KLEEVO! [ ~A ]~2%" (describe nick-message))
   (let ((this-user
-          (make-instance 'harlie-user
-                         :harlie-user nick-message
-                         :current-handle nick-message
-                         :prev-handle nil
-                         :authenticated nil
-                         :fetch-defaults t)))
+          (make-dao 'harlie-user
+                    :harlie-user nick-message
+                    :current-handle nick-message
+                    :prev-handle nil
+                    :authenticated nil
+                    :fetch-defaults t)))
     (upsert-dao this-user)))
 
 (defun make-a-new-harlie-user (nick)

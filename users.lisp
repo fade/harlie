@@ -22,7 +22,7 @@
 (defun make-bot-channel-aux (channel-name server-name)
   (with-connection (psql-botdb-credentials *bot-config*)
     (handler-case
-        (let ((bco (first (select-dao 'bot-channel (:= :channel-name channel-name)))))
+        (let ((bco (car (select-dao 'bot-channel (:= :channel-name channel-name)))))
           (if bco
               (values bco)
               (let ((bco (make-dao 'bot-channel
@@ -64,10 +64,10 @@
   ;; (:table-name channel-users)
   (:keys channel-id user-id))
 
-(defmethod print-object ((c/u channel-user) out)
-  (print-unreadable-object (c/u out :type t)
-    (format out "[|- CHANNEL-ID: ~D | USER-ID: ~A | IGNORED: ~A -|]"
-            (channel-id c/u) (user-id c/u) (ignored c/u))))
+;; (defmethod print-object ((c/u channel-user) out)
+;;   (print-unreadable-object (c/u out :type t)
+;;     (format out "[|- CHANNEL-ID: ~D | USER-ID: ~A | IGNORED: ~A -|]"
+;;             (channel-id c/u) (user-id c/u) (ignored c/u))))
 
 (defclass harlie-user ()
   ((harlie-user-id :col-type serial
@@ -154,9 +154,8 @@
           (let* ((c/u-map (make-dao 'channel-user
                                     :channel-id (bot-channel-id channel)
                                     :user-id (harlie-user-id user))))
-
-            ;; (log:debug "~&[GCUM]~A~%" (describe c/u-map))
             (save-dao c/u-map)
+            ;; (log:debug "~&[c/u-map] || ~A~%" (describe c/u-map))
             (values c/u-map))))))
 
 (defun get-user-for-id (id)
@@ -172,7 +171,7 @@
   (with-connection (psql-botdb-credentials *bot-config*)
     (let ((this-user (or (first (select-dao 'harlie-user (:= 'current-handle handle)))
                          (make-dao 'harlie-user :harlie-user-name handle
-                                                :current-handle handle :fetch-defaults t))))
+                                                :current-handle handle ))))
       (log:debug "~&[HANDLE] : ~A [CHANNEL] : ~A~%" (current-handle this-user) channel)
       (assert (eq (type-of this-user) 'harlie-user))
       ;; #'select-dao can return a nested list. Account for it.

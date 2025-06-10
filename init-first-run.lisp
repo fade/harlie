@@ -4,7 +4,8 @@
   (chain-in ctx (str:split-omit-nulls #\Space string)))
 
 (defun load-chains-from-file (ctx bookfile)
-  "take a text file 'bookfile and load it into the chaining database."
+  "take a text file 'bookfile and load it into the chaining database for
+the appropriate context."
   (let* ((bf (rutils:slurp bookfile))
          (bl (str:split-omit-nulls #\Newline bf)))
     (loop for l in bl

@@ -1,108 +1,104 @@
 
 - Move METAR utility functions to their own file?
 - CLOS-ize trigger lists
-- Fix the random chain start once and for all
-- Generalize the title/tweet scraping code to permit a variety of
+- [ ] Fix the random chain start once and for all
+- [ ] Generalize the title/tweet scraping code to permit a variety of
   URL intercepts and scrapers
-- fetch-file, fetch-source-dir could be rewritten on a template engine
+- [ ] fetch-file, fetch-source-dir could be rewritten on a template engine
 
-- factory functions for contexts?
-- unify plugin-request w/irc message class, use throughout
-- add logging
+- [ ] factory functions for contexts?
+- [ ] unify plugin-request w/irc message class, use throughout
+- [X] add logging
 
-- Initialize DB schema
-- Work out how config is read: config file applies idempotent inserts
+- [X] Initialize DB schema
+- [ ] Work out how config is read: config file applies idempotent inserts
   to config table, then config table is used to run the bot?
-  - contexts finer-grained than per-nick
-  - many-to-one IRC:Web context mappings?
-  - migrate DB credentials out of context system?
-- Starting an instance with an empty DB should just work.
-- There's still some ugly bodgery in the mapping from Web server
+  - [ ] contexts finer-grained than per-nick
+  - [ ] many-to-one IRC:Web context mappings?
+  - [ ] migrate DB credentials out of context system?
+- [ ] Starting an instance with an empty DB should just work.
+- [ ] There's still some ugly bodgery in the mapping from Web server
   ports to contexts.  Build support to incorporate Web server
   names, names/IPs, base URIs, etc.
 
-- Write architecture doc
-- Write operator's manual
-- Write history
-- Start to work up a useful exports list
+- [ ] Write architecture doc
+- [ ] Write operator's manual
+- [ ] Write history
+- [ ] Start to work up a useful exports list
 
-- Figure a way to patch http-request in place, drop http-request.lisp
-- Improve the source code lister: line numbers, maybe internal symbol indexing
-- Logarithmic probabilities in chainer
-- Coalesce entries in chain DB
+- [ ] Figure a way to patch http-request in place, drop http-request.lisp
+- [ ] Improve the source code lister: line numbers, maybe internal symbol indexing
+- [ ] Logarithmic probabilities in chainer
+- [ ] Coalesce entries in chain DB
 
-- Follow nick changes.  Should the ignore list be a flag on cl-irc's user class?
+- [X] Follow nick changes.  Should the ignore list be a flag on cl-irc's user class?
   A: Yes. Done.
 
-- More robust checking for own URLs in shortener logic.
+- [ ] More robust checking for own URLs in shortener logic.
   (Scanning for 127.0.0.1 is fragile.)
-- Do full RFC 2616 comparisons of URLs in the shortener
-  - scheme name, host name are case-insensitive
-  - empty path == "/"
-  - do lookups on raw IP addrs?
 
-- Smart rejoin.  Detect disconnects from server.
+- [ ] Do full RFC 2616 comparisons of URLs in the shortener
+  - [ ] scheme name, host name are case-insensitive
+  - [ ] empty path == "/"
+  - [ ] do lookups on raw IP addrs?
 
-- Is it worth exploring the Google Calc JSON API?
+- [ ] Smart rejoin.  Detect disconnects from server.
 
-- Figure a more elegant way to write the defplugin macro
+- [X] Is it worth exploring the Google Calc JSON API? (no, google is a dead end)
 
-- add config option for non-babbling bot instances
-- paste bin
-- user profiles/auth
-  - two levels: easy, depending on host/ident, and hard, using dcc/https
-- enable plugins selectively on a contextual basis
-- create a REPL context for testing
-  - also make it easier to run other contexts from the REPL
-- Pre-reserve short URL hashes corresponding to Web service names
-- Harden the /source service against fetching forbidden or nonexistent files.
+- [ ] Figure a more elegant way to write the defplugin macro
+
+- [ ] add config option for non-babbling bot instances
+- [ ] paste bin
+- [ ] user profiles/auth
+  - [ ] two levels: easy, depending on host/ident, and hard, using dcc/https
+- [ ] enable plugins selectively on a contextual basis
+- [ ] create a REPL context for testing
+  - [ ] also make it easier to run other contexts from the REPL
+- [ ] Pre-reserve short URL hashes corresponding to Web service names
+- [ ] Harden the /source service against fetching forbidden or nonexistent files.
 
 BUG: Why does the en dash in the title of http://www.vulva-original.com/home-en.htm
 not get correctly decoded from UTF-8?
 
-- Add smarter indexing for URLs
-- Make the context subsystem (and other parts, generally)
+- [ ] Add smarter indexing for URLs
+- [ ] Make the context subsystem (and other parts, generally)
   recover more gracefully when errors attack
-  - In particular, if there are no contexts, no words
+  - [ ] In particular, if there are no contexts, no words
     in context, or no urls in context, a report would
     be in order, not a freeze.
-- Count plugin usage to see what's popular?
+- [ ] Count plugin usage to see what's popular?
 
-- Calendars, reminders within the bot
-  - Hook into Google Calendar/iCal/other services for same
+- [ ] Calendars, reminders within the bot
+  - [ ] Hook into Google Calendar/iCal/other services for same
 
-- Get full host string w/Web request
+- [ ] Get full host string w/Web request
 
-- !conv: detect failed return?
-- Limit length of title strings
-- Paginate full-page URL listing
-- Smarter chaining: punctuation, better endings
+- [ ] !conv: detect failed return?
+- [ ] Limit length of title strings
+- [ ] Paginate full-page URL listing
+- [ ] Smarter chaining: punctuation, better endings
 
-- Do some unit conversion locally
+- [ ] Do some unit conversion locally
 
-- Make short URLs longer when table > high water mark
-- Test that short URLs won't collide
+- [ ] Make short URLs longer when table > high water mark
+- [ ] Test that short URLs won't collide
 
-- Implement transactions in DB
-- Read Web pages for chaining data
-- Shorter domain name w/out port #
-  - Now that we're in production, maybe this takes a back seat.
-
-- Auth module
-- Twitter plug-in, SMS gateway
-- More back-end Web stuff
+- [ ] Implement transactions in DB
+- [ ] Read Web pages for chaining data
+- [ ] Shorter domain name w/out port #
+- [ ] Now that we're in production, maybe this takes a back seat.
+- [ ] Auth module
+- [ ] Twitter plug-in, SMS gateway
+- [ ] More back-end Web stuff
 
 BUGS
 
-- The timers are still wedging.
-
-- !conv fails on weird utf-8 inputs [Found by Kritter]
-- Should https:// links be shortened? [Found by Kritter, Fade]
-- http://www.phat.uklinux.net/cgi-bin/crash.cgi doesn't generate a return [Found by Kritter]
+- [ ] The timers are still wedging.
 
 Issues
   irc-client.lisp:start-ignoring
-   - Replace the test somehow and push with pushnew?
+   - [ ] Replace the test somehow and push with pushnew?
 
   Why's the assignment to clhs-lookup::*hyperspec-root* in fetch-file not always going
   through as it should?

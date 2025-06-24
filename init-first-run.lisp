@@ -7,7 +7,7 @@
   "take a text file 'bookfile and load it into the chaining database for
 the appropriate context."
   (let* ((bf (rutils:slurp bookfile))
-         (bl (str:split-omit-nulls #\Newline bf)))
+         (bl (str:split-omit-nulls #\Full_stop bf)))
     (loop for l in bl
           do (do-chain-aux ctx l))))
 

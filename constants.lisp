@@ -42,8 +42,7 @@
           :do (format t "~&~A" cline)
               ;; (let* ((quote-candidate (strip-spaces (split-sequence #\Newline cline))))
               ;;   (format t "~&||~A " quote-candidate))
-          :collect cline
-          )))
+          :collect cline)))
 
 (defparameter *hackers* (constant-read-quotes (constant-file "hackers"))
   "a list of quotes from the film 'Hackers'")

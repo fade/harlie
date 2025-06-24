@@ -130,6 +130,12 @@
     (:priority 4.0)
     (:run (list "TOYNBEE IDEA" "IN MOVIE `2001" "RESURRECT DEAD" "ON PLANET JUPITER"))))
 
+(defplugin htp (plug-request)
+  (case (plugin-action plug-request)
+    (:docstring (format nil "Return a random quote from the movie 'Hackers'. Usage: !htp"))
+    (:priority 4.0)
+    (:run (list (random-elt *hackers*)))))
+
 (defplugin spew (plug-request)
   (case (plugin-action plug-request)
     (:docstring (format nil "What's the secret word for tonight?"))

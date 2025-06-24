@@ -33,6 +33,21 @@
 			    (format nil "~{~A~^ ~}" (cdr ccode)))))
 	    :finally (return ccode-hashtable)))))
 
+(defun constant-read-quotes (file)
+  "return a list of the quotes in FILE."
+  (with-open-file (s (constant-file file)
+                     :direction :input)
+    (loop for cline = (read-line s nil nil)
+          :while cline
+          :do (format t "~&~A" cline)
+              ;; (let* ((quote-candidate (strip-spaces (split-sequence #\Newline cline))))
+              ;;   (format t "~&||~A " quote-candidate))
+          :collect cline
+          )))
+
+(defparameter *hackers* (constant-read-quotes (constant-file "hackers"))
+  "a list of quotes from the film 'Hackers'")
+
 (defparameter *country-codes* (constant-table "country_codes")
   "a hash-table of the ITU specified country codes.")
 

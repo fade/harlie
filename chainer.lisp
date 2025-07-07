@@ -111,7 +111,7 @@ the chain, and also the number of trials before finding it."
   "Return n random words from the chaining db, filtering with predicate wordp."
   (let ((readcreds (psql-botdb-credentials *bot-config*))
         (readconid (chain-read-context-id context))
-        (default-trigger ()))
+        (default-trigger (random-canned-words n)))
     (handler-case
         (with-connection readcreds
           (unless (member readconid *words-safe*)

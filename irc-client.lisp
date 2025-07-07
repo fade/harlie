@@ -63,7 +63,6 @@
 (defun make-mq-thunk (connection)
   "A closure to generate the function which gets called periodically to flush the queue."
   #'(lambda ()
-      ;; (log:debug "Entering the inner thunk.~%")
       (if (not (jpl-queues:empty? (message-q connection)))
 	  (dqmess connection)
 	  (setf (task-interval (mq-task connection)) nil))))

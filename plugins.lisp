@@ -494,23 +494,24 @@ error."
                     :reader number-of-rolls))
   (:documentation "TOO-MANY-ROLLS -- condition signalled when the user calls for too many N of P polyhedral dice."))
 
-(defun roll-aux (n p)
-  (let ((random-state (make-random-state t))
-        (base p))
+(defun roll-aux (n p base)
+  (let ((random-state (make-random-state t)))
     (handler-bind
         ((too-many-rolls #'(lambda (c)
                              (return-from roll-aux (format nil "You have requested too many dice: ~D"
                                                            (number-of-rolls c)))))
          (type-error #'(lambda (c)
                          (return-from roll-aux (format nil "~S :: You can't roll non-numeric numbers of polyhedra. This is not Mordor, this is IRC." c)))))
-      (unless (< n 1001)
-        (error 'too-many-rolls :number-of-rolls n))
+      (cond ((< 1001 n) ;; if n is more than 1001
+             (error 'too-many-rolls :number-of-rolls n))
+            ((not (and (numberp n) (numberp p)))
+             (error 'type-error)))
       (multiple-value-bind (total-roll) (loop for dice from 1 to n
                                               for roll = (max (random p random-state) 1)
                                               ;; collecting roll into runs
                                               summing roll into total-roll
-                                              finally (return (values total-roll))) 
-        (format nil "You roll ~A d~A ... the roll is ~:d!" n (1- base) total-roll)))))
+                                              finally (return (values total-roll)))
+        (format nil "You roll ~A d~A ... the roll is ~:d!" n base total-roll)))))
 
 (defplugin roll (plug-request)
   (case (plugin-action plug-request)
@@ -519,8 +520,7 @@ error."
     (:run (let* ((n (parse-integer (second (plugin-token-text-list plug-request)) :junk-allowed t))
                  (base (parse-integer (third (plugin-token-text-list plug-request)) :junk-allowed t))
                  (p (1+ base)))
-            (roll-aux n p)
-            ))))
+            (roll-aux n p base)))))
 
 
 ;; ===[ hyperspace motivator follows. ]===

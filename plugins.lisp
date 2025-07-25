@@ -515,13 +515,9 @@ error."
     (:docstring (format nil "Roll N of P polyhedral dice and return the sum."))
     (:priority 3.0)
     (:run (let* ((n (parse-integer (second (plugin-token-text-list plug-request)) :junk-allowed t))
-                 ;; (base (parse-integer (third (plugin-token-text-list plug-request)) :junk-allowed t))
+                 (base (parse-integer (third (plugin-token-text-list plug-request)) :junk-allowed t))
                  (p (1+ base)))
-            (handler-bind
-                ((too-many-rolls (lambda (c)
-                                   (return (format nil "You have requested too many dice: ~d"
-                                                   (number-of-rolls c))))))
-              (roll-aux n p))
+            (roll-aux n p)
             ))))
 
 

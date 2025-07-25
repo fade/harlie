@@ -508,7 +508,7 @@ error."
                                               ;; collecting roll into runs
                                               summing roll into total-roll
                                               finally (return (values total-roll))) 
-        (format nil "You roll ~A d~A ... the roll is ~:d!" n base total-roll)))))
+        (format nil "You roll ~A d~A ... the roll is ~:d!" n (1- base) total-roll)))))
 
 (defplugin roll (plug-request)
   (case (plugin-action plug-request)

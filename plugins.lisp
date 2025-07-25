@@ -500,7 +500,9 @@ error."
     (handler-bind
         ((too-many-rolls #'(lambda (c)
                              (return-from roll-aux (format nil "You have requested too many dice: ~D"
-                                                           (number-of-rolls c))))))
+                                                           (number-of-rolls c)))))
+         (type-error #'(lambda (c)
+                         (return-from roll-aux (format nil "~S :: You can't roll non-numeric numbers of polyhedra. This is not Mordor, this is IRC." c)))))
       (unless (< n 1001)
         (error 'too-many-rolls :number-of-rolls n))
       (multiple-value-bind (total-roll) (loop for dice from 1 to n

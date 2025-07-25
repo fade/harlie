@@ -554,4 +554,4 @@ error."
 		(t (qmess (plugin-conn plug-request) (plugin-reply-to plug-request)
 			  (format nil "~A:: I'm a tragic victim of duck typing gone wrong." (string-downcase plugname))))))
 	(qmess (plugin-conn plug-request) (plugin-reply-to plug-request) (format nil "~A: unknown command." (string-downcase plugname))))))
-#'
+

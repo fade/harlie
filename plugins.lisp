@@ -488,21 +488,41 @@ error."
 			     'papal-anchor
 			     'papal-extractor))))
 
+(define-condition too-many-rolls (error)
+  ((number-of-rolls :initarg :number-of-rolls
+                    :initform nil
+                    :reader number-of-rolls))
+  (:documentation "TOO-MANY-ROLLS -- condition signalled when the user calls for too many N of P polyhedral dice."))
+
+(defun roll-aux (n p)
+  (let ((random-state (make-random-state t))
+        (base p))
+    (handler-bind
+        ((too-many-rolls #'(lambda (c)
+                             (return-from roll-aux (format nil "You have requested too many dice: ~D"
+                                                           (number-of-rolls c))))))
+      (unless (< n 1001)
+        (error 'too-many-rolls :number-of-rolls n))
+      (multiple-value-bind (total-roll) (loop for dice from 1 to n
+                                              for roll = (max (random p random-state) 1)
+                                              ;; collecting roll into runs
+                                              summing roll into total-roll
+                                              finally (return (values total-roll))) 
+        (format nil "You roll ~A d~A ... the roll is ~:d!" n base total-roll)))))
+
 (defplugin roll (plug-request)
-  (let ((random-state (make-random-state t)))
-    (case (plugin-action plug-request)
-      (:docstring (format nil "Roll N of P polyhedral dice and return the sum."))
-      (:priority 3.0)
-      (:run (let* ((n (parse-integer (second (plugin-token-text-list plug-request)) :junk-allowed t))
-                   (base (parse-integer (third (plugin-token-text-list plug-request)) :junk-allowed t))
-                   (p (1+ base)))
-              (assert (< n 1000))
-              (multiple-value-bind (total-roll runs) (loop for dice from 1 to n
-                                                           for roll = (max (random p random-state) 1)
-                                                           collecting roll into runs
-                                                           summing roll into total-roll
-                                                           finally (return (values total-roll runs))) 
-                (format nil "You roll ~A d~A ~A... the roll is ~:d!" n base runs total-roll)))))))
+  (case (plugin-action plug-request)
+    (:docstring (format nil "Roll N of P polyhedral dice and return the sum."))
+    (:priority 3.0)
+    (:run (let* ((n (parse-integer (second (plugin-token-text-list plug-request)) :junk-allowed t))
+                 ;; (base (parse-integer (third (plugin-token-text-list plug-request)) :junk-allowed t))
+                 (p (1+ base)))
+            (handler-bind
+                ((too-many-rolls (lambda (c)
+                                   (return (format nil "You have requested too many dice: ~d"
+                                                   (number-of-rolls c))))))
+              (roll-aux n p))
+            ))))
 
 
 ;; ===[ hyperspace motivator follows. ]===
@@ -538,3 +558,4 @@ error."
 		(t (qmess (plugin-conn plug-request) (plugin-reply-to plug-request)
 			  (format nil "~A:: I'm a tragic victim of duck typing gone wrong." (string-downcase plugname))))))
 	(qmess (plugin-conn plug-request) (plugin-reply-to plug-request) (format nil "~A: unknown command." (string-downcase plugname))))))
+#'

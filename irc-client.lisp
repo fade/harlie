@@ -306,7 +306,6 @@ allowing for leading and trailing punctuation characters in the match."
     (flet ((irc-reply (s) (qmess connection reply-to s)))
       ;; who what where...
       (log:info "~&connection: ~A channel-name: ~A channel: ~A sender: ~A command: ~A context: ~A reply-to: ~A~%" connection channel-name channel sender command context reply-to)
-      
       (setf (last-message connection) message)
       (log:info "Message: ~A~%" (raw-message-string message))
       (log:debug "MSG-HOOK flet/reply   connection=~A channel-name=~A~%" connection channel-name)
@@ -500,13 +499,13 @@ a specific user in a specific channel."))
     ;; the nick is changing, so we need to update the channel-user
     ;; in the bot-irc-channel object appropriately.
 
-    ()
-    
-    ;; (with-channel-user channel-name sender
-    ;;   (log:debug "~&[USER OBJECT FOR NICK CHANGE] -> ~A" (describe this-user))
-    ;;   (setf (prev-handle this-user) sender
-    ;;         (current-handle this-user) channel-name)
-    ;;   (update-dao this-user))
+    (with-channel-user channel-name sender
+      (log:debug "~&[USER OBJECT FOR NICK CHANGE] -> ~A" (describe this-user))
+      (setf (current-handle this-user) channel-name
+            (prev-handle this-user) sender
+            ;; (current-handle this-user) channel-name
+            )
+      (update-dao this-user))
     
     ;; (let* ((uobject (get-user-for-handle sender))) ;; get a new channel-user object from db
     ;;   (when uobject

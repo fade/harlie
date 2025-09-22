@@ -403,7 +403,7 @@
 (defun form-metar-query-string (location)
   (format nil
 	  (format nil "~{~A~^&~}"
-		  '("https://aviationweather.gov/cgi-bin/data/metar.php?ids=\~\A&hours=0&format=json"
+		  '("https://aviationweather.gov/api/data/metar?ids=\~\A&format=json"
 		    "std_trans=standard"
 		    "chk_metars=on"
 		    "hoursStr=most+recent+only"

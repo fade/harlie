@@ -501,11 +501,12 @@ a specific user in a specific channel."))
 
     (with-channel-user channel-name sender
       (log:debug "~&[USER OBJECT FOR NICK CHANGE] -> ~A" (describe this-user))
-      (setf (current-handle this-user) channel-name
-            (prev-handle this-user) sender
-            ;; (current-handle this-user) channel-name
-            )
-      (update-dao this-user))
+      ;; (setf (current-handle this-user) channel-name
+      ;;       (prev-handle this-user) sender
+      ;;       ;; (current-handle this-user) channel-name
+      ;;       )
+      ;; (update-dao this-user)
+      )
     
     ;; (let* ((uobject (get-user-for-handle sender))) ;; get a new channel-user object from db
     ;;   (when uobject

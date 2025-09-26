@@ -390,9 +390,7 @@ allowing for leading and trailing punctuation characters in the match."
 		   (let* ((connection (connection message))
 			  (sender (source message)))
                      (log:debug "~2&[WAT?!] really? ~A || ~A~2%" connection sender)
-		     (setf (last-message connection) message)
-		     ;; (stop-ignoring connection sender) ;; The user's ignore state should persist.
-                     ))))
+		     (setf (last-message connection) message)))))
 
 ;; (defun nick-change-hook (message)
 ;;   "Handle a nick message."
@@ -460,9 +458,6 @@ a specific user in a specific channel."))
     (when channel/user-map
       (progn
         (log:debug "~2&[NEW USER OBJECT FOR USER JOIN] -> [ ~A ][ ~A ]" uobject (current-handle uobject))
-        ;; (log:debug "~2& ~A~%" (describe uobject))
-
-        ;; (setf (gethash (current-handle uobject) (ignore-sticky channel)) channel/user-map)
 
         (if (ignored channel/user-map)
             (progn
@@ -505,20 +500,21 @@ a specific user in a specific channel."))
                  sender new-nick
                  (list connection sender new-nick channel text token-text-list command))
       (setf (current-handle this-user) new-nick
-            (prev-handle this-user) old-nick)
+            (prev-handle this-user) old-nick
+            (last-seen this-user) (local-time:now))
       (with-connection (psql-botdb-credentials *bot-config*)
         (update-dao this-user)))))
 
-(defun handle-swap (old new)
-  (with-handle-swap new old
-    (log:debug "~&[USER OBJECT FOR NICK CHANGE] -> ~A" (describe this-user))
-    ;; (log:debug "~2&[NICK CHANGE ~A -> ~A] -- ~{~A~^ ~}~2%"
-    ;;            sender channel-name
-    ;;            (list connection sender channel-name channel text token-text-list command))
-    (setf (current-handle this-user) new-nick
-          (prev-handle this-user) old-nick)
-    (with-connection (psql-botdb-credentials *bot-config*)
-      (update-dao this-user))))
+;; (defun handle-swap (old new)
+;;   (with-handle-swap new old
+;;     (log:debug "~&[USER OBJECT FOR NICK CHANGE] -> ~A" (describe this-user))
+;;     ;; (log:debug "~2&[NICK CHANGE ~A -> ~A] -- ~{~A~^ ~}~2%"
+;;     ;;            sender channel-name
+;;     ;;            (list connection sender channel-name channel text token-text-list command))
+;;     (setf (current-handle this-user) new-nick
+;;           (prev-handle this-user) old-nick)
+;;     (with-connection (psql-botdb-credentials *bot-config*)
+;;       (update-dao this-user))))
 
 
 (defgeneric get-channel-object-from-connection (connection cname)

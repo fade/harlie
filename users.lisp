@@ -62,13 +62,20 @@
    (ignored :col-type boolean :col-default nil :iniform nil :initarg :ignored :accessor ignored))
   (:documentation "A table to bridge between a channel and the users it contains.")
   (:metaclass postmodern:dao-class)
-  ;; (:table-name channel-users)
   (:keys channel-id user-id))
 
-;; (defmethod print-object ((c/u channel-user) out)
-;;   (print-unreadable-object (c/u out :type t)
-;;     (format out "[|- CHANNEL-ID: ~D | USER-ID: ~A | IGNORED: ~A -|]"
-;;             (channel-id c/u) (user-id c/u) (ignored c/u))))
+(defclass user-alias ()
+  ((user-alias-id :col-type integer :col-references ((harlie-user harlie-user-id) :cascade)
+                  :initarg :user-alias-id :accessor user-alias-id)
+   (user-alias-name :col-type text :col-default nil :initform nil :initarg :alias-name :accessor user-alias-name))
+  (:documentation "A table to link known user aliases to a given HALIE-USER")
+  (:metaclass postmodern:dao-class)
+  (:keys user-alias-id user-alias-name))
+
+(defmethod print-object ((c/u channel-user) (out t))
+  (print-unreadable-object (c/u out :type t)
+    (format out "[|- CHANNEL-ID: ~D | USER-ID: ~A | IGNORED: ~A -|]"
+            (channel-id c/u) (user-id c/u) (ignored c/u))))
 
 (defclass harlie-user ()
   ((harlie-user-id :col-type serial
@@ -119,6 +126,17 @@
   ;; (:table-name harlie-users)
   (:keys harlie-user-id))
 
+(defmacro with-handle-swap (user new-nick &body body)
+  "Given a user USER and a new nickname NICKCHANGE, look up the user
+object and swap the old handle with the new one.
+   NEW-NICK -> the string representing the new user handle.
+   OLD-NICK -> the string representing the old user handle.
+   THIS-USER -> the user object holding various state."
+  `(let* ((new-nick ,new-nick)
+          (old-nick ,user)
+          (this-user (get-user-for-handle ,user)))
+     ,@body))
+
 (defmacro with-channel-user (channel user &body body) ;;connection
   "Given a channel name and user nick as strings, bind the recorded
    HARLIE-USER, BOT-CHANNEL, and CHANNEL-USER that are associated with
@@ -166,6 +184,13 @@
       (if (and (listp u) (>= (length u) 1))
           (first u)
           nil))))
+
+;; (defgeneric creating-user-exists? (userobj username)
+;;   (:documentation "if this function dispatches, the user exists."))
+
+;; (defmethod creating-user? ((user harlie-user) who)
+;;   "if the user 'who' created this entry, return true."
+;;   (if ()))
 
 (defun get-user-for-handle (handle &key channel)
   "Given a HANDLE, return the user from the database, or create one."

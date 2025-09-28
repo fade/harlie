@@ -494,7 +494,7 @@ a specific user in a specific channel."))
     ;; the nick is changing, so we need to update the channel-user
     ;; in the bot-irc-channel object appropriately.
 
-    (with-handle-swap old-nick new-nick
+    (with-handle-swap sender new-nick
       ;; (log:debug "~&[USER OBJECT FOR NICK CHANGE] -> ~A" (describe this-user))
       (log:debug "~2&[NICK CHANGE ~A:~A -> ~A] -- ~{~A~^ ~}~2%"
                  sender old-nick new-nick

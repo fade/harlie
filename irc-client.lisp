@@ -496,8 +496,8 @@ a specific user in a specific channel."))
 
     (with-handle-swap sender new-nick
       ;; (log:debug "~&[USER OBJECT FOR NICK CHANGE] -> ~A" (describe this-user))
-      (log:debug "~2&[NICK CHANGE ~A -> ~A] -- ~{~A~^ ~}~2%"
-                 sender new-nick
+      (log:debug "~2&[NICK CHANGE ~A:~A -> ~A] -- ~{~A~^ ~}~2%"
+                 sender old-nick new-nick
                  (list connection sender new-nick channel text token-text-list command))
       (setf (current-handle this-user) new-nick
             (prev-handle this-user) old-nick

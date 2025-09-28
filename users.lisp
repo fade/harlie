@@ -195,10 +195,16 @@ object and swap the old handle with the new one.
 (defun get-user-for-handle (handle &key channel)
   "Given a HANDLE, return the user from the database, or create one."
   (with-connection (psql-botdb-credentials *bot-config*)
-    (let ((this-user (or (first (select-dao 'harlie-user (:= 'current-handle handle)))
+    (let ((this-user (or (first (select-dao 'harlie-user (:= 'harlie-user-name handle)))
+                         (first (select-dao 'harlie-user (:= 'current-handle handle)))
                          (make-dao 'harlie-user :harlie-user-name handle
                                                 :current-handle handle ))))
-      (log:debug "~&[HANDLE] : ~A [CHANNEL] : ~A~%" (current-handle this-user) channel)
+      
+      (log:debug "THIS IS THE VALUE OF THIS-USER: ~A" this-user)
+      
+      (if channel
+          (log:debug "~&[HANDLE] : ~A [CHANNEL] : ~A~%" (current-handle this-user) channel)
+          (log:debug "~&[HANDLE] : ~A" (current-handle this-user)))
       (assert (eq (type-of this-user) 'harlie-user))
       ;; #'select-dao can return a nested list. Account for it.
       (if (listp this-user)

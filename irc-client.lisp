@@ -596,7 +596,7 @@ hook runs before the default-hook, extended here."
     (add-hook connection 'irc::irc-part-message #'threaded-byebye-hook)
     (add-hook connection 'irc::irc-notice-message #'notice-tracker)
     (add-hook connection 'irc::irc-join-message #'user-join)
-    (add-hook connection 'irc::irc-nick-message #'irc-nick-change)
+    ;; (add-hook connection 'irc::irc-nick-message #'irc-nick-change)
     ;; book-keeping hooks
     (add-hook connection 'irc::irc-rpl_namreply-message #'channel-member-list-on-join)
     (read-message-loop connection)))

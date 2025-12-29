@@ -5,6 +5,7 @@
 	#:alexandria
 	#:bt
         ;; #:lparallel
+        #:cl+ssl
         #:cl-cron
         #:log4cl
 	#:cl-ppcre

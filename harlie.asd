@@ -7,6 +7,8 @@
                #:lparallel
                #:cl-cron
 	       #:cl-fad
+               #:cl-sasl
+               #:cl+ssl
 	       #:cl-irc
                #:log4cl
 	       #:cl-json

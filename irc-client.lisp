@@ -22,7 +22,6 @@
                   using (hash-value value)
                 collect (list key value))))
 
-
 ;; We subclass cl-irc:connection and cl-irc:channel so we can store per-connection
 ;; and per-channel data here.
 
@@ -483,11 +482,11 @@ a specific user in a specific channel."))
          (text (regex-replace-all "\\ca" (second (arguments message)) ""))
 	 (token-text-list (split "\\s+" text))
 	 (command (string-upcase (first token-text-list))))
+
     ;;=============================================================================================================
     ;;        connection                              sender   channel-name  channel text  token-text-list  command
     ;; #<BOT-IRC-CONNECTION irc.srh.org {1023CB5133}> SR-4     #trinity      NIL     NIL   NIL              NIL
     ;;=============================================================================================================
-
     
     (log:info "NEW NICK: ~A" new-nick)
     
@@ -602,16 +601,20 @@ hook runs before the default-hook, extended here."
     (add-hook connection 'irc::irc-rpl_namreply-message #'channel-member-list-on-join)
     (read-message-loop connection)))
 
-(defun make-bot-connection (nickname ircserver)
+(defun make-bot-connection (nickname ircserver connection-port)
   "Make a connection to an IRC server."
   (let ((connection (connect :nickname nickname
 			     :server ircserver
+                             :port (if (eq connection-port :ssl)
+                                       6697
+                                       :default)
+                             :connection-security connection-port
 			     :connection-type 'bot-irc-connection)))
-      (setf (gethash
-	     (list (string-upcase ircserver)
-		   (string-upcase nickname))
-	     *irc-connections*) connection)
-    connection))
+    (setf (gethash
+           (list (string-upcase ircserver)
+                 (string-upcase nickname))
+           *irc-connections*) connection)
+    (values connection)))
 
 (defun kill-bot-connection (nickname ircserver)
   (let* ((nickname (string-upcase nickname))
@@ -625,35 +628,48 @@ hook runs before the default-hook, extended here."
       (bt:destroy-thread (bot-irc-client-thread connection))
       (remhash k *irc-connections*))))
 
-(defun start-threaded-irc-client-instance (ircserver nickname channels)
+(defun start-threaded-irc-client-instance (ircserver connection-port nickname channels)
   "Make a connection to an IRC server and spawn a thread to service it."
-  (let ((connection (make-bot-connection nickname ircserver)))
+  (let ((connection (make-bot-connection nickname ircserver connection-port)))
     (make-thread
      (make-irc-client-instance-thunk nickname channels ircserver connection)
      :name (format nil "IRC Client thread: server ~A, nick ~A"
 		   ircserver nickname))))
 
+(defun test-conn-specs (con-specs)
+  (dolist (server-spec (irc-joins con-specs))
+    (let ((ircserver (car server-spec)))
+      (format t "Server for join: ~A~%" ircserver)
+      (dolist (nick-spec (cadr server-spec))
+        (let ((nickname (car nick-spec))
+              (channels (cadr nick-spec)))
+          (format t "Handle: ~A on channel: ~A ~%" nickname channels))))))
+
 (defun start-threaded-irc-client-instances (&key (go? nil))
   "Spawn a thread to run a session with an IRC server."
   (dolist (server-spec (irc-joins *bot-config*))
-    (let ((ircserver (car server-spec)))
-      (log:debug "~&IRC Server for joins: ~A" ircserver)
+    (let* ((ircserver (caar server-spec))
+           (connection-port (or (first (cdar server-spec))
+                                :default)))
+      (log:debug "~&IRC Server for join: ~A ~A" ircserver connection-port)
       (dolist (nick-spec (cadr server-spec))
-        ;; (log:debug "~&[[[ how is this even?? ~A ]]]" nick-spec)
+        (log:debug "~&[[[ nickspec for ~A: ~A ]]]" ircserver nick-spec)
 	(let ((nickname (car nick-spec))
 	      (channels (cadr nick-spec)))
           (log:debug "IRC handle: ~A on channel:~A" nickname channels)
+          ;; (break)
           (when go?
-            (start-threaded-irc-client-instance ircserver nickname channels)))))))
+            (start-threaded-irc-client-instance ircserver connection-port nickname channels)))))))
 
 (defun print-bot-config (botconfig)
   "print the contents of the bot's configuration class."
   (dolist (server-spec (irc-joins botconfig))
-    (let ((ircserver (car server-spec)))
+    (let* ((ircserver (caar server-spec))
+           (connection-kind (first (cdar server-spec))))
       (dolist (nick-spec (cadr server-spec))
 	(let ((nickname (car nick-spec))
 	      (channels (cadr nick-spec)))
-	  (log:debug "~&~{~A~^~%~}~%~%" (list ircserver nickname channels)))))))
+	  (log:debug "~&~{~A~^~%~}~%~%" (list ircserver connection-kind nickname channels)))))))
 
 (defun stop-threaded-irc-client-instances ()
   "Shut down a session with an IRC server, and clean up."

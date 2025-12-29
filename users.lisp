@@ -135,6 +135,7 @@ object and swap the old handle with the new one.
   `(let* ((new-nick ,new-nick)
           (old-nick ,user)
           (this-user (get-user-for-handle ,user)))
+     (log:info "THIS-USER: ~A OLD-NICK: ~A NEW-NICK: ~A" this-user old-nick new-nick)
      ,@body))
 
 (defmacro with-channel-user (channel user &body body) ;;connection
@@ -184,13 +185,6 @@ object and swap the old handle with the new one.
       (if (and (listp u) (>= (length u) 1))
           (first u)
           nil))))
-
-;; (defgeneric creating-user-exists? (userobj username)
-;;   (:documentation "if this function dispatches, the user exists."))
-
-;; (defmethod creating-user? ((user harlie-user) who)
-;;   "if the user 'who' created this entry, return true."
-;;   (if ()))
 
 (defun get-user-for-handle (handle &key channel)
   "Given a HANDLE, return the user from the database, or create one."
@@ -255,25 +249,25 @@ object and swap the old handle with the new one.
   (make-channel-users))
 
 
-(defun make-an-harlie-user (nick-message)
-  "given an irc user handle in nick-message, create an instance of the
-'harlie-user dao class."
-  (log:debug "~2&KLEEVO! [ ~A ]~2%" (describe nick-message))
-  (let ((this-user
-          (make-dao 'harlie-user
-                    :harlie-user nick-message
-                    :current-handle nick-message
-                    :prev-handle nil
-                    :authenticated nil
-                    :fetch-defaults t)))
-    (upsert-dao this-user)))
+;; (defun make-an-harlie-user (nick-message)
+;;   "given an irc user handle in nick-message, create an instance of the
+;; 'harlie-user dao class."
+;;   (log:debug "~2&KLEEVO! [ ~A ]~2%" (describe nick-message))
+;;   (let ((this-user
+;;           (make-dao 'harlie-user
+;;                     :harlie-user nick-message
+;;                     :current-handle nick-message
+;;                     :prev-handle nil
+;;                     :authenticated nil
+;;                     :fetch-defaults t)))
+;;     (upsert-dao this-user)))
 
-(defun make-a-new-harlie-user (nick)
-  (with-connection (psql-botdb-credentials *bot-config*)
-    (let ((uobject (get-user-for-handle nick)))
-      (if uobject
-          (update-dao uobject)
-          (make-an-harlie-user nick)))))
+;; (defun make-a-new-harlie-user (nick)
+;;   (with-connection (psql-botdb-credentials *bot-config*)
+;;     (let ((uobject (get-user-for-handle nick)))
+;;       (if uobject
+;;           (update-dao uobject)
+;;           (make-an-harlie-user nick)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; users.lisp ends here

@@ -20,7 +20,7 @@
   (start-threaded-irc-client-instances :go? t)
   (start-cron)
   (add-canonical-crons)
-  (bt:make-thread #'slynky :name "Slynk Server Thread"))
+  (slynky))
 
 (defun kill-bot ()
   "Disconnect from the IRC server, clean up persistent data, shut down the Web servers."

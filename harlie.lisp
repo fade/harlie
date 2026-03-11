@@ -6,6 +6,9 @@
   #.(uiop:pathname-directory-pathname (or *compile-file-truename* *load-truename*))
   "calculate this at run-time, not fixed at compile time...")
 
+(defun slynky ()
+  (slynk:create-server :port 4007 :dont-close t))
+
 (defun run-bot ()
   "Start up the IRC client and the Web servers."
   (setf *random-state* (make-random-state t))
@@ -16,7 +19,8 @@
   (sleep 3)
   (start-threaded-irc-client-instances :go? t)
   (start-cron)
-  (add-canonical-crons))
+  (add-canonical-crons)
+  (bt:make-thread #'slynky :name "Slynk Server Thread"))
 
 (defun kill-bot ()
   "Disconnect from the IRC server, clean up persistent data, shut down the Web servers."

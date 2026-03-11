@@ -45,7 +45,8 @@
 	       #:trivial-timeout
 	       #:yaclml
                #:str
-               #:cl-strings)
+               #:cl-strings
+               #:slynk)
 
   :components ((:file "package")
 	       (:file "adaptation")

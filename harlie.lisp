@@ -19,8 +19,8 @@
   (sleep 3)
   (start-threaded-irc-client-instances :go? t)
   (start-cron)
-  (add-canonical-crons)
-  (slynky))
+  (add-canonical-crons)) ;; don't start slynk here. it doesn't work.
+
 
 (defun kill-bot ()
   "Disconnect from the IRC server, clean up persistent data, shut down the Web servers."

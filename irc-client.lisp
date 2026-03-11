@@ -285,7 +285,7 @@ allowing for leading and trailing punctuation characters in the match."
   "Handle an incoming message."
   (let* ((connection (connection message))
 	 (channel-name (car (arguments message)))
-         ;; the following becomes nil in the event of a query.
+         ;; the following becomes nil in the event of an irc query (/msg).
 	 (channel (gethash channel-name (channels connection) nil))
 	 (sender (source message))
 	 (text (regex-replace-all "\\ca" (second (arguments message)) ""))

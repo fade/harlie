@@ -42,7 +42,7 @@ has a chaining database. shuffled for freshness.")
 (defparameter *harlot-config*
   (make-config :irc-server-name "irc.srh.org"
 	       :irc-nickchannels '(("Harlot" ("#trinity")))
-	       :irc-joins '(("irc.srh.org" (("Harlot" ("#trinity" "#triscuit")))))
+	       :irc-joins '((("irc.srh.org" :none) (("Harlot" ("#trinity" "#triscuit")))))
 	       :web-server-name "127.0.0.1"
 	       :web-server-ports '(5791)
 	       :url-store-type :psql
@@ -51,7 +51,7 @@ has a chaining database. shuffled for freshness.")
 (defparameter *sr-4-config*
   (make-config :irc-server-name "irc.srh.org"
 	       :irc-nickchannels '(("SR-4" ("#trinity")))
-	       :irc-joins '(("irc.srh.org" (("SR-4" ("#trinity")))))
+	       :irc-joins '((("irc.srh.org" :none) (("SR-4" ("#trinity")))))
 	       :web-server-name "localhost"
 	       :web-server-ports '(5791)
 	       :url-store-type :psql
@@ -63,7 +63,7 @@ has a chaining database. shuffled for freshness.")
                                    ("Bootsy" ("#funkrehab"))
                                    ("shogun" ("#walled"))
                                    ("thugster" ("#wallednoc")))
-	       :irc-joins '(("irc.srh.org"
+	       :irc-joins '((("irc.srh.org" :none)
 			     (("semaphor" ("#deepsky"))
 			      ("Bootsy" ("#funkrehab"))
 			      ("shogun" ("#walled"))

@@ -704,7 +704,18 @@ the JOIN is deferred further until NickServ acknowledges identification."
       ;; (add-hook connection 'irc::irc-nick-message #'irc-nick-change)
       (add-hook connection 'irc::irc-rpl_namreply-message #'channel-member-list-on-join)
 
-      (read-message-loop connection))))
+      ;; Replace read-message-loop with a tolerant equivalent.
+      ;; cl-irc signals SIMPLE-ERROR "Ignore unknown reply." for any
+      ;; server numeric it doesn't recognise (e.g. 900 RPL_LOGGEDIN,
+      ;; which Libera.Chat sends after SASL/NickServ login).  The
+      ;; default read-message-loop lets that kill the thread; we catch
+      ;; it per-iteration and continue instead.
+      (loop
+        (handler-case (read-message connection)
+          (simple-error (e)
+            (if (search "Ignore unknown reply" (simple-condition-format-control e))
+                (log:debug "~&[IRC] Skipping unrecognized server message on ~A" ircserver)
+                (error e)))))))
 
 (defun make-bot-connection (nickname ircserver connection-port
                             &key nickserv-password nickserv-email)

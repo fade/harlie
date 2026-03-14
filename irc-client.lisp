@@ -678,7 +678,9 @@ after registration before the channel JOIN is attempted."
                              :port (if (eq connection-port :ssl)
                                        6697
                                        :default)
-                             :connection-security connection-port
+                             :connection-security (if (eq connection-port :ssl)
+                                                      :ssl
+                                                      :none)
 			     :connection-type 'bot-irc-connection)))
     (when nickserv-password
       (setf (nickserv-password connection) nickserv-password))

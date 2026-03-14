@@ -128,8 +128,8 @@ tools handle the upgrade.
 Run this with the *old* ~config.lisp~ still in place:
 
 #+begin_src sh
-sbcl --load config.lisp \
-     --load migrate-from-legacy.lisp \
+sbcl --load migrate-from-legacy.lisp \
+     --load config.lisp \
      --eval '(harlie::run-lisp-migration)' \
      --quit
 #+end_src

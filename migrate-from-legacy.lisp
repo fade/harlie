@@ -1,29 +1,99 @@
 ;;;; migrate-from-legacy.lisp
 ;;;;
-;;;; Load this file into a REPL that has already evaluated the OLD config.lisp
-;;;; (the one using the 13-slot make-config / irc-joins / web-server-ports
-;;;; format).  Then call (run-lisp-migration) to produce a new-config.lisp
-;;;; file ready to drop in as config.lisp on the upgraded system.
+;;;; Self-contained migration utility.  Load this file FIRST, before
+;;;; config.lisp.  It defines the harlie package, the legacy 13-slot config
+;;;; class, and make-config — so that config.lisp evaluates cleanly even
+;;;; without the full system loaded.  Then call (harlie::run-lisp-migration)
+;;;; to produce a new-config.lisp ready to drop in as config.lisp.
 ;;;;
 ;;;; Usage:
-;;;;   sbcl --load config.lisp \
-;;;;        --load migrate-from-legacy.lisp \
+;;;;   sbcl --load migrate-from-legacy.lisp \
+;;;;        --load config.lisp \
 ;;;;        --eval '(harlie::run-lisp-migration)' \
 ;;;;        --quit
 ;;;;
 ;;;; Author: Brian O'Reilly
 
+;;; ---------------------------------------------------------------------------
+;;; Package — define minimally if not already present
+;;; ---------------------------------------------------------------------------
+
+(unless (find-package :harlie)
+  (defpackage :harlie
+    (:use :common-lisp)
+    (:export #:run-lisp-migration)))
+
 (in-package :harlie)
 
 ;;; ---------------------------------------------------------------------------
-;;; Slot readers — use slot-value so this file works whether or not the old
-;;; class definition is still present.  We only need the live object.
+;;; Legacy config class — mirrors the old 13-slot definition so that
+;;; config.lisp's make-config call succeeds when loaded standalone.
+;;; Only defined if the class is not already present (idempotent).
+;;; ---------------------------------------------------------------------------
+
+(unless (find-class 'legacy-config nil)
+  (defclass legacy-config ()
+    ((irc-server-name          :initarg :irc-server-name)
+     (irc-channel-names        :initarg :irc-channel-names)
+     (irc-joins                :initarg :irc-joins                :initform nil)
+     (ssl                      :initarg :ssl                      :initform :none)
+     (irc-nickchannels         :initarg :irc-nickchannels)
+     (web-server-name          :initarg :web-server-name)
+     (web-server-ports         :initarg :web-server-ports)
+     (url-store-type           :initarg :url-store-type)
+     (psql-old-credentials     :initarg :psql-old-credentials     :initform nil)
+     (psql-url-new-credentials :initarg :psql-url-new-credentials :initform nil)
+     (psql-chain-credentials   :initarg :psql-chain-credentials   :initform nil)
+     (psql-context-credentials :initarg :psql-context-credentials :initform nil)
+     (psql-botdb-credentials   :initarg :psql-botdb-credentials   :initform nil))))
+
+;;; make-config: create a legacy-config instance.
+;;; Defined only if not already bound so this file is safe to load into a
+;;; fully-loaded legacy image where make-config already exists.
+(unless (fboundp 'make-config)
+  (defun make-config (&rest args)
+    (let ((instance (make-instance 'legacy-config)))
+      (loop for (key val) on args by #'cddr
+            for slot = (case key
+                         (:irc-server-name          'irc-server-name)
+                         (:irc-channel-names        'irc-channel-names)
+                         (:irc-joins                'irc-joins)
+                         (:ssl                      'ssl)
+                         (:irc-nickchannels         'irc-nickchannels)
+                         (:web-server-name          'web-server-name)
+                         (:web-server-ports         'web-server-ports)
+                         (:url-store-type           'url-store-type)
+                         (:psql-old-credentials     'psql-old-credentials)
+                         (:psql-url-new-credentials 'psql-url-new-credentials)
+                         (:psql-chain-credentials   'psql-chain-credentials)
+                         (:psql-context-credentials 'psql-context-credentials)
+                         (:psql-botdb-credentials   'psql-botdb-credentials))
+            when slot
+              do (setf (slot-value instance slot) val))
+      instance)))
+
+;;; Stub out other symbols config.lisp may reference at load time.
+(defvar *bot-config* nil)
+(defvar *bot-database-credentials* nil)
+(defvar *threads* 20)
+(defvar *ignore-phrase* "NOTIFY:: Help, I'm a bot!")
+(defvar *binary-url-suffixes* nil)
+(defvar *user-agents* nil)
+(defvar *twitter-auth* nil)
+(defvar *trig* nil)
+(defvar *syspath* nil)
+(defvar *here-db* nil)
+
+;;; Silence calls that config.lisp may make at load time
+(unless (fboundp 'log:config)
+  (defun log:config (&rest args) (declare (ignore args))))
+
+;;; ---------------------------------------------------------------------------
+;;; Slot readers
 ;;; ---------------------------------------------------------------------------
 
 (defun legacy-slot (config slot-name)
-  "Read SLOT-NAME from CONFIG via slot-value.
-Returns nil (not an error) if the slot does not exist on this object —
-lets callers distinguish a missing slot from a nil value."
+  "Read SLOT-NAME from CONFIG via slot-value.  Returns nil if absent."
   (when (slot-exists-p config slot-name)
     (slot-value config slot-name)))
 
@@ -34,7 +104,7 @@ lets callers distinguish a missing slot from a nil value."
   (legacy-slot config 'web-server-ports))
 
 (defun legacy-db-credentials (config)
-  "Return database credentials from whichever legacy slot is populated."
+  "Return credentials from whichever legacy slot is populated."
   (or (legacy-slot config 'psql-botdb-credentials)
       (legacy-slot config 'psql-context-credentials)))
 
@@ -72,18 +142,16 @@ Returns a list of property lists with keys:
               for channel           = (first channel-list)
               for channel-key       = (second channel-list)
               for nickserv-password = (third nick-spec)
-              collect (list :server   hostname
-                            :ssl      (if ssl t nil)
-                            :nick     nick
-                            :channel  channel
+              collect (list :server            hostname
+                            :ssl               (if ssl t nil)
+                            :nick              nick
+                            :channel           channel
                             :channel-key       channel-key
                             :nickserv-password nickserv-password))))
 
 (defun pair-with-ports (flat-specs web-server-ports)
   "Zip FLAT-SPECS with WEB-SERVER-PORTS.
-Signals an error with a clear message if the counts do not match — this
-was an undocumented invariant in the legacy config that caused silent
-misconfiguration when violated."
+Signals an error with a clear message if the counts do not match."
   (let ((nspecs (length flat-specs))
         (nports (length web-server-ports)))
     (unless (= nspecs nports)
@@ -104,7 +172,7 @@ misconfiguration when violated."
 
 (defun print-connection-spec-form (spec &optional (stream *standard-output*))
   "Print a single make-connection-spec form for SPEC (a plist).
-Optional fields (:channel-key, :nickserv-password) are omitted when nil."
+Optional fields are omitted when nil."
   (format stream "    (make-connection-spec~%")
   (format stream "     :server ~S :ssl ~A~%"
           (getf spec :server)
@@ -122,8 +190,7 @@ Optional fields (:channel-key, :nickserv-password) are omitted when nil."
                                    (stream *standard-output*)
                                    (var-name "*bot-config*"))
   "Translate the legacy CONFIG object into a new-style make-config form
-and write it to STREAM.  Output is valid Lisp and can be pasted directly
-into config.lisp."
+and write it to STREAM.  Output is valid Lisp; paste into config.lisp."
   (let* ((irc-joins  (legacy-irc-joins config))
          (ports      (legacy-web-server-ports config))
          (flat-specs (flatten-legacy-nick-specs irc-joins))
@@ -157,26 +224,18 @@ into config.lisp."
 
 Validates that CONFIG is a legacy Harlie config, translates it to the
 new connection-spec format, writes the result to OUTPUT-FILE, and prints
-a step-by-step operator checklist.
-
-Signals an error with a clear message if CONFIG does not look like a
-legacy config (e.g. if the new code has already been loaded and
-*bot-config* is already a 3-slot instance)."
+a step-by-step operator checklist."
   (format t "~&=== Harlie legacy config migration ===~2%")
 
-  ;; Guard: must be a legacy config
   (unless (legacy-config-p config)
     (error "~&*bot-config* does not appear to be a legacy config ~
             (no irc-joins slot found).~%~
-            Load this file into a REPL that has the OLD config.lisp ~
-            evaluated, not the new one."))
+            Ensure migrate-from-legacy.lisp is loaded BEFORE config.lisp."))
 
-  ;; Guard: irc-joins must be non-nil
   (let ((irc-joins (legacy-irc-joins config)))
     (unless irc-joins
       (error "~&irc-joins slot is nil — nothing to migrate.")))
 
-  ;; Translate and write output file
   (format t "Translating *bot-config* (~A server group~:P)...~%"
           (length (legacy-irc-joins config)))
 
@@ -186,14 +245,12 @@ legacy config (e.g. if the new code has already been loaded and
                        :if-does-not-exist :create)
     (migrate-legacy-config :config config :stream out))
 
-  ;; Also print to stdout for immediate review
   (format t "~%--- begin ~A ---~%" output-file)
   (migrate-legacy-config :config config :stream *standard-output*)
   (format t "~%--- end ~A ---~2%" output-file)
 
   (format t "~&Written to: ~A~2%" (truename output-file))
 
-  ;; Operator checklist
   (format t "~&Next steps:~%")
   (format t "  1. Review ~A carefully.~%" output-file)
   (format t "     Verify each connection-spec has the right server, nick,~%")

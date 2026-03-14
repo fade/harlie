@@ -170,8 +170,8 @@ bundle is entirely operator tooling.  Runtime changes are on the
 
 3. Run the Lisp migration against the old config:
 
-     sbcl --load config.lisp \
-          --load migrate-from-legacy.lisp \
+     sbcl --load migrate-from-legacy.lisp \
+          --load config.lisp \
           --eval '(harlie::run-lisp-migration)' \
           --quit
 

@@ -163,21 +163,20 @@ bundle is entirely operator tooling.  Runtime changes are on the
 * Operator Procedure
 
 #+begin_example
-1. Stop the legacy bot image.
+1. While the legacy bot is still running, connect via Slynk and
+   run the Lisp migration:
 
-2. Pull the new code (or check out unfuck_configuration_and_state),
-   but keep the OLD config.lisp in place for step 3.
+     (load "/path/to/migrate-from-legacy.lisp")
+     (harlie::run-lisp-migration)
 
-3. Run the Lisp migration against the old config:
+   This reads the live *bot-config*, writes new-config.lisp into
+   *syspath* (the Harlie source directory), and prints a checklist.
 
-     sbcl --load migrate-from-legacy.lisp \
-          --load config.lisp \
-          --eval '(harlie::run-lisp-migration)' \
-          --quit
+2. Review new-config.lisp.  Verify every connection-spec.
 
-   This writes new-config.lisp and prints a checklist.
+3. Stop the legacy bot.
 
-4. Review new-config.lisp.  Copy it into place as config.lisp.
+4. Copy new-config.lisp into place as config.lisp.
 
 5. Run the database migration:
 
@@ -186,9 +185,12 @@ bundle is entirely operator tooling.  Runtime changes are on the
    This backs up the database, fixes Bug A rows, deduplicates
    contexts, and adds the unique constraint.
 
-6. Start the bot against the new code.
-   load-contexts upserts the contexts table on every startup —
-   no further manual SQL is ever needed to add or change channels.
+6. Check out or update to the new code
+   (branch: unfuck_configuration_and_state).
+
+7. Start the bot.  load-contexts upserts the contexts table on
+   every startup — no further manual SQL is ever needed to add
+   or change channels.
 #+end_example
 
 * Open Questions

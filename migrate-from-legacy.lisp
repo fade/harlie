@@ -1,116 +1,21 @@
 ;;;; migrate-from-legacy.lisp
 ;;;;
-;;;; Self-contained migration utility.  Load this file FIRST, before
-;;;; config.lisp.  It defines the harlie package, the legacy 13-slot config
-;;;; class, and make-config — so that config.lisp evaluates cleanly even
-;;;; without the full system loaded.  Then call (harlie::run-lisp-migration)
-;;;; to produce a new-config.lisp ready to drop in as config.lisp.
+;;;; Load this file into a RUNNING legacy Harlie image via Slynk or any
+;;;; connected REPL.  The harlie package, the legacy config class, and all
+;;;; dependencies are already present in the live image.  Then call
+;;;; (harlie::run-lisp-migration) to produce new-config.lisp.
 ;;;;
-;;;; Usage:
-;;;;   sbcl --load migrate-from-legacy.lisp \
-;;;;        --load config.lisp \
-;;;;        --eval '(harlie::run-lisp-migration)' \
-;;;;        --quit
+;;;; Procedure:
+;;;;   1. Connect to the running legacy bot via Slynk.
+;;;;   2. (load "/path/to/migrate-from-legacy.lisp")
+;;;;   3. (harlie::run-lisp-migration)   ; review printed output
+;;;;   4. Stop the bot.
+;;;;   5. bash migrate.sh                ; database migration
+;;;;   6. Deploy new code and restart.
 ;;;;
 ;;;; Author: Brian O'Reilly
 
-;;; ---------------------------------------------------------------------------
-;;; Dependencies
-;;;
-;;; config.lisp references symbols from six external packages at load time.
-;;; Quickload them all before the package is defined so that the reader does
-;;; not error on package-qualified symbols like log:config or lparallel:*kernel*.
-;;;
-;;; Systems required:
-;;;   log4cl      — log:config
-;;;   hunchentoot — hunchentoot:*show-lisp-errors-p*
-;;;   alexandria  — alexandria:shuffle
-;;;   str         — str:split-omit-nulls
-;;;   rutils      — rutils:slurp
-;;;   lparallel   — lparallel:*kernel*, lparallel:make-kernel
-;;; ---------------------------------------------------------------------------
-
-(let ((ql-setup (merge-pathnames "quicklisp/setup.lisp" (user-homedir-pathname))))
-  (if (probe-file ql-setup)
-      (load ql-setup)
-      (error "Quicklisp not found at ~A — cannot load dependencies." ql-setup)))
-
-(dolist (sys '("log4cl" "hunchentoot" "alexandria" "str" "rutils" "lparallel"))
-  (handler-case
-      (funcall (find-symbol "QUICKLOAD" :ql) sys :silent t)
-    (error (e)
-      (error "Failed to quickload ~A: ~A~%~
-              Ensure Quicklisp is set up and the system is available." sys e))))
-
-;;; ---------------------------------------------------------------------------
-;;; Package — define minimally if not already present
-;;; ---------------------------------------------------------------------------
-
-(unless (find-package :harlie)
-  (defpackage :harlie
-    (:use :common-lisp)
-    (:export #:run-lisp-migration)))
-
 (in-package :harlie)
-
-;;; ---------------------------------------------------------------------------
-;;; Legacy config class — mirrors the old 13-slot definition so that
-;;; config.lisp's make-config call succeeds when loaded standalone.
-;;; Only defined if the class is not already present (idempotent).
-;;; ---------------------------------------------------------------------------
-
-(unless (find-class 'legacy-config nil)
-  (defclass legacy-config ()
-    ((irc-server-name          :initarg :irc-server-name)
-     (irc-channel-names        :initarg :irc-channel-names)
-     (irc-joins                :initarg :irc-joins                :initform nil)
-     (ssl                      :initarg :ssl                      :initform :none)
-     (irc-nickchannels         :initarg :irc-nickchannels)
-     (web-server-name          :initarg :web-server-name)
-     (web-server-ports         :initarg :web-server-ports)
-     (url-store-type           :initarg :url-store-type)
-     (psql-old-credentials     :initarg :psql-old-credentials     :initform nil)
-     (psql-url-new-credentials :initarg :psql-url-new-credentials :initform nil)
-     (psql-chain-credentials   :initarg :psql-chain-credentials   :initform nil)
-     (psql-context-credentials :initarg :psql-context-credentials :initform nil)
-     (psql-botdb-credentials   :initarg :psql-botdb-credentials   :initform nil))))
-
-;;; make-config: create a legacy-config instance.
-;;; Defined only if not already bound so this file is safe to load into a
-;;; fully-loaded legacy image where make-config already exists.
-(unless (fboundp 'make-config)
-  (defun make-config (&rest args)
-    (let ((instance (make-instance 'legacy-config)))
-      (loop for (key val) on args by #'cddr
-            for slot = (case key
-                         (:irc-server-name          'irc-server-name)
-                         (:irc-channel-names        'irc-channel-names)
-                         (:irc-joins                'irc-joins)
-                         (:ssl                      'ssl)
-                         (:irc-nickchannels         'irc-nickchannels)
-                         (:web-server-name          'web-server-name)
-                         (:web-server-ports         'web-server-ports)
-                         (:url-store-type           'url-store-type)
-                         (:psql-old-credentials     'psql-old-credentials)
-                         (:psql-url-new-credentials 'psql-url-new-credentials)
-                         (:psql-chain-credentials   'psql-chain-credentials)
-                         (:psql-context-credentials 'psql-context-credentials)
-                         (:psql-botdb-credentials   'psql-botdb-credentials))
-            when slot
-              do (setf (slot-value instance slot) val))
-      instance)))
-
-;;; Stub out other symbols config.lisp may reference at load time.
-(defvar *bot-config* nil)
-(defvar *bot-database-credentials* nil)
-(defvar *threads* 20)
-(defvar *ignore-phrase* "NOTIFY:: Help, I'm a bot!")
-(defvar *binary-url-suffixes* nil)
-(defvar *user-agents* nil)
-(defvar *twitter-auth* nil)
-(defvar *trig* nil)
-(defvar *syspath* nil)
-(defvar *here-db* nil)
 
 ;;; ---------------------------------------------------------------------------
 ;;; Slot readers
@@ -242,19 +147,19 @@ and write it to STREAM.  Output is valid Lisp; paste into config.lisp."
 ;;; Orchestrator
 ;;; ---------------------------------------------------------------------------
 
-(defun run-lisp-migration (&key (output-file "new-config.lisp")
+(defun run-lisp-migration (&key (output-file (merge-pathnames "new-config.lisp" *syspath*))
                                 (config *bot-config*))
-  "Top-level migration entry point.
+  "Top-level migration entry point.  Run from within a live legacy Harlie image.
 
-Validates that CONFIG is a legacy Harlie config, translates it to the
-new connection-spec format, writes the result to OUTPUT-FILE, and prints
-a step-by-step operator checklist."
+Validates that CONFIG is a legacy config, translates it to the new
+connection-spec format, writes the result to OUTPUT-FILE, and prints a
+step-by-step operator checklist."
   (format t "~&=== Harlie legacy config migration ===~2%")
 
   (unless (legacy-config-p config)
     (error "~&*bot-config* does not appear to be a legacy config ~
             (no irc-joins slot found).~%~
-            Ensure migrate-from-legacy.lisp is loaded BEFORE config.lisp."))
+            This utility must be run from within a legacy Harlie image."))
 
   (let ((irc-joins (legacy-irc-joins config)))
     (unless irc-joins
@@ -279,15 +184,16 @@ a step-by-step operator checklist."
   (format t "  1. Review ~A carefully.~%" output-file)
   (format t "     Verify each connection-spec has the right server, nick,~%")
   (format t "     channel, ssl flag, and web-port.~%")
-  (format t "  2. Copy it into place as config.lisp.~%")
-  (format t "  3. Run the database migration:~%")
+  (format t "  2. Stop this bot instance.~%")
+  (format t "  3. Copy ~A into place as config.lisp.~%" output-file)
+  (format t "  4. Run the database migration:~%")
   (format t "       bash migrate.sh~%")
   (format t "     This backs up the database, fixes any corrupted irc_server~%")
   (format t "     values, deduplicates contexts rows, and adds the unique~%")
   (format t "     constraint required by the new startup sequence.~%")
-  (format t "  4. Check out or update to the new code~%")
+  (format t "  5. Check out or update to the new code~%")
   (format t "     (branch: unfuck_configuration_and_state).~%")
-  (format t "  5. Start the bot normally.  load-contexts will sync the~%")
+  (format t "  6. Start the bot normally.  load-contexts will sync the~%")
   (format t "     contexts table from config on every startup.~%")
 
   (values))

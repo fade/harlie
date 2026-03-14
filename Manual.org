@@ -123,21 +123,20 @@ Legacy Harlie instances used the old 13-slot ~config~ class with
 ~irc-joins~, ~web-server-ports~, and ~psql-botdb-credentials~.  Two
 tools handle the upgrade.
 
-** Step 1 — Translate the config
+** Step 1 — Translate the config (while the bot is still running)
 
-Run this with the *old* ~config.lisp~ still in place:
+Connect to the running legacy bot via Slynk and evaluate:
 
-#+begin_src sh
-sbcl --load migrate-from-legacy.lisp \
-     --load config.lisp \
-     --eval '(harlie::run-lisp-migration)' \
-     --quit
+#+begin_src lisp
+(load "/path/to/migrate-from-legacy.lisp")
+(harlie::run-lisp-migration)
 #+end_src
 
 This reads the live ~*bot-config*~, converts it to the new
-~connection-spec~ format, writes the result to ~new-config.lisp~, and
-prints a checklist.  Review ~new-config.lisp~, then copy it into place
-as ~config.lisp~.
+~connection-spec~ format, writes the result to ~new-config.lisp~
+alongside the Harlie source tree (~*syspath*~), and prints a checklist.
+Review ~new-config.lisp~, then stop the bot and copy it into place as
+~config.lisp~.
 
 ** Step 2 — Migrate the database
 

@@ -79,18 +79,30 @@ Returns a list of property lists with keys:
                             :nickserv-password nickserv-password))))
 
 (defun pair-with-ports (flat-specs web-server-ports)
-  "Zip FLAT-SPECS with WEB-SERVER-PORTS.
-Signals an error with a clear message if the counts do not match."
+  "Zip FLAT-SPECS with the first (length FLAT-SPECS) entries of WEB-SERVER-PORTS.
+
+The legacy load-contexts consumed ports with (pop web-ports) inside a loop
+over nick-specs, so a config with more ports than active nick-specs was
+valid — surplus ports were silently unused.  We replicate that behaviour:
+require at least as many ports as nick-specs, use the first N, and warn
+about any remainder.
+
+Signals an error only if there are FEWER ports than nick-specs."
   (let ((nspecs (length flat-specs))
         (nports (length web-server-ports)))
-    (unless (= nspecs nports)
-      (error "~&Migration error: ~A nick-spec~:P but ~A web-server-port~:P.~%~
-              web-server-ports must have exactly one entry per nick-spec ~
-              across all servers.~%~
+    (when (< nports nspecs)
+      (error "~&Migration error: ~A nick-spec~:P but only ~A web-server-port~:P.~%~
+              There must be at least one port per nick-spec.~%~
               Nick-specs found:~%~{  ~A~%~}"
              nspecs nports
              (mapcar (lambda (s) (format nil "~A on ~A" (getf s :nick) (getf s :server)))
-                     flat-specs))))
+                     flat-specs)))
+    (when (> nports nspecs)
+      (format t "~&Note: ~A web-server-port~:P, ~A nick-spec~:P — ~
+                 ~A surplus port~:P (~{~A~^, ~}) will not appear in the ~
+                 new config.~%"
+              nports nspecs (- nports nspecs)
+              (nthcdr nspecs web-server-ports))))
   (mapcar (lambda (spec port)
             (append spec (list :web-port port)))
           flat-specs web-server-ports))

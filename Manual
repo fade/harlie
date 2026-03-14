@@ -81,42 +81,60 @@ where BOT-OWNER should be the name of the PostgreSQL user who 'owns' the bot db.
 
 2. Adding a new channel
 
-The bot gets its information on how to start up instances from two
-places: from the config.lisp source file, and also from the database.
+Edit config.lisp.  The *bot-config* defparameter holds a make-config
+form with a :connections list.  Add one make-connection-spec form to
+that list for the new nick:
 
-First, edit config.lisp to add a new instance there.  There should be
-one defparameter form calling make-config to define all the bot
-instances.  Each new nick should be added as a form within
-irc-nickchannels, and a new web-server-port should be added to
-web-server-ports.
+  (make-connection-spec
+   :server "irc.libera.chat" :ssl t
+   :nick   "NewNick"
+   :channel "#newchannel"
+   :web-port 9000)            ; pick an unused port
 
-But this doesn't tell the bot which web server port should be
-associated with which nickname, and it also doesn't create a context.
-Contexts are stored in the database's contexts table:
+Optional fields (omit if not needed):
+  :channel-key       "channelpassword"
+  :nickserv-password "nickservpassword"
 
-botdb=# select * from contexts;
- context_id | context_name | irc_server  | irc_channel |     web_server     | web_port | web_uri_prefix 
-------------+--------------+-------------+-------------+--------------------+----------+----------------
-          3 | shogun       | irc.srh.org | #walled     | 127.0.0.1          |     9099 | /
-          4 | thugster     | irc.srh.org | #wallednoc  | 127.0.0.1          |     7080 | /
-          2 | SR-4         | irc.srh.org | #fanoogle   | localhost          |     5801 | /
-          6 | Shrtmegister | irc.srh.org | #blowme     | blowme.deepsky.com |     6969 | /
-          1 | harlot       | irc.srh.org | #trinity    | 10.0.1.3           |     5791 | /
-(5 rows)
+Restart the bot.  On startup, load-contexts reads *bot-config* and
+upserts one row into the contexts table for each connection-spec.  No
+manual SQL is required.
 
-When adding a new nickname, you'll also need to add an entry to this
-table.
+The contexts table will look like this after restart:
 
-Access the database ("psql botdb") and enter a command of the
-following form:
+botdb=# select context_id, context_name, irc_server, irc_channel, web_port
+        from contexts;
+ context_id | context_name |    irc_server    | irc_channel | web_port
+------------+--------------+------------------+-------------+----------
+          1 | Jankist      | irc.libera.chat  | #deepsky    |     8888
+          2 | NewNick      | irc.libera.chat  | #newchannel |     9000
 
-botdb=# INSERT INTO contexts (context_name, irc_server, irc_channel,
-web_server, web_port, web_uri_prefix) VALUES ('newbotnick',
-'irc.srh.org', '#channelname', 'coruscant.deepsky.com', 8188, '/');
+3. Migrating a legacy installation
 
-NOTA BENE: The web_port value is an *integer*, not a string.  All the
-other values are strings.
+Legacy Harlie instances used the old 13-slot config class with irc-joins,
+web-server-ports, and psql-botdb-credentials.  Two tools handle the upgrade.
 
-Once you've edited config.lisp and added the row to the contexts
-table, you should restart the bot.  There is as yet no good way to add
-a bot instance on the fly.
+Step 1 — translate the config (run with the OLD config.lisp still in place):
+
+  sbcl --load config.lisp \
+       --load migrate-from-legacy.lisp \
+       --eval '(harlie::run-lisp-migration)' \
+       --quit
+
+This reads the live *bot-config*, converts it to the new connection-spec
+format, writes the result to new-config.lisp, and prints a checklist.
+Review new-config.lisp, then copy it into place as config.lisp.
+
+Step 2 — migrate the database:
+
+  bash migrate.sh
+
+This backs up the database, repairs any corrupted irc_server values
+(a bug in the old load-contexts that stored tuple strings instead of
+hostnames), collapses any duplicate contexts rows, and adds the unique
+constraint required by the new idempotent upsert.  Accepts --db, --user,
+and --dry-run arguments; run "bash migrate.sh --help" for details.
+
+Step 3 — update the code and restart:
+
+  git checkout unfuck_configuration_and_state
+  # start the bot normally

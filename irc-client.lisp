@@ -34,9 +34,12 @@
    (mq-task :initform nil :accessor mq-task)
    (connection-state :initform :connecting :accessor connection-state
                      :documentation "Tracks registration lifecycle:
-:connecting -> :registered -> :identifying -> :joining -> :joined | :join-failed")
+:connecting -> :registered -> :identifying -> :joining -> :joined | :join-failed
+                              -> :registering --^  (when nick unregistered and email provided)")
    (nickserv-password :initform nil :accessor nickserv-password
-                      :documentation "NickServ password for IDENTIFY, or nil if not needed.")))
+                      :documentation "NickServ password for IDENTIFY/REGISTER, or nil if not needed.")
+   (nickserv-email    :initform nil :accessor nickserv-email
+                      :documentation "Email address for NickServ REGISTER. nil if not registering.")))
 
 (defclass bot-irc-channel (cl-irc:channel)
   ((trigger-list :initarg :trigger-list :initform nil :accessor trigger-list)
@@ -602,19 +605,53 @@ the JOIN is deferred further until NickServ acknowledges identification."
                         (log:info "~&[JOIN] ~A joining ~A on ~A" nickname channel ircserver)
                         (cl-irc:join connection channel :password channel-password)))))
 
-      ;; --- NickServ NOTICE: proceed to JOIN once identified ---
+      ;; --- NickServ NOTICE: identification, registration, and join sequencing ---
       (add-hook connection 'irc::irc-notice-message
                 (lambda (message)
                   (let ((sender (source message))
                         (text (car (last (arguments message)))))
-                    (when (and (string-equal sender "NickServ")
-                               (eq (connection-state connection) :identifying)
-                               (or (search "You are now identified" text)
-                                   (search "You are now logged in" text)))
-                      (setf (connection-state connection) :joining)
-                      (log:info "~&[NickServ] Identified. ~A joining ~A on ~A"
-                                nickname channel ircserver)
-                      (cl-irc:join connection channel :password channel-password)))))
+                    (when (string-equal sender "NickServ")
+                      (cond
+                        ;; Identification confirmed → join.
+                        ((and (eq (connection-state connection) :identifying)
+                              (or (search "You are now identified" text)
+                                  (search "You are now logged in" text)))
+                         (setf (connection-state connection) :joining)
+                         (log:info "~&[NickServ] Identified. ~A joining ~A on ~A"
+                                   nickname channel ircserver)
+                         (cl-irc:join connection channel :password channel-password))
+
+                        ;; Nick not registered → REGISTER if we have an email, else just join.
+                        ((and (eq (connection-state connection) :identifying)
+                              (search "not registered" text))
+                         (if (nickserv-email connection)
+                             (progn
+                               (setf (connection-state connection) :registering)
+                               (log:info "~&[NickServ] ~A not registered. Sending REGISTER to ~A."
+                                         nickname (nickserv-email connection))
+                               (privmsg connection "NickServ"
+                                        (format nil "REGISTER ~A ~A"
+                                                (nickserv-password connection)
+                                                (nickserv-email connection))))
+                             (progn
+                               (log:warn "~&[NickServ] ~A not registered and no email configured. Joining without identification."
+                                         nickname)
+                               (setf (connection-state connection) :joining)
+                               (cl-irc:join connection channel :password channel-password))))
+
+                        ;; Registration response received → log it and proceed to join.
+                        ;; The nick will be unverified until the user clicks the email link;
+                        ;; on the next restart IDENTIFY will work normally.
+                        ((eq (connection-state connection) :registering)
+                         (log:info "~&[NickServ] Registration response for ~A: ~A"
+                                   nickname text)
+                         (when (or (search "email" text)
+                                   (search "registered" text)
+                                   (search "activation" text))
+                           (log:info "~&[NickServ] ~A registered. Check ~A for activation link. Joining now."
+                                     nickname (nickserv-email connection))
+                           (setf (connection-state connection) :joining)
+                           (cl-irc:join connection channel :password channel-password))))))))
 
       ;; --- irc-join-message: send bot announcement only on our own join ---
       (add-hook connection 'irc::irc-join-message
@@ -669,10 +706,12 @@ the JOIN is deferred further until NickServ acknowledges identification."
 
       (read-message-loop connection))))
 
-(defun make-bot-connection (nickname ircserver connection-port &key nickserv-password)
+(defun make-bot-connection (nickname ircserver connection-port
+                            &key nickserv-password nickserv-email)
   "Make a connection to an IRC server.
-NICKSERV-PASSWORD, when non-nil, will be used to IDENTIFY with NickServ
-after registration before the channel JOIN is attempted."
+NICKSERV-PASSWORD, when non-nil, triggers a NickServ IDENTIFY after RPL_WELCOME.
+NICKSERV-EMAIL, when non-nil along with NICKSERV-PASSWORD, enables automatic
+REGISTER if the nick is not yet registered."
   (let ((connection (connect :nickname nickname
 			     :server ircserver
                              :port (if (eq connection-port :ssl)
@@ -684,6 +723,8 @@ after registration before the channel JOIN is attempted."
 			     :connection-type 'bot-irc-connection)))
     (when nickserv-password
       (setf (nickserv-password connection) nickserv-password))
+    (when nickserv-email
+      (setf (nickserv-email connection) nickserv-email))
     (setf (gethash
            (list (string-upcase ircserver)
                  (string-upcase nickname))
@@ -704,10 +745,11 @@ after registration before the channel JOIN is attempted."
 
 (defun start-threaded-irc-client-instance (ircserver connection-port nickname
                                             channel channel-key
-                                            &key nickserv-password)
+                                            &key nickserv-password nickserv-email)
   "Make a connection to an IRC server and spawn a thread to service it."
   (let ((connection (make-bot-connection nickname ircserver connection-port
-                                         :nickserv-password nickserv-password)))
+                                         :nickserv-password nickserv-password
+                                         :nickserv-email nickserv-email)))
     (make-thread
      (make-irc-client-instance-thunk nickname channel channel-key ircserver connection)
      :name (format nil "IRC Client thread: server ~A, nick ~A"
@@ -729,7 +771,8 @@ Connections are staggered by *INTER-CONNECTION-DELAY* seconds."
         (start-threaded-irc-client-instance
          (cs-server cs) connection-port (cs-nick cs)
          (cs-channel cs) (cs-channel-key cs)
-         :nickserv-password (cs-nickserv-password cs))
+         :nickserv-password (cs-nickserv-password cs)
+         :nickserv-email (cs-nickserv-email cs))
         (sleep *inter-connection-delay*)))))
 
 (defun print-bot-config (botconfig)

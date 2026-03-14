@@ -1,0 +1,213 @@
+#+TITLE: Harlie Operator's Manual
+#+AUTHOR: Brian O'Reilly
+#+OPTIONS: toc:t num:t
+
+* Acceptance Testing
+
+When you've just upgraded to a newer version of the Lisp toolchain and
+you want to validate the bot's behaviour, you can run this acceptance
+test procedure.  It should only take a minute or two, and it puts the
+bot through its paces, validating that each significant subsystem is
+working to at least some minimal degree.
+
+It's certainly possible for some plugins to be broken or for some subtle
+bug to have crept into some part of the bot, and for the acceptance test
+procedure to pass anyway.  This is just intended as a quick once-over to
+check that the bot is fit for service after bumping the toolchain or
+otherwise restarting.
+
+- In channel, use the command ~!help~.
+  This demonstrates that the bot is capable of receiving and sending
+  messages through the IRC client library, and that it can work out a
+  web port to display, which shows that its context subsystem is
+  working.
+
+- In a web browser, pull up the help URL the bot has given you.
+  This shows that the web server subsystem is working, and further
+  verifies that the context subsystem is sane.
+
+- Edit the URL in your web browser to change ~/help~ to ~/source~.
+  Further exercises the web server subsystem.
+
+- In the web browser, click on one of the source files.
+  More web server validation.  Also shows whether the Lisp prettyprint
+  library is working.
+
+- In your web browser, delete the portion of the URL after the port number.
+  This will bring up the list of shortened URLs in the current context.
+  The database client library must be used to pull these up; if it
+  works, the database is readable.
+
+- Click on one of the titles and verify that it pulls up the original target.
+  Exercises a different code path through the web server; also further
+  verifies that the database read code for the URL shortener is working.
+
+- In IRC, use the ~!metar~ command.
+  The web client code is exercised by this command.  Sometimes a
+  particular airport's weather data has not been updated, so spurious
+  errors can be seen here.
+
+- In IRC, issue the ~!status full~ command.
+  This reads the database for the Markov chainer, again exercising the
+  context code.
+
+- In IRC, issue the ~!babble~ and/or ~!haiku~ commands.
+  Demonstrates that the chainer can read from its database and perform
+  its most complex function, chaining an output together.
+
+- In IRC, type something for the bot to see.  Then issue either ~!status~
+  or ~!status full~ again.  Verify that the "I know n phrases" response
+  has been bumped up.
+  This shows that the chainer database can be written as well as read.
+
+* Initializing the Database
+
+You'll need to install PostgreSQL and create a database instance for the bot.
+
+#+begin_src sh
+createdb botdb
+#+end_src
+
+The file ~database/bot-schema.sql.template~ contains the database schema.
+Before applying it, substitute the PostgreSQL username that will own the
+bot's tables:
+
+#+begin_src sh
+sed 's/<bot_runner_uid>/BOT-OWNER/g' \
+    database/bot-schema.sql.template > database/bot-schema.sql
+psql botdb -f database/bot-schema.sql
+#+end_src
+
+where ~BOT-OWNER~ is the name of the PostgreSQL user who owns the bot
+database (usually also the Linux username that starts the bot processes).
+
+* Adding a New Channel
+
+Edit ~config.lisp~.  The ~*bot-config*~ defparameter holds a ~make-config~
+form with a ~:connections~ list.  Add one ~make-connection-spec~ form to
+that list for the new nick:
+
+#+begin_src lisp
+(make-connection-spec
+ :server   "irc.libera.chat" :ssl t
+ :nick     "NewNick"
+ :channel  "#newchannel"
+ :web-port 9000)            ; pick an unused port
+#+end_src
+
+Optional fields — omit if not needed:
+
+#+begin_src lisp
+ :channel-key       "channelpassword"
+ :nickserv-password (uiop:getenv "HARLIE_NICKSERV_PASSWORD")
+ :nickserv-email    (uiop:getenv "HARLIE_NICKSERV_EMAIL")
+#+end_src
+
+Passwords should never be written as literals in ~config.lisp~.  Use
+~uiop:getenv~ to read them from the environment at startup, and export
+the variables from the shell session that starts the bot:
+
+#+begin_src sh
+export HARLIE_NICKSERV_PASSWORD="your-nickserv-password"
+export HARLIE_NICKSERV_EMAIL="your@email.com"
+#+end_src
+
+Add these exports to the shell profile (~/.bash_profile~, ~/.zprofile~,
+or equivalent) that owns the bot process so they survive reboots.  If
+the bot runs under a dedicated system account, put them in that
+account's profile or in a sourced credentials file that is not
+world-readable (~chmod 600~).
+
+** NickServ authentication and registration
+
+When ~:nickserv-password~ is set, the bot authenticates with NickServ
+before joining the channel.  The connection passes through these states:
+
+#+begin_example
+:connecting → :registered → :identifying → :joining → :joined
+                                  ↓
+                            :registering ──────────────↑
+#+end_example
+
+1. After ~RPL_WELCOME~ (numeric 001), the bot sends ~IDENTIFY~ to NickServ.
+
+2. If NickServ confirms identification ("You are now identified" or
+   "You are now logged in"), the bot joins the channel.
+
+3. If NickServ replies that the nick is not registered, the behaviour
+   depends on whether ~:nickserv-email~ is also set:
+
+   - *With* ~:nickserv-email~: the bot sends ~REGISTER~ to NickServ,
+     enters state ~:registering~, and proceeds to join once NickServ
+     acknowledges.  The nick will be unverified until you click the
+     activation link in the email; on the next restart ~IDENTIFY~ will
+     succeed normally.
+
+   - *Without* ~:nickserv-email~: the bot logs a warning and joins
+     without identification.
+
+Restart the bot.  On startup, ~load-contexts~ reads ~*bot-config*~ and
+upserts one row into the ~contexts~ table for each ~connection-spec~.
+No manual SQL is required.
+
+The contexts table will look like this after restart:
+
+#+begin_example
+botdb=# SELECT context_id, context_name, irc_server, irc_channel, web_port
+        FROM contexts;
+ context_id | context_name |    irc_server    | irc_channel | web_port
+------------+--------------+------------------+-------------+----------
+          1 | Jankist      | irc.libera.chat  | #deepsky    |     8888
+          2 | NewNick      | irc.libera.chat  | #newchannel |     9000
+#+end_example
+
+* Migrating a Legacy Installation
+
+Legacy Harlie instances used the old 13-slot ~config~ class with
+~irc-joins~, ~web-server-ports~, and ~psql-botdb-credentials~.  Two
+tools handle the upgrade.
+
+** Step 1 — Translate the config (while the bot is still running)
+
+Connect to the running legacy bot via Slynk and evaluate:
+
+#+begin_src lisp
+(load "/path/to/migrate-from-legacy.lisp")
+(harlie::run-lisp-migration)
+#+end_src
+
+This reads the live ~*bot-config*~, converts it to the new
+~connection-spec~ format, writes the result to ~new-config.lisp~
+alongside the Harlie source tree (~*syspath*~), and prints a checklist.
+Review ~new-config.lisp~, then stop the bot and copy it into place as
+~config.lisp~.
+
+** Step 2 — Migrate the database
+
+#+begin_src sh
+bash migrate.sh
+#+end_src
+
+This backs up the database, repairs any corrupted ~irc_server~ values (a
+bug in the old ~load-contexts~ that stored tuple strings instead of
+hostnames), collapses any duplicate ~contexts~ rows, and adds the unique
+constraint required by the new idempotent upsert.
+
+Options:
+
+| Flag        | Default      | Purpose                              |
+|-------------+--------------+--------------------------------------|
+| ~--db~      | ~botdb~      | PostgreSQL database name             |
+| ~--user~    | current user | PostgreSQL username                  |
+| ~--dry-run~ | off          | Report what would be done; no writes |
+
+** Step 3 — Update the code and restart
+
+#+begin_src sh
+git checkout unfuck_configuration_and_state
+# start the bot normally
+#+end_src
+
+~load-contexts~ will sync the ~contexts~ table from the config on every
+subsequent startup — no further manual SQL is ever needed to add or
+change channels.

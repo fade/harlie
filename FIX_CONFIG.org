@@ -1,0 +1,388 @@
+#+TITLE: Harlie Configuration System — Analysis and Overhaul Plan
+#+AUTHOR: Brian O'Reilly
+#+DATE: 2026-03-14
+#+OPTIONS: toc:t num:t
+
+* Current State Analysis
+
+** The ~config~ Class (~confobjects.lisp~)
+
+The ~config~ CLOS class has 13 slots. Only 4 are read anywhere in the
+codebase. The remaining 9 are dead code.
+
+*** Slots that are alive
+
+| Slot                   | Used by                                            | Purpose                        |
+|------------------------+----------------------------------------------------+--------------------------------|
+| ~irc-joins~              | ~start-threaded-irc-client-instances~, ~load-contexts~ | IRC server/nick/channel config |
+| ~psql-botdb-credentials~ | 28 call sites across 8 files                       | All database connections       |
+| ~web-server-ports~       | ~start-web-servers~, ~load-contexts~                   | HTTP server port list          |
+| ~web-server-name~        | ~load-contexts~                                      | Hostname for web contexts      |
+
+*** Dead slots
+
+| Slot                     | Reason dead                                              |
+|--------------------------+----------------------------------------------------------|
+| ~irc-server-name~          | Server names live inside ~irc-joins~                       |
+| ~irc-channel-names~        | Channels live inside ~irc-joins~                           |
+| ~irc-nickchannels~         | Populated in every config, read nowhere (see below)      |
+| ~ssl~                      | SSL flag lives inside ~irc-joins~ per server-spec          |
+| ~url-store-type~           | Only one backend exists; flag never consulted            |
+| ~psql-old-credentials~     | Legacy, ~nil~ initform, never touched                      |
+| ~psql-url-new-credentials~ | Never populated, never read                              |
+| ~psql-chain-credentials~   | Never populated; chainer uses ~psql-botdb-credentials~     |
+| ~psql-context-credentials~ | Only a fallback source for ~psql-botdb-credentials~ if nil |
+
+** The ~irc-nickchannels~ Ghost
+
+This is the most operationally dangerous dead slot. It is populated in every
+config variant, documented in the Manual as the way to add channels, and
+yet the IRC client code (~start-threaded-irc-client-instances~) never reads
+it. Only ~irc-joins~ is iterated. An operator editing ~irc-nickchannels~ to
+add or change channels sees no effect and has no obvious indication why.
+
+** The ~irc-joins~ Nested List Structure
+
+~irc-joins~ is the sole source of truth for IRC connections. Its structure
+is deeply nested with implicit positional semantics:
+
+#+begin_src lisp
+:irc-joins '((("irc.libera.chat" :ssl)       ; server-spec tuple
+              (("Jankist" ("#deepsky"))        ; nick-spec: (nick (channels))
+               ("OtherNick" ("#chan" "pass"))  ; nick-spec with channel key
+               ("Third"     ("#foo") "nspass") ; nick-spec with NickServ pw
+               )))
+#+end_src
+
+Hierarchy:
+#+begin_example
+irc-joins
+  └─ server-group: (server-spec nick-specs-list)
+       ├─ server-spec: ("hostname" ssl-keyword)
+       └─ nick-specs-list
+            └─ nick-spec: (nick (channels...) [nickserv-password])
+                 ├─ nick       [string]
+                 ├─ channels   [list] — (first) = channel, (second) = channel key or nil
+                 └─ nickserv-password [optional string]
+#+end_example
+
+The ~channels~ element is a list whose first element is the channel name and
+whose second element, if present, is ambiguously either a channel key
+(password) or a second channel to join. The code always treats it as
+~(channel . key)~, meaning *only one channel is ever joined per nick-spec*,
+and any additional channel names are silently misinterpreted as keys.
+
+** Three Overlapping Channel Representations
+
+The system tracks "what channels the bot is in" in three separate places,
+none of which are kept automatically in sync:
+
+1. *~irc-joins~ in config* (Lisp) — the only one the IRC client uses at runtime
+2. *~contexts~ table* (PostgreSQL) — written once at first-run from ~irc-joins~,
+   never updated again. Config changes are not reflected until manual SQL ~INSERT~.
+3. *~bot-channel~ table* (PostgreSQL) — tracks joined channels for user/ignore
+   persistence; created lazily on join; orthogonal to the contexts table.
+
+The Manual documents that adding a channel requires editing ~config.lisp~ AND
+manually inserting a row into the ~contexts~ table. This is fragile and
+error-prone.
+
+** The Database Context System
+
+*** ~bot-context~ class (~context.lisp~)
+
+Each context represents one bot personality with its associated IRC and web
+configuration:
+- ~bot-nick~ — IRC nickname
+- ~bot-irc-server~ — IRC server hostname
+- ~bot-irc-channel~ — one channel (one per context by schema design)
+- ~bot-web-server~ — web server hostname
+- ~bot-web-port~ — web server port
+- ~bot-uri-prefix~ — base URI path
+
+*** ~contexts~ table schema
+
+#+begin_src sql
+CREATE TABLE contexts (
+    context_id     bigint NOT NULL PRIMARY KEY,
+    context_name   text,     -- IRC nickname
+    irc_server     text,
+    irc_channel    text,     -- ONE channel per row
+    web_server     text,
+    web_port       integer,
+    web_uri_prefix text
+);
+#+end_src
+
+The schema enforces one channel per context, which matches the
+one-connection-per-channel architecture — but the config's ~irc-joins~
+structure allows multiple channels per nick-spec, creating a mismatch.
+
+*** ~load-contexts~ (~init-first-run.lisp~)
+
+Called only on first-run (~initialize-startup-maybe~ traps a ~DATABASE-ERROR~
+to detect an absent database). Subsequently never called again. If the config
+changes, the ~contexts~ table is silently stale.
+
+~load-contexts~ pairs web ports to nick-specs by *popping from a copy of
+~web-server-ports~* in lock-step with the nick-spec iteration. The count and
+order of ~web-server-ports~ entries must exactly match the total number of
+nick-specs across all servers. This is an undocumented invariant with no
+validation.
+
+** Known Bugs in the Current Configuration Code
+
+*** Bug A: ~load-contexts~ passes the server tuple to SQL, not the hostname
+
+#+begin_src lisp
+;; init-first-run.lisp line 29
+(let ((ircserver (car server-spec))   ; BUG: = '("irc.libera.chat" :ssl), not "irc.libera.chat"
+#+end_src
+
+~(car server-spec)~ extracts the whole ~("hostname" :ssl)~ tuple. Contrast
+with ~start-threaded-irc-client-instances~ which correctly uses ~(caar server-spec)~.
+The contexts table therefore stores ~(irc.libera.chat :ssl)~ as the
+~irc_server~ value, not ~"irc.libera.chat"~.
+
+*** Bug B: ~start-web-servers~ only starts one acceptor
+
+#+begin_src lisp
+;; web-server.lisp line 188
+(start (car *acceptors*))   ; only the first, despite creating one per port
+#+end_src
+
+Multiple acceptors are constructed (one per port in ~web-server-ports~) but
+only ~(car *acceptors*)~ is passed to ~start~. All ports beyond the first are
+silently inactive.
+
+*** Bug C: ~url-store.lisp~ captures credentials at class definition time
+
+#+begin_src lisp
+(defclass postmodern-url-store ()
+  ((readwrite-url-db :initform (psql-botdb-credentials *bot-config*) ...)))
+#+end_src
+
+The ~:initform~ expression is evaluated when the class is defined (at load
+time), not when an instance is created. If ~*bot-config*~ is not yet
+configured when this file loads, the URL store receives nil or stale
+credentials.
+
+*** Bug D: ~make-context-entry~ uses raw string interpolation for SQL
+
+#+begin_src lisp
+(query (format nil "INSERT INTO contexts ... VALUES ('~A', '~A', ...)"
+               bot-nick irc-server ...))
+#+end_src
+
+Values are interpolated directly into the SQL string. Any value containing a
+single quote (e.g. a channel name or nick with an apostrophe) will break the
+query. Should use parameterised queries.
+
+** Single Database Credential for Everything
+
+The separate credential slots (~psql-chain-credentials~,
+~psql-url-new-credentials~, etc.) suggest the original intent was to allow
+different PostgreSQL roles for different subsystems. That was never wired up.
+All 28 database call sites use ~psql-botdb-credentials~. The multi-credential
+design is entirely vestigial.
+
+* Proposed Overhaul
+
+** Core Principle
+
+Each IRC connection is a self-contained unit. The config should say exactly
+that: a flat list of connection objects, each carrying everything its
+connection needs, with nothing left to implicit positional coupling between
+separate lists.
+
+** New Data Model
+
+*** New class: ~connection-spec~
+
+#+begin_src lisp
+(defclass connection-spec ()
+  ((server            :initarg :server            :accessor cs-server)
+   (ssl               :initarg :ssl               :accessor cs-ssl
+                      :initform nil)
+   (nick              :initarg :nick              :accessor cs-nick)
+   (channel           :initarg :channel           :accessor cs-channel)
+   (channel-key       :initarg :channel-key       :accessor cs-channel-key
+                      :initform nil)
+   (nickserv-password :initarg :nickserv-password :accessor cs-nickserv-password
+                      :initform nil)
+   (web-port          :initarg :web-port          :accessor cs-web-port)))
+
+(defun make-connection-spec (&rest args)
+  (apply #'make-instance 'connection-spec args))
+#+end_src
+
+*** Simplified ~config~ class — 3 slots
+
+#+begin_src lisp
+(defclass config ()
+  ((db-credentials  :initarg :db-credentials  :accessor db-credentials)
+   (web-server-name :initarg :web-server-name :accessor web-server-name)
+   (connections     :initarg :connections     :accessor connections)))
+
+(defun make-config (&rest args)
+  (apply #'make-instance 'config args))
+#+end_src
+
+All 9 dead slots are removed. ~irc-joins~ and ~web-server-ports~ are replaced
+by ~connections~. All ~psql-*~ slots collapse to ~db-credentials~.
+
+*** New config data format
+
+#+begin_src lisp
+(defparameter *bot-config*
+  (make-config
+   :db-credentials  '("botdb" "fade" nil :unix)
+   :web-server-name "localhost"
+   :connections
+   (list
+    (make-connection-spec
+     :server "irc.libera.chat" :ssl t
+     :nick "Jankist" :channel "#deepsky"
+     :web-port 8888)
+    (make-connection-spec
+     :server "irc.srh.org" :ssl t
+     :nick "chumby" :channel "#trinity" :channel-key "knobjockey"
+     :web-port 5807)
+    (make-connection-spec
+     :server "irc.srh.org" :ssl t
+     :nick "harlie" :channel "#busted"
+     :web-port 5791))))
+#+end_src
+
+Flat, readable, self-documenting. Each connection declares everything it
+needs. No positional coupling. No ambiguous list structure.
+
+** Changes Required, File by File
+
+*** ~confobjects.lisp~
+
+- Replace 13-slot ~config~ class with 3-slot version
+- Add ~connection-spec~ class with ~make-connection-spec~ constructor
+- Remove ~initialize-instance :after~ fallback (no longer needed; ~db-credentials~
+  is always explicit)
+
+*** ~config.lisp~ (and ~config-template.lisp~)
+
+- Rewrite all config variants using ~make-connection-spec~
+- ~irc-nickchannels~ / ~irc-joins~ duplication disappears by construction
+- NickServ passwords, channel keys are now named, not positional
+
+*** ~irc-client.lisp~ — ~start-threaded-irc-client-instances~
+
+Replace the nested ~dolist~ over ~irc-joins~ with a flat iteration:
+
+#+begin_src lisp
+(dolist (cs (connections *bot-config*))
+  (when go?
+    (start-threaded-irc-client-instance
+     (cs-server cs)
+     (if (cs-ssl cs) :ssl :default)
+     (cs-nick cs)
+     (cs-channel cs)
+     (cs-channel-key cs)
+     :nickserv-password (cs-nickserv-password cs))
+    (sleep *inter-connection-delay*)))
+#+end_src
+
+The ~make-irc-client-instance-thunk~ signature also simplifies: ~channel~ and
+~channel-key~ are passed as distinct arguments, removing the ambiguous
+~(first channels)~ / ~(second channels)~ convention.
+
+*** ~init-first-run.lisp~ — ~load-contexts~
+
+- Iterate ~(connections *bot-config*)~ directly; no more nested list navigation
+- Fixes Bug A: ~(cs-server cs)~ is always a plain string
+- Fixes the positional coupling: ~(cs-web-port cs)~ directly, no list popping
+- Use a parameterised upsert: ~INSERT ... ON CONFLICT ... DO UPDATE SET ...~
+  so the function is safe to call on every startup, not only first-run
+- Fixes Bug D: use Postmodern parameterised queries, not ~format~ string interpolation
+
+*** ~init-first-run.lisp~ — ~initialize-startup-maybe~
+
+Call ~load-contexts~ unconditionally (after confirming DB existence), not only
+on the first-run path. The idempotent upsert makes this safe. Config changes
+take effect on next restart without manual SQL.
+
+*** ~web-server.lisp~ — ~start-web-servers~
+
+- Collect ports from ~(mapcar #'cs-web-port (connections *bot-config*))~
+- Fix Bug B: start all acceptors, not just ~(car *acceptors*)~
+  (or make the single-server design explicit and intentional)
+
+*** ~url-store.lisp~
+
+Fix Bug C — defer credential capture to instantiation time:
+
+#+begin_src lisp
+;; Replace the :initform expression with nil and use initialize-instance
+(defclass postmodern-url-store ()
+  ((readwrite-url-db :initform nil :accessor readwrite-url-db)))
+
+(defmethod initialize-instance :after ((store postmodern-url-store) &key)
+  (setf (readwrite-url-db store) (db-credentials *bot-config*)))
+#+end_src
+
+*** Database — ~contexts~ table
+
+Add a unique constraint to support idempotent upserts:
+
+#+begin_src sql
+ALTER TABLE contexts
+  ADD CONSTRAINT contexts_identity_unique
+  UNIQUE (context_name, irc_server, irc_channel);
+#+end_src
+
+** What Does Not Change
+
+- ~bot-irc-connection~ class and all ~connection_pain~ event-driven sequencing
+- All message hooks (privmsg, join, notice, namreply, etc.)
+- ~bot-channel~ table and user/ignore persistence
+- The ~contexts~ table schema (beyond the unique constraint above)
+- Chainer, URL store internals, web routes, plugin dispatch
+
+** Migration Sequence
+
+Each step is independently testable before proceeding to the next.
+
+1. *~confobjects.lisp~* — define ~connection-spec~, simplify ~config~
+2. *~config.lisp~* — rewrite config data using new classes
+3. *~irc-client.lisp~* — simplify ~start-threaded-irc-client-instances~
+   and ~make-irc-client-instance-thunk~ signature
+4. *~init-first-run.lisp~* — idempotent ~load-contexts~, fix Bug A, fix Bug D,
+   move upsert out of first-run-only path
+5. *~url-store.lisp~* — fix Bug C (deferred credential capture)
+6. *~web-server.lisp~* — port list from connections, fix Bug B
+7. *Database* — add unique constraint to ~contexts~ table
+
+* Open Questions
+
+- Should ~web-server-name~ move onto ~connection-spec~ to allow different
+  connections to advertise different hostnames, or is a single hostname
+  per bot image always correct?
+- Should the single-web-server behaviour in ~start-web-servers~ be preserved
+  by design (one acceptor, many virtual hosts) or was multi-acceptor the
+  intent?
+- Is the ~contexts~ table still needed at all once the config is the
+  single source of truth on every startup? Or does it serve a purpose
+  for the URL shortener (~urls.context_id~ foreign key) that justifies
+  keeping it?
+
+* Source Locations
+
+| Symbol                              | File                    | Line |
+|-------------------------------------+-------------------------+------|
+| ~config~ class                        | confobjects.lisp        |   54 |
+| ~make-config~                         | confobjects.lisp        |   69 |
+| ~start-threaded-irc-client-instances~ | irc-client.lisp         |  727 |
+| ~make-irc-client-instance-thunk~      | irc-client.lisp         |  573 |
+| ~load-contexts~                       | init-first-run.lisp     |   21 |
+| ~make-context-entry~                  | init-first-run.lisp     |   73 |
+| ~initialize-startup-maybe~            | init-first-run.lisp     |  103 |
+| ~start-web-servers~                   | web-server.lisp         |  168 |
+| ~postmodern-url-store~ class          | url-store.lisp          |    5 |
+| ~contexts~ table schema               | database/bot-schema.sql |    — |

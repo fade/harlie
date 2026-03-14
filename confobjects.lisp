@@ -47,33 +47,37 @@
 
 (in-package :harlie)
 
-;;; a transliteration to a CLOS class of the struct that formerly
-;;; contained the configuration information for the various channel
-;;; personalities of a given image containing a harlie instance.
+;;; Each IRC connection is a self-contained unit.  connection-spec carries
+;;; everything one bot personality needs: server, nick, channel, and the
+;;; web port that serves its URL-shortener context.
+
+(defclass connection-spec ()
+  ((server            :initarg :server            :accessor cs-server)
+   (ssl               :initarg :ssl               :accessor cs-ssl
+                      :initform nil)
+   (nick              :initarg :nick              :accessor cs-nick)
+   (channel           :initarg :channel           :accessor cs-channel)
+   (channel-key       :initarg :channel-key       :accessor cs-channel-key
+                      :initform nil)
+   (nickserv-password :initarg :nickserv-password :accessor cs-nickserv-password
+                      :initform nil)
+   (nickserv-email    :initarg :nickserv-email    :accessor cs-nickserv-email
+                      :initform nil)
+   (web-port          :initarg :web-port          :accessor cs-web-port)))
+
+(defun make-connection-spec (&rest args)
+  (apply #'make-instance 'connection-spec args))
+
+;;; Top-level bot configuration: one database credential set, the web
+;;; hostname, and a flat list of connection-spec objects.
 
 (defclass config ()
-  ((irc-server-name :initarg :irc-server-name :accessor irc-server-name)
-   (irc-channel-names :initarg :irc-channel-names :accessor irc-channel-names)
-   (irc-joins :initarg :irc-joins :accessor irc-joins)
-   (ssl :initarg :ssl :initform :none :accessor ssl)
-   (irc-nickchannels :initarg :irc-nickchannels :accessor irc-nickchannels)
+  ((db-credentials  :initarg :db-credentials  :accessor db-credentials)
    (web-server-name :initarg :web-server-name :accessor web-server-name)
-   (web-server-ports :initarg :web-server-ports :accessor web-server-ports)
-   (url-store-type :initarg :url-store-type :accessor url-store-type)
-   (psql-old-credentials :initarg :psql-old-credentials :initform nil :accessor psql-old-credentials)
-   (psql-url-new-credentials :initarg :psql-url-new-credentials :accessor psql-url-new-credentials)
-   (psql-chain-credentials :initarg :psql-chain-credentials :accessor psql-chain-credentials)
-   (psql-context-credentials :initarg :psql-context-credentials :accessor psql-context-credentials)
-   (psql-botdb-credentials :initarg :psql-botdb-credentials :initform nil :accessor psql-botdb-credentials)))
+   (connections     :initarg :connections     :accessor connections)))
 
 (defun make-config (&rest args)
   (apply #'make-instance 'config args))
-
-(defmethod initialize-instance :after ((conf config) &key)
-  (with-accessors ((botdb psql-botdb-credentials) (ctxt psql-context-credentials))
-      conf
-    (when (not botdb)
-      (setf botdb ctxt))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; confobjects.lisp ends here

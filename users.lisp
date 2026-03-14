@@ -20,7 +20,7 @@
   (:keys bot-channel-id))
 
 (defun make-bot-channel-aux (channel-name server-name)
-  (with-connection (psql-botdb-credentials *bot-config*)
+  (with-connection (db-credentials *bot-config*)
     (handler-case
         (let ((bco (car (select-dao 'bot-channel (:= :channel-name channel-name)))))
           (if bco
@@ -44,7 +44,7 @@
 
 (defun make-bot-channel (channel-name &optional (server-name nil))
   (log:debug "~2&Creating a channel object for channel: ~A~%" channel-name)
-  (with-connection (psql-botdb-credentials *bot-config*)
+  (with-connection (db-credentials *bot-config*)
     (let ((bco (make-bot-channel-aux channel-name server-name)))
       (log:debug "~2&TYPE OF BCO:[ ~S ] :: [ ~S ]~2%" (type-of bco) bco)
       
@@ -52,7 +52,7 @@
 
 (defun get-bot-channel-for-name (name &optional (server-name ""))
   "Given a NAME, return the associated BOT-CHANNEL object."
-  (with-connection (psql-botdb-credentials *bot-config*)
+  (with-connection (db-credentials *bot-config*)
     (let ((c (make-bot-channel name server-name)))
       (values c))))
 
@@ -161,7 +161,7 @@ object and swap the old handle with the new one.
   (:documentation "given a channel object and a user object, return a mapping between them in the database."))
 
 (defmethod get-channel-user-mapping ((channel bot-channel) (user harlie-user))
-  (with-connection (psql-botdb-credentials *bot-config*)
+  (with-connection (db-credentials *bot-config*)
     (let ((c/u-map
             (select-dao 'channel-user (:and (:= 'channel-id (bot-channel-id channel))
                                             (:= 'user-id (harlie-user-id user))))))
@@ -180,7 +180,7 @@ object and swap the old handle with the new one.
 
 (defun get-user-for-id (id)
   "Given an ID of type integer, return the associated channel user handle."
-  (with-connection (psql-botdb-credentials *bot-config*)
+  (with-connection (db-credentials *bot-config*)
     (let ((u (select-dao 'harlie-user  (:= 'harlie-user-id id))))
       (if (and (listp u) (>= (length u) 1))
           (first u)
@@ -188,7 +188,7 @@ object and swap the old handle with the new one.
 
 (defun get-user-for-handle (handle &key channel)
   "Given a HANDLE, return the user from the database, or create one."
-  (with-connection (psql-botdb-credentials *bot-config*)
+  (with-connection (db-credentials *bot-config*)
     (let ((this-user (or (first (select-dao 'harlie-user (:= 'harlie-user-name handle)))
                          (first (select-dao 'harlie-user (:= 'current-handle handle)))
                          (make-dao 'harlie-user :harlie-user-name handle
@@ -211,29 +211,29 @@ object and swap the old handle with the new one.
 
 (defun zero-bot-channels ()
   "Destroy and recreate the table to hold the channels the bot joins."
-  (with-connection (psql-botdb-credentials *bot-config*)
+  (with-connection (db-credentials *bot-config*)
     (drop-table "bot-channel" :if-exists t :cascade t)))
 
 (defun make-bot-channels ()
-  (with-connection (psql-botdb-credentials *bot-config*)
+  (with-connection (db-credentials *bot-config*)
     (query (dao-table-definition 'bot-channel))))
 
 (defun zero-channel-users ()
   "destroy and recreate the table to hold a channel's persistent users."
-  (with-connection (psql-botdb-credentials *bot-config*)
+  (with-connection (db-credentials *bot-config*)
     (drop-table 'channel-user :if-exists t :cascade t)))
 
 (defun make-channel-users ()
-  (with-connection (psql-botdb-credentials *bot-config*)
+  (with-connection (db-credentials *bot-config*)
     (query (dao-table-definition 'channel-user))))
 
 (defun zero-harlie-users ()
   "destroy the table that holds the users known to the bot."
-  (with-connection (psql-botdb-credentials *bot-config*)
+  (with-connection (db-credentials *bot-config*)
     (drop-table "harlie-user" :if-exists t :cascade t)))
 
 (defun make-harlie-users ()
-  (with-connection (psql-botdb-credentials *bot-config*)
+  (with-connection (db-credentials *bot-config*)
     (query (dao-table-definition 'harlie-user))))
 
 (defun zero-users ()
@@ -263,7 +263,7 @@ object and swap the old handle with the new one.
 ;;     (upsert-dao this-user)))
 
 ;; (defun make-a-new-harlie-user (nick)
-;;   (with-connection (psql-botdb-credentials *bot-config*)
+;;   (with-connection (db-credentials *bot-config*)
 ;;     (let ((uobject (get-user-for-handle nick)))
 ;;       (if uobject
 ;;           (update-dao uobject)

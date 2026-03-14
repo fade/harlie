@@ -714,7 +714,7 @@ hook runs before the default-hook, extended here."
           (simple-error (e)
             (if (search "Ignore unknown reply" (simple-condition-format-control e))
                 (log:debug "~&[IRC] Skipping unrecognized server message on ~A" ircserver)
-                (error e)))))))
+                (error e))))))))
 
 (defun make-bot-connection (nickname ircserver connection-port
                             &key nickserv-password nickserv-email)

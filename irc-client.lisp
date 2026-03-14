@@ -549,7 +549,6 @@ hook runs before the default-hook, extended here."
 
       (let* ((chan-obj-hash (get-channel-object-from-connection connection channel)))
         (log:debug "~4&This is your channel object hash: ~A. There are many like it, but this one is yours.~2%" chan-obj-hash)
-        ;;  (log:debug "~2&[[[~{ ~A~^| ~}]]]~2%" (list nick chan-visibility channel names))
         (log:debug "~2&CHANNEL:: ~A JOIN DEFAULT HOOK, NAMES:: ~A~2%" channel names)
 
         (let ((name-list (channel-member-list-on-join message))) ;; seems redundant but this cleans punctuation
@@ -577,10 +576,10 @@ hook runs before the default-hook, extended here."
 (defun make-irc-client-instance-thunk (nickname channel channel-key ircserver connection)
   "Make the thunk which moves in and instantiates a new IRC connection.
 
-CHANNEL and CHANNEL-KEY are plain strings (or nil for no key).
-Channel join is deferred until 001 RPL_WELCOME confirms registration.
-If NICKSERV-PASSWORD is set on the connection, IDENTIFY is sent first and
-the JOIN is deferred further until NickServ acknowledges identification."
+   CHANNEL and CHANNEL-KEY are plain strings (or nil for no key).
+   Channel join is deferred until 001 RPL_WELCOME confirms registration.
+   If NICKSERV-PASSWORD is set on the connection, IDENTIFY is sent first and
+   the JOIN is deferred further until NickServ acknowledges identification."
   (declare (ignorable ircserver))
   (let ((channel-password channel-key))
     (lambda ()

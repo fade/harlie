@@ -1,0 +1,511 @@
+#+TITLE: Harlie IRC Bot — Channel Join Failure Analysis
+#+AUTHOR: Brian O'Reilly
+#+DATE: 2026-03-13
+#+OPTIONS: toc:t num:t
+
+* Overview
+
+This document analyses the Harlie IRC bot codebase (~harlie/~) and its primary
+dependency (~cl-irc~) with a focus on the observed failure mode: *the bot does
+not join all configured channels when many channels are present in the
+configuration*.
+
+Three areas are examined:
+1. The Harlie channel-joining code path
+2. The ~cl-irc~ library's protocol handling
+3. The configuration data model
+
+* Project Structure
+
+| File                 | Purpose                                                |
+|----------------------+--------------------------------------------------------|
+| ~harlie.lisp~          | Entry point: ~run-bot~, ~kill-bot~, ~slynky~ REPL            |
+| ~irc-client.lisp~      | All IRC connection and messaging logic (677 lines)     |
+| ~confobjects.lisp~     | ~config~ CLOS class definition                           |
+| ~config.lisp~          | Active site configuration (symlink to config-template) |
+| ~config-template.lisp~ | Example/template configs                               |
+| ~context.lisp~         | Per-server/channel context management                  |
+| ~users.lisp~           | PostgreSQL-backed user, channel, channel-user models   |
+| ~plugins.lisp~         | Plugin dispatch system                                 |
+| ~sleep-timers.lisp~    | Portable timer replacement (was SBCL-specific)         |
+| ~chainer.lisp~         | Markov-chain text generation                           |
+
+Dependencies of note: ~cl-irc~, ~bordeaux-threads~, ~jpl-queues~,
+~postmodern~, ~lparallel~, ~trivial-timeout~, ~hunchentoot~.
+
+* Startup and Channel-Join Code Path
+
+** ~run-bot~ (harlie.lisp)
+
+#+begin_src lisp
+(defun run-bot ()
+  (setf *random-state* (make-random-state t))
+  (start-web-client)
+  (start-web-servers)
+  (initialize-startup-maybe :go? t)
+  (sleep 3)                                  ; wait for web servers
+  (start-threaded-irc-client-instances :go? t)
+  (start-cron)
+  (add-canonical-crons))
+#+end_src
+
+** ~start-threaded-irc-client-instances~ (irc-client.lisp:648)
+
+Iterates the ~irc-joins~ slot of ~*bot-config*~. For each server/port
+specification and each nickname/channel pair within it, spawns a dedicated
+OS thread via ~bordeaux-threads:make-thread~.
+
+#+begin_src lisp
+(dolist (server-spec (irc-joins *bot-config*))
+  (let* ((ircserver     (caar server-spec))
+         (connection-port (or (first (cdar server-spec)) :default)))
+    (dolist (nick-spec (cadr server-spec))
+      (let ((nickname (car nick-spec))
+            (channels (cadr nick-spec)))
+        (when go?
+          (start-threaded-irc-client-instance
+           ircserver connection-port nickname channels))))))
+#+end_src
+
+The ~channels~ value bound here is ~(cadr nick-spec)~ — the second element of
+a nick-spec like ~("Jankist" ("#deepsky"))~.
+
+** ~make-bot-connection~ (irc-client.lisp:604)
+
+Calls ~cl-irc:connect~, which:
+1. Opens a TCP socket (or SSL stream) to the server
+2. Sends ~NICK~ and ~USER~ commands
+3. Adds default hooks
+4. *Returns immediately — without waiting for 001 RPL_WELCOME*
+
+** ~make-irc-client-instance-thunk~ (irc-client.lisp:569)
+
+This is where the actual ~JOIN~ is sent:
+
+#+begin_src lisp
+(if (listp channels)
+    (let ((ch   (first channels))
+          (pass (second channels)))
+      (cl-irc:join connection ch :password pass)
+      (privmsg connection ch "NOTIFY:: Help, I'm a bot!"))
+    (progn
+      (cl-irc:join connection channel)
+      (privmsg connection channel "NOTIFY:: Help, I'm a bot!")))
+
+;; (dolist (channel channels)         ; <-- COMMENTED OUT
+;;   (log:debug ...))
+
+(add-hook connection 'irc::irc-privmsg-message #'threaded-msg-hook)
+;; ... more hooks ...
+(read-message-loop connection)        ; blocks here forever
+#+end_src
+
+* Identified Bugs and Failure Modes
+
+** BUG #1 (Critical): Only One Channel Per Connection Is Ever Joined
+
+This is almost certainly the primary cause of the reported failure.
+
+The ~channels~ value passed to the thunk is, in typical configuration, a list
+of channel names (and optionally a password), e.g.:
+
+#+begin_src lisp
+("#trinity" "#triscuit")   ; intended: join two channels
+("#deepsky")               ; intended: join one channel
+("#trinity" "knobjockey")  ; intended: join #trinity with password
+#+end_src
+
+The code treats this list as a *(channel . maybe-password)* pair, not as a
+list of channels to iterate:
+
+#+begin_src lisp
+(let ((ch   (first channels))   ; → "#trinity"
+      (pass (second channels))) ; → "#triscuit"  (USED AS PASSWORD — WRONG)
+  (cl-irc:join connection ch :password pass))
+#+end_src
+
+*Consequences:*
+- When two channel names appear in a list (intended as two channels to join),
+  only the first is joined.
+- The second name is silently passed as a channel key/password to the JOIN
+  command, causing the server to reject the join with ~ERR_BADCHANNELKEY~
+  (475), which Harlie never observes (no error hook).
+- Any channels beyond the second are completely silently dropped.
+
+*Evidence of the intent to loop:* Lines 587–590 contain a commented-out
+~dolist~ that was presumably the original iteration logic:
+
+#+begin_src lisp
+;; (dolist (channel channels)
+;;   (log:debug "~2&Type of 'channel: ~A~3%" (type-of channel))
+;;   (log:debug "~&~S~3%" channel)
+;;   )
+#+end_src
+
+This was dead-ended, and the replacement code (the current ~if (listp channels)~
+block) handles only a single channel. The loop body was never implemented.
+
+** BUG #2 (Significant): ~irc-nickchannels~ Config Slot Is Never Used
+
+The ~config~ class has an ~irc-nickchannels~ slot (confobjects.lisp:59).
+Example configs populate it:
+
+#+begin_src lisp
+:irc-nickchannels '(("chumby" ("#trinity" "knobjockey"))
+                    ("harlie" ("#busted")))
+#+end_src
+
+However, ~start-threaded-irc-client-instances~ iterates *only* ~irc-joins~.
+The ~irc-nickchannels~ slot is read nowhere in the IRC connection code.
+Any channels listed solely under ~irc-nickchannels~ and not duplicated in
+~irc-joins~ will never be joined.
+
+This creates a maintenance hazard: an operator editing the config may update
+~irc-nickchannels~ while leaving ~irc-joins~ stale, believing both are active.
+
+** BUG #3 (Significant): JOIN Sent Before Registration Confirmed
+
+~cl-irc:connect~ (command.lisp:266) sends ~NICK~ and ~USER~ and returns
+immediately, without waiting for the server's ~001 RPL_WELCOME~. The thunk
+then immediately calls ~cl-irc:join~.
+
+On most modern IRC servers (Inspircd, Charybdis, UnrealIRCd), JOIN commands
+received during registration are queued and replayed after registration
+completes. However:
+- Some network configurations or older servers may reject or silently drop
+  pre-registration JOIN commands.
+- Under load (many simultaneous connections from the same host), server-side
+  processing may be slow enough that a rapid JOIN before 001 is reliably
+  rejected.
+- Services (NickServ, etc.) may also need to identify the nick before certain
+  channels (+r, registered-only) can be joined.
+
+** BUG #4 (Moderate): PRIVMSG Sent to Channel Before JOIN Confirmed
+
+Immediately after sending ~JOIN~, the thunk sends:
+
+#+begin_src lisp
+(privmsg connection ch "NOTIFY:: Help, I'm a bot!")
+#+end_src
+
+This PRIVMSG is sent before the server has acknowledged the JOIN (before any
+hook fires, before ~read-message-loop~ even starts). If the JOIN is rejected or
+slow, this message goes to a channel the bot is not in, generating a silent
+~ERR_NOTONCHANNEL~ (442) from the server, which is never handled.
+
+** BUG #5 (Significant): Undefined Variable ~channel~ in Else Branch
+
+The ~if (listp channels)~ form at line 576 has two branches. The true branch
+correctly binds ~ch~ and ~pass~:
+
+#+begin_src lisp
+(let ((ch   (first channels))
+      (pass (second channels)))
+  (cl-irc:join connection ch :password pass)
+  (privmsg connection ch ...))
+#+end_src
+
+The false branch (line 582), intended for when ~channels~ is a bare string
+atom, references a variable named ~channel~ which is not a parameter and is not
+bound anywhere in the enclosing scope:
+
+#+begin_src lisp
+(progn
+  (cl-irc:join connection channel)     ; 'channel' is UNBOUND
+  (privmsg connection channel ...))
+#+end_src
+
+The function signature is:
+#+begin_src lisp
+(defun make-irc-client-instance-thunk (nickname channels ircserver connection)
+#+end_src
+
+There is no ~channel~ parameter. The name should be ~channels~ or the binding
+~ch~ from the true branch. Because all current configurations pass a list as
+~channels~, the else branch is never reached and this bug is latent — but any
+attempt to pass a bare channel name string would signal an ~unbound-variable~
+error.
+
+** BUG #6 (Moderate): Hooks Registered After JOIN Sent
+
+The ~add-hook~ calls at lines 593–601 occur *after* ~cl-irc:join~ is called
+at line 580. In theory, the ~irc-join-message~ hook at line 598 could miss the
+bot's own JOIN acknowledgment if the server is fast enough to respond before
+~read-message-loop~ is entered.
+
+In practice, because the socket is buffered and ~read-message-loop~ is started
+in the same thread, this is unlikely to lose messages — the socket buffer will
+hold them. However, there is no guarantee, particularly under high load or
+with short server-side processing times.
+
+** BUG #7 (Minor): No Error Recovery for Failed JOINs
+
+~cl-irc~ has no default hooks for these IRC error codes:
+- ~403 ERR_NOSUCHCHANNEL~
+- ~405 ERR_TOOMANYCHANNELS~
+- ~442 ERR_NOTONCHANNEL~
+- ~471 ERR_CHANNELISFULL~
+- ~473 ERR_INVITEONLYCHAN~
+- ~474 ERR_BANNEDFROMCHAN~
+- ~475 ERR_BADCHANNELKEY~
+
+Harlie also adds no custom hooks for these. A failed JOIN is silently ignored
+with no retry, no log entry, and no operator alert.
+
+* cl-irc Library Issues
+
+** No Rate Limiting in ~multi-join~
+
+~cl-irc~ provides a ~multi-join~ method (command.lisp:175):
+
+#+begin_src lisp
+(defmethod multi-join ((connection connection) (channels list))
+  (dolist (channel channels)
+    (join connection channel)))
+#+end_src
+
+There is no delay between ~JOIN~ commands. IRC servers implement flood
+protection; sending many JOINs in rapid succession can trigger rate limiting,
+throttling, or even a temporary ban (~KILL~ or ~Z-LINE~). Harlie does not use
+~multi-join~ (it uses ~cl-irc:join~ directly), but the same problem applies:
+if many connections each send a JOIN at startup simultaneously, the server may
+interpret the traffic as flooding.
+
+** ~connect~ Does Not Wait for 001
+
+As noted above, ~cl-irc:connect~ returns immediately after sending ~NICK~ and
+~USER~. There is no call to ~read-message-loop~ or any synchronous read of the
+welcome message. The caller must not send JOIN until it has received ~001~, but
+nothing in the library enforces or facilitates this.
+
+** 1024-Byte Read Buffer
+
+~read-protocol-line~ (utility.lisp) uses a hard-coded 1024-byte buffer:
+
+#+begin_src lisp
+(read-sequence-until (network-stream connection)
+                     (make-array 1024 :element-type '(unsigned-byte 8)
+                                      :fill-pointer t)
+                     '(10))
+#+end_src
+
+The IRC protocol caps messages at 512 bytes (including CRLF), so this buffer
+is sufficient for all well-formed IRC protocol messages. However, if a server
+sends a malformed or extended message (some IRCv3 servers with tags can exceed
+512 bytes), truncation occurs, causing the next read to start mid-message and
+desynchronise the parser. This is a latent risk rather than the primary cause
+of the reported failure.
+
+** No Hook for ~no-such-reply~
+
+When ~read-irc-message~ encounters a message type with no registered handler,
+~no-such-reply~ is signalled. Unless ~*unknown-reply-hook*~ is set (it is not
+by Harlie), the message is silently dropped. Any server-specific numerics, or
+future IRC extension responses, are lost.
+
+* Configuration Model Analysis
+
+** Active Config (~*sr-4-config*~, current config.lisp)
+
+#+begin_src lisp
+(defparameter *sr-4-config*
+  (make-config
+   :irc-server-name "irc.srh.org"
+   :irc-nickchannels '(("chumby" ("#trinity" "knobjockey"))
+                       ("harlie" ("#busted")))     ; <-- NEVER USED
+   :ssl :ssl
+   :irc-joins '((("irc.libera.chat" :ssl)
+                 (("Jankist" ("#deepsky")))))       ; <-- ONLY THIS IS USED
+   ...))
+#+end_src
+
+In the current active config, only one channel (~#deepsky~) on one server
+(libera.chat) is configured via ~irc-joins~. The ~irc-nickchannels~ entries
+for ~chumby~ and ~harlie~ on ~irc.srh.org~ are present but completely inert.
+
+** ~*harlot-config*~ Template Example (Demonstrates the Multi-Channel Bug)
+
+#+begin_src lisp
+:irc-joins '((("irc.srh.org" :none)
+              (("Harlot" ("#trinity" "#triscuit")))))
+#+end_src
+
+With this config, ~channels = ("#trinity" "#triscuit")~. The thunk will join
+~#trinity~ with the password ~"#triscuit"~. The channel ~#triscuit~ will never
+be joined.
+
+** Structural Ambiguity in the ~channels~ Value
+
+The list ~("#chan" "password")~ is structurally identical to ~("#chan1" "#chan2")~.
+The code always interprets it as /(channel . password)/, never as a list of
+channels to join. There is no sentinel or type tag to distinguish the two
+intended meanings. This is a latent design ambiguity that makes it easy to
+write a configuration that appears correct but silently misbehaves.
+
+* Hypotheses (Ranked by Likelihood)
+
+** Hypothesis 1 (Most Likely): Multi-Channel Config Interpreted as Channel+Password
+
+If the operator's production ~config.lisp~ lists multiple channels per nick
+entry, e.g.:
+
+#+begin_src lisp
+(("botNick" ("#chan1" "#chan2" "#chan3")))
+#+end_src
+
+then ~(first channels) = "#chan1"~ and ~(second channels) = "#chan2"~ is
+passed as a (wrong) password. Only ~#chan1~ is joined. ~#chan2~ and ~#chan3~
+are silently dropped.
+
+*This is consistent with "fails to join some channels when there are many."*
+
+** Hypothesis 2 (Likely): ~irc-nickchannels~ Populated Instead of ~irc-joins~
+
+If the operator maintains channels under ~irc-nickchannels~ (which looks like
+the "obvious" place based on its name), and does not also duplicate them under
+~irc-joins~, those channels will never be joined. There is no warning.
+
+*This is consistent with channels appearing in configuration but never joined.*
+
+** Hypothesis 3 (Plausible): Server-Side Flood / Connection-Rate Limiting
+
+If many nick+channel entries are configured (one connection per entry, per
+current architecture), a burst of simultaneous TCP connections from the same
+IP address can trigger server-side flood protection. The server may silently
+close some connections, require CAPTCHA/SASL authentication, or impose a
+connection delay that causes the join handshake to time out.
+
+On Libera.chat and similar networks, unregistered nicks or nicks without SASL
+authentication face tighter limits.
+
+** Hypothesis 4 (Plausible): JOIN Sent Before 001 — Server Rejects During Registration
+
+Because ~cl-irc:connect~ returns without waiting for ~001~, the JOIN is sent
+before registration is complete. While most servers queue this, some may not,
+particularly if NickServ identification is required before joining certain
+channels.
+
+** Hypothesis 5 (Less Likely): Timing Race — Hooks Not Set Before JOIN Response
+
+The hooks are added after the JOIN command is sent. On a very fast local
+network connection, it is theoretically possible that the server's JOIN
+acknowledgment arrives and is lost because ~read-message-loop~ has not started.
+In practice the socket buffer makes this unlikely.
+
+** Hypothesis 6 (Background): Network / Server Tightening
+
+A git commit (~aa2e917~) is titled "libera.chat is tightening its connection
+criteria", indicating the operator has observed that Libera.chat is imposing
+stricter rules on connections. Stricter SASL/nick-registration requirements,
+per-IP connection limits, or mandatory handshake pacing could cause any or all
+simultaneous connections to be refused. This is an external factor that
+amplifies the other bugs.
+
+* Additional Architectural Concerns
+
+** No Reconnection Logic
+
+The ~TODO.org~ file explicitly lists this as unimplemented:
+
+#+begin_example
+- [ ] Smart rejoin.  Detect disconnects from server.
+#+end_example
+
+When ~read-message-loop~ exits (network drop, server kick, timeout), the
+thread terminates with no restart or rejoin. Every lost connection requires a
+manual bot restart.
+
+** Thread-Per-Message Model
+
+~threaded-msg-hook~ spawns a new ~bordeaux-threads~ thread for every incoming
+~PRIVMSG~:
+
+#+begin_src lisp
+(defun threaded-msg-hook (message)
+  (make-thread #'(lambda () (msg-hook message nil))))
+#+end_src
+
+There is no thread pool, no limit on concurrent threads, and no back-pressure.
+Under heavy traffic (e.g., a busy channel after joining), this could exhaust
+OS thread resources or cause excessive context switching. The same pattern
+applies to ~threaded-action-hook~.
+
+** Database / Config Schema Mismatch
+
+The ~contexts~ PostgreSQL table (from ~schema.sql~) stores one channel per
+context row:
+
+#+begin_example
+context_name | irc_server | irc_channel | web_server | web_port
+#+end_example
+
+The Lisp config model supports multiple channels per nick. There is no
+migration path between a multi-channel config and the database schema. If the
+database is used to enumerate active channels (e.g., by ~initialize-startup-maybe~),
+it may disagree with the Lisp config, causing channels present in one but not
+the other to be silently omitted.
+
+* Recommendations
+
+*** Short Term
+
+1. *Fix ~make-irc-client-instance-thunk~ to iterate all channels.* The ~channels~
+   value should be a list of channel-specs; the current "first = channel,
+   second = password" convention should be preserved for single-channel entries
+   but a proper loop is needed for multiple channels. Consider a per-channel
+   plist or two-element list convention, e.g. ~(("#chan" . "pass") "#chan2")~,
+   and document it.
+
+2. *Audit ~irc-joins~ vs ~irc-nickchannels~.* Either remove ~irc-nickchannels~
+   (it is unused) or add code to merge it into the join process. Having a
+   dead config slot is a maintenance hazard.
+
+3. *Add error hooks for JOIN failures.* At minimum, log 403, 405, 442, 471,
+   473, 474, 475 so that failed joins are observable.
+
+*** Medium Term
+
+4. *Wait for 001 before sending JOIN.* Either poll ~read-message~ until
+   ~irc-rpl_welcome-message~ fires, or restructure the startup hook to send
+   JOIN from within the ~irc-rpl_welcome-message~ handler.
+
+5. *Rate-limit JOIN commands.* Add an inter-join delay (100–500 ms) when joining
+   multiple channels, to avoid triggering server flood protection.
+
+6. *Send PRIVMSG after JOIN is confirmed.* Move the identification PRIVMSG into
+   the ~irc-join-message~ hook, not immediately after the raw JOIN send.
+
+*** Long Term
+
+7. *Consider a single connection with ~multi-join~.* Rather than one TCP
+   connection per channel/nick, a single authenticated connection joining many
+   channels is more typical, more efficient, and avoids per-IP connection limits.
+   This requires refactoring the config model.
+
+8. *Set ~*unknown-reply-hook*~* to log unrecognised server numerics, making
+   server-side errors visible during debugging.
+
+9. *Implement reconnection.* The ~read-message-loop~ exit should trigger an
+   exponential-backoff reconnect and channel rejoin sequence.
+
+10. *Cap per-message threads or use a thread pool.* The current one-thread-per-PRIVMSG
+    model is unbounded. A lparallel work queue (already a dependency) would be
+    more robust.
+
+* Appendix: Key Source Locations
+
+| Symbol                              | File             | Line |
+|-------------------------------------+------------------+------|
+| ~run-bot~                             | harlie.lisp      | ~17~   |
+| ~start-threaded-irc-client-instances~ | irc-client.lisp  | ~648~  |
+| ~start-threaded-irc-client-instance~  | irc-client.lisp  | ~631~  |
+| ~make-bot-connection~                 | irc-client.lisp  | ~604~  |
+| ~make-irc-client-instance-thunk~      | irc-client.lisp  | ~569~  |
+| ~cl-irc:join~                         | command.lisp     | ~167~  |
+| ~cl-irc:connect~                      | command.lisp     | ~266~  |
+| ~cl-irc:multi-join~                   | command.lisp     | ~175~  |
+| ~read-protocol-line~                  | utility.lisp     | ~132~  |
+| ~read-message-loop~                   | protocol.lisp    | ~342~  |
+| ~config~ class                        | confobjects.lisp | ~54~   |
+| ~*sr-4-config*~                       | config.lisp      | ~58~   |
+| Commented-out channel dolist        | irc-client.lisp  | ~587~  |

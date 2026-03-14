@@ -366,6 +366,14 @@ ALTER TABLE ONLY public.contexts
 
 
 --
+-- Name: contexts contexts_identity_unique; Type: CONSTRAINT; Schema: public; Owner: <bot_runner_uid>
+--
+
+ALTER TABLE ONLY public.contexts
+    ADD CONSTRAINT contexts_identity_unique UNIQUE (context_name, irc_server, irc_channel);
+
+
+--
 -- Name: harlie_user harlie_user_current_handle_key; Type: CONSTRAINT; Schema: public; Owner: <bot_runner_uid>
 --
 

@@ -38,41 +38,51 @@ has a chaining database. shuffled for freshness.")
                               "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/47.0.2526.111 Safari/537.36"
                               "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:15.0) Gecko/20100101 Firefox/15.0.1"))
 
-;; these are exmaples.
+;; these are examples.
 (defparameter *harlot-config*
-  (make-config :irc-server-name "irc.srh.org"
-	       :irc-nickchannels '(("Harlot" ("#trinity")))
-	       :irc-joins '((("irc.srh.org" :none) (("Harlot" ("#trinity" "#triscuit")))))
-	       :web-server-name "127.0.0.1"
-	       :web-server-ports '(5791)
-	       :url-store-type :psql
-	       :psql-botdb-credentials '("botdb" "tuxedo" nil :unix)))
+  (make-config
+   :db-credentials  '("botdb" "tuxedo" nil :unix)
+   :web-server-name "127.0.0.1"
+   :connections
+   (list
+    (make-connection-spec
+     :server "irc.srh.org" :ssl nil
+     :nick "Harlot" :channel "#trinity"
+     :web-port 5791))))
 
 (defparameter *sr-4-config*
-  (make-config :irc-server-name "irc.srh.org"
-	       :irc-nickchannels '(("SR-4" ("#trinity")))
-	       :irc-joins '((("irc.srh.org" :none) (("SR-4" ("#trinity")))))
-	       :web-server-name "localhost"
-	       :web-server-ports '(5791)
-	       :url-store-type :psql
-	       :psql-botdb-credentials '("botdb" "fade" nil :unix)))
+  (make-config
+   :db-credentials  '("botdb" "fade" nil :unix)
+   :web-server-name "localhost"
+   :connections
+   (list
+    (make-connection-spec
+     :server "irc.srh.org" :ssl nil
+     :nick "SR-4" :channel "#trinity"
+     :web-port 5791))))
 
 (defparameter *combined-config*
-  (make-config :irc-server-name "irc.srh.org"
-               :irc-nickchannels '(("semaphor" ("#deepsky"))
-                                   ("Bootsy" ("#funkrehab"))
-                                   ("shogun" ("#walled"))
-                                   ("thugster" ("#wallednoc")))
-	       :irc-joins '((("irc.srh.org" :none)
-			     (("semaphor" ("#deepsky"))
-			      ("Bootsy" ("#funkrehab"))
-			      ("shogun" ("#walled"))
-			      ("thugster" ("#wallednoc")))))
-               :web-server-name "deepsky.com"
-               :web-server-ports '(7080 8080 8090 9099)
-               :url-store-type :psql
-               ;; :psql-botdb-credentials '("botdb" "semaphor" nil :unix)
-               :psql-botdb-credentials *bot-database-credentials*))
+  (make-config
+   :db-credentials  *bot-database-credentials*
+   :web-server-name "deepsky.com"
+   :connections
+   (list
+    (make-connection-spec
+     :server "irc.srh.org" :ssl nil
+     :nick "semaphor" :channel "#deepsky"
+     :web-port 7080)
+    (make-connection-spec
+     :server "irc.srh.org" :ssl nil
+     :nick "Bootsy" :channel "#funkrehab"
+     :web-port 8080)
+    (make-connection-spec
+     :server "irc.srh.org" :ssl nil
+     :nick "shogun" :channel "#walled"
+     :web-port 8090)
+    (make-connection-spec
+     :server "irc.srh.org" :ssl nil
+     :nick "thugster" :channel "#wallednoc"
+     :web-port 9099))))
 
 (defparameter *bot-config* *combined-config*)
 

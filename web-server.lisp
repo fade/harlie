@@ -166,26 +166,27 @@ or an error message, as appropriate."
   (push (create-folder-dispatcher-and-handler s (make-pathname-in-lisp-subdir p)) *dispatch-table*))
 
 (defun start-web-servers ()
-  "Initialize and start the web server subsystem."
+  "Initialize and start the web server subsystem.
+One acceptor is created and started per connection-spec in *BOT-CONFIG*."
   (setf clhs-lookup::*hyperspec-map-file*
 	(make-pathname-in-lisp-subdir "HyperSpec/Data/Map_Sym.txt"))
-  (dolist (port (web-server-ports *bot-config*))
-    (push (make-instance 'hunchentoot:easy-acceptor
-			 :port port
-			 :access-log-destination (make-pathname-in-lisp-subdir "harlie/logs/http-access.log")
-			 :message-log-destination (make-pathname-in-lisp-subdir "harlie/logs/http-error.log"))
-	  *acceptors*)
-    (glom-on-prefix "/" 'redirect-shortener-dispatch)
-    ;; (glom-on-prefix "/ass" 'url-index-ass-dispatch)
-    (glom-on-prefix "/ass/" 'ass-url-index)
-    (glom-on-static-file "/robots.txt" "harlie/robots.txt")
-    (glom-on-regex "^/help/?$" 'help-dispatch)
-    (glom-on-regex "^/source" 'source-dispatch)
-    (glom-on-regex "^/hyper(spec)?/?$" 'hyperspec-base-dispatch)
-    (glom-on-folder "/HyperSpec/" "HyperSpec/")
-    (glom-on-folder "/gitrepo/" "harlie/.git/")
-    (glom-on-prefix "/harlie.git" 'gitrepo-base-dispatch)
-    (start (car *acceptors*))))
+  (glom-on-prefix "/" 'redirect-shortener-dispatch)
+  ;; (glom-on-prefix "/ass" 'url-index-ass-dispatch)
+  (glom-on-prefix "/ass/" 'ass-url-index)
+  (glom-on-static-file "/robots.txt" "harlie/robots.txt")
+  (glom-on-regex "^/help/?$" 'help-dispatch)
+  (glom-on-regex "^/source" 'source-dispatch)
+  (glom-on-regex "^/hyper(spec)?/?$" 'hyperspec-base-dispatch)
+  (glom-on-folder "/HyperSpec/" "HyperSpec/")
+  (glom-on-folder "/gitrepo/" "harlie/.git/")
+  (glom-on-prefix "/harlie.git" 'gitrepo-base-dispatch)
+  (dolist (cs (connections *bot-config*))
+    (let ((acceptor (make-instance 'hunchentoot:easy-acceptor
+                                   :port (cs-web-port cs)
+                                   :access-log-destination (make-pathname-in-lisp-subdir "harlie/logs/http-access.log")
+                                   :message-log-destination (make-pathname-in-lisp-subdir "harlie/logs/http-error.log"))))
+      (push acceptor *acceptors*)
+      (start acceptor))))
 
 (defun stop-web-servers ()
   "Shut down the web server subsystem."

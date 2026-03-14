@@ -11,7 +11,7 @@
    (bot-uri-prefix :initarg :bot-uri-prefix :initform nil :accessor bot-uri-prefix)))
 
 (defmethod initialize-instance :after ((context bot-context) &key)
-  (with-connection (psql-botdb-credentials *bot-config*)
+  (with-connection (db-credentials *bot-config*)
     (let* ((context-query-head '(:select 'context-name 'irc-server 'irc-channel
                                  'web-server 'web-port 'web-uri-prefix
 				 :from 'contexts))
@@ -32,7 +32,7 @@
 	(setf (bot-uri-prefix context) (sixth conlist))))))
 
 (defun chain-context (nick)
-  (with-connection (psql-botdb-credentials *bot-config*)
+  (with-connection (db-credentials *bot-config*)
     (query (:select 'context-id
 	    :from 'contexts
 	    :where (:= (:raw "lower(context_name)")
@@ -55,7 +55,7 @@
   (:documentation "Returns the context ID for reading the URL DB in a given context."))
 
 (defun url-context (port)
-  (with-connection (psql-botdb-credentials *bot-config*)
+  (with-connection (db-credentials *bot-config*)
     (query (:select 'context-id
 	    :from 'contexts
 	    :where (:= 'web-port port))

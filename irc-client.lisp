@@ -118,7 +118,7 @@ sender wasn't being ignored; true otherwise."))
   (setf (ignored channel/user-map) t)
   (log:info "~&MAKE-USER-IGNORED:: THIS-USER IS: ~A" this-user)
   (handler-case
-      (with-connection (psql-botdb-credentials *bot-config*)
+      (with-connection (db-credentials *bot-config*)
         ;; (update-dao this-user)
         (update-dao channel/user-map))
     (error (c)
@@ -132,7 +132,7 @@ sender wasn't being ignored; true otherwise."))
   (setf (ignored channel/user-map) nil)
   (log:info "~&MAKE-USER-UNIGNORED:: ~A / ~A~%" channel channel/user-map)
   (handler-case
-      (with-connection (psql-botdb-credentials *bot-config*)
+      (with-connection (db-credentials *bot-config*)
         (update-dao this-user)
         (update-dao channel/user-map))
     (error (c)
@@ -506,7 +506,7 @@ a specific user in a specific channel."))
       (setf (current-handle this-user) new-nick
             (prev-handle this-user) old-nick
             (last-seen this-user) (local-time:now))
-      (with-connection (psql-botdb-credentials *bot-config*)
+      (with-connection (db-credentials *bot-config*)
         (update-dao this-user)))))
 
 ;; (defun handle-swap (old new)
@@ -517,7 +517,7 @@ a specific user in a specific channel."))
 ;;     ;;            (list connection sender channel-name channel text token-text-list command))
 ;;     (setf (current-handle this-user) new-nick
 ;;           (prev-handle this-user) old-nick)
-;;     (with-connection (psql-botdb-credentials *bot-config*)
+;;     (with-connection (db-credentials *bot-config*)
 ;;       (update-dao this-user))))
 
 
@@ -571,15 +571,15 @@ hook runs before the default-hook, extended here."
                                   (when (ignored channel/user-map)
                                     (start-ignoring connection this-user-name channel))))))))))))))
 
-(defun make-irc-client-instance-thunk (nickname channels ircserver connection)
+(defun make-irc-client-instance-thunk (nickname channel channel-key ircserver connection)
   "Make the thunk which moves in and instantiates a new IRC connection.
 
+CHANNEL and CHANNEL-KEY are plain strings (or nil for no key).
 Channel join is deferred until 001 RPL_WELCOME confirms registration.
 If NICKSERV-PASSWORD is set on the connection, IDENTIFY is sent first and
 the JOIN is deferred further until NickServ acknowledges identification."
   (declare (ignorable ircserver))
-  (let ((channel (first channels))
-        (channel-password (second channels)))
+  (let ((channel-password channel-key))
     (lambda ()
       (setf (bot-irc-client-thread connection) (bt:current-thread))
       (setf (connection-state connection) :connecting)
@@ -700,24 +700,16 @@ after registration before the channel JOIN is attempted."
       (bt:destroy-thread (bot-irc-client-thread connection))
       (remhash k *irc-connections*))))
 
-(defun start-threaded-irc-client-instance (ircserver connection-port nickname channels
+(defun start-threaded-irc-client-instance (ircserver connection-port nickname
+                                            channel channel-key
                                             &key nickserv-password)
   "Make a connection to an IRC server and spawn a thread to service it."
   (let ((connection (make-bot-connection nickname ircserver connection-port
                                          :nickserv-password nickserv-password)))
     (make-thread
-     (make-irc-client-instance-thunk nickname channels ircserver connection)
+     (make-irc-client-instance-thunk nickname channel channel-key ircserver connection)
      :name (format nil "IRC Client thread: server ~A, nick ~A"
 		   ircserver nickname))))
-
-(defun test-conn-specs (con-specs)
-  (dolist (server-spec (irc-joins con-specs))
-    (let ((ircserver (car server-spec)))
-      (format t "Server for join: ~A~%" ircserver)
-      (dolist (nick-spec (cadr server-spec))
-        (let ((nickname (car nick-spec))
-              (channels (cadr nick-spec)))
-          (format t "Handle: ~A on channel: ~A ~%" nickname channels))))))
 
 (defparameter *inter-connection-delay* 2
   "Seconds to wait between spawning IRC connection threads.
@@ -727,45 +719,23 @@ triggering server-side flood protection.")
 (defun start-threaded-irc-client-instances (&key (go? nil))
   "Spawn a thread to run a session with an IRC server.
 Connections are staggered by *INTER-CONNECTION-DELAY* seconds."
-  (dolist (server-spec (irc-joins *bot-config*))
-    (let* ((ircserver (caar server-spec))
-           (connection-port (or (first (cdar server-spec))
-                                :default)))
-      (log:debug "~&IRC Server for join: ~A ~A" ircserver connection-port)
-      (dolist (nick-spec (cadr server-spec))
-        (log:debug "~&[[[ nickspec for ~A: ~A ]]]" ircserver nick-spec)
-        (let ((nickname         (car nick-spec))
-              (channels         (cadr nick-spec))
-              (nickserv-password (caddr nick-spec)))
-          (log:debug "IRC handle: ~A on channel:~A nickserv:~A"
-                     nickname channels (if nickserv-password "<set>" nil))
-          (when go?
-            (start-threaded-irc-client-instance ircserver connection-port nickname channels
-                                                :nickserv-password nickserv-password)
-            (sleep *inter-connection-delay*)))))))
-
-(defun test-connection-targets ()
-  (dolist (server-spec (irc-joins *bot-config*))
-    (format t "~2&<||| ~A |||>~2%" server-spec)
-    (let* ((ircserver (caar server-spec))
-           (connection-port (or (first (cdar server-spec))
-                                :default)))
-      (format t "IRC Server for join: ~A ~A" ircserver connection-port)
-      (dolist (nick-spec (cadr server-spec))
-        (format t "[|| The nick specification for ~A : ~A ||]" ircserver nick-spec)
-        (let ((nickname (car nick-spec))
-              (channels (cadr nick-spec)))
-          (format t "IRC handle: ~A on channel: ~A" nickname channels))))))
+  (dolist (cs (connections *bot-config*))
+    (let ((connection-port (if (cs-ssl cs) :ssl :default)))
+      (log:debug "~&IRC Server for join: ~A ~A nick=~A channel=~A"
+                 (cs-server cs) connection-port (cs-nick cs) (cs-channel cs))
+      (when go?
+        (start-threaded-irc-client-instance
+         (cs-server cs) connection-port (cs-nick cs)
+         (cs-channel cs) (cs-channel-key cs)
+         :nickserv-password (cs-nickserv-password cs))
+        (sleep *inter-connection-delay*)))))
 
 (defun print-bot-config (botconfig)
-  "print the contents of the bot's configuration class."
-  (dolist (server-spec (irc-joins botconfig))
-    (let* ((ircserver (caar server-spec))
-           (connection-kind (first (cdar server-spec))))
-      (dolist (nick-spec (cadr server-spec))
-	(let ((nickname (car nick-spec))
-	      (channels (cadr nick-spec)))
-	  (log:debug "~&~{~A~^~%~}~%~%" (list ircserver connection-kind nickname channels)))))))
+  "Print the connection specs in BOTCONFIG."
+  (dolist (cs (connections botconfig))
+    (log:debug "~&server=~A ssl=~A nick=~A channel=~A key=~A port=~A"
+               (cs-server cs) (cs-ssl cs) (cs-nick cs)
+               (cs-channel cs) (cs-channel-key cs) (cs-web-port cs))))
 
 (defun stop-threaded-irc-client-instances ()
   "Shut down a session with an IRC server, and clean up."

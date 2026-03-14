@@ -15,6 +15,34 @@
 ;;;; Author: Brian O'Reilly
 
 ;;; ---------------------------------------------------------------------------
+;;; Dependencies
+;;;
+;;; config.lisp references symbols from six external packages at load time.
+;;; Quickload them all before the package is defined so that the reader does
+;;; not error on package-qualified symbols like log:config or lparallel:*kernel*.
+;;;
+;;; Systems required:
+;;;   log4cl      — log:config
+;;;   hunchentoot — hunchentoot:*show-lisp-errors-p*
+;;;   alexandria  — alexandria:shuffle
+;;;   str         — str:split-omit-nulls
+;;;   rutils      — rutils:slurp
+;;;   lparallel   — lparallel:*kernel*, lparallel:make-kernel
+;;; ---------------------------------------------------------------------------
+
+(let ((ql-setup (merge-pathnames "quicklisp/setup.lisp" (user-homedir-pathname))))
+  (if (probe-file ql-setup)
+      (load ql-setup)
+      (error "Quicklisp not found at ~A — cannot load dependencies." ql-setup)))
+
+(dolist (sys '("log4cl" "hunchentoot" "alexandria" "str" "rutils" "lparallel"))
+  (handler-case
+      (funcall (find-symbol "QUICKLOAD" :ql) sys :silent t)
+    (error (e)
+      (error "Failed to quickload ~A: ~A~%~
+              Ensure Quicklisp is set up and the system is available." sys e))))
+
+;;; ---------------------------------------------------------------------------
 ;;; Package — define minimally if not already present
 ;;; ---------------------------------------------------------------------------
 
@@ -83,10 +111,6 @@
 (defvar *trig* nil)
 (defvar *syspath* nil)
 (defvar *here-db* nil)
-
-;;; Silence calls that config.lisp may make at load time
-(unless (fboundp 'log:config)
-  (defun log:config (&rest args) (declare (ignore args))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; Slot readers

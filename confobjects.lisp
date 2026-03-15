@@ -61,6 +61,8 @@
                       :initform nil)
    (nickserv-password :initarg :nickserv-password :accessor cs-nickserv-password
                       :initform nil)
+   (nickserv-email    :initarg :nickserv-email    :accessor cs-nickserv-email
+                      :initform nil)
    (web-port          :initarg :web-port          :accessor cs-web-port)))
 
 (defun make-connection-spec (&rest args)

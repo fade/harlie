@@ -26,17 +26,14 @@
           (if bco
               (values bco)
               (let ((bco (make-dao 'bot-channel
-                                   :fetch-defaults t
                                    :channel-name channel-name
                                    :server server-name)))
-                ;; (save-dao bco)
                 (values bco))))
       (database-error (e)
         (log:debug "DB ERROR: ~A" e)
         ;; we need to save the dao instance when it's created, or we
         ;; don't get the id created in the database. Like so:
         (let ((bco (make-dao 'bot-channel
-                             :fetch-defaults t
                              :channel-name channel-name
                              :server server-name)))
           (save-dao bco)

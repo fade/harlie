@@ -34,9 +34,12 @@
    (mq-task :initform nil :accessor mq-task)
    (connection-state :initform :connecting :accessor connection-state
                      :documentation "Tracks registration lifecycle:
-:connecting -> :registered -> :identifying -> :joining -> :joined | :join-failed")
+:connecting -> :registered -> :identifying -> :joining -> :joined | :join-failed
+                              -> :registering --^  (when nick unregistered and email provided)")
    (nickserv-password :initform nil :accessor nickserv-password
-                      :documentation "NickServ password for IDENTIFY, or nil if not needed.")))
+                      :documentation "NickServ password for IDENTIFY/REGISTER, or nil if not needed.")
+   (nickserv-email    :initform nil :accessor nickserv-email
+                      :documentation "Email address for NickServ REGISTER. nil if not registering.")))
 
 (defclass bot-irc-channel (cl-irc:channel)
   ((trigger-list :initarg :trigger-list :initform nil :accessor trigger-list)
@@ -47,18 +50,22 @@
 ;; on the fly and setting up the trigger list.
 
 (defmethod cl-irc::default-hook :after ((message cl-irc:irc-join-message))
-  (let* ((connection (cl-irc:connection message))
-	 (channel-name (car (arguments message)))
-	 (channel (find-channel connection channel-name)))
-    (change-class channel 'bot-irc-channel
-		  :trigger-list (random-words
-				 (make-instance 'bot-context
-						:bot-nick (nickname (user connection))
-						:bot-irc-server (server-name connection)
-						:bot-irc-channel channel-name)
-				 10 #'acceptable-word-p))
-    (when (get-bot-channel-for-name channel-name (server-name connection))
-      (log:debug "~2&|| Created channel entry for ~A ||~2%" channel-name))))
+  (handler-case
+      (let* ((connection (cl-irc:connection message))
+	     (channel-name (car (arguments message)))
+	     (channel (find-channel connection channel-name)))
+        (change-class channel 'bot-irc-channel
+		      :trigger-list (random-words
+				     (make-instance 'bot-context
+						    :bot-nick (nickname (user connection))
+						    :bot-irc-server (server-name connection)
+						    :bot-irc-channel channel-name)
+				     10 #'acceptable-word-p))
+        (when (get-bot-channel-for-name channel-name (server-name connection))
+          (log:debug "~2&|| Created channel entry for ~A ||~2%" channel-name)))
+    (error (e)
+      (log:warn "~&[JOIN HOOK] Error setting up channel ~A: ~A"
+                (car (arguments message)) e))))
 
 ;; The rate-limiting queue structure for the connection to the IRC server.
 
@@ -441,7 +448,8 @@ a specific user in a specific channel."))
 
 (defun user-join (message)
   "Handle channel join events, manage channel rota for persistent state (ignores)"
-  (let* ((connection (connection message))
+  (handler-case
+   (let* ((connection (connection message))
          (sender (source message))
          (channel-name (car (arguments message)))
          (channel (gethash channel-name (channels connection) )) ;; 'BOT-IRC-CHANNEL object
@@ -476,7 +484,10 @@ a specific user in a specific channel."))
                                         (first cuo)
                                         cuo)))
                 ;; (setf (gethash sender *users*) (list uobject cobject channel-users))
-                (map-user-and-channel-to-sticky-state cobject (harlie-user-name uobject) :cumap channel-users))))))))
+                (map-user-and-channel-to-sticky-state cobject (harlie-user-name uobject) :cumap channel-users))))))
+   (error (e)
+     (log:warn "~&[USER-JOIN] Error handling join for ~A: ~A"
+               (source message) e)))))
 
 (defun irc-nick-change (message)
   (let* ((connection (connection message))
@@ -546,7 +557,6 @@ hook runs before the default-hook, extended here."
 
       (let* ((chan-obj-hash (get-channel-object-from-connection connection channel)))
         (log:debug "~4&This is your channel object hash: ~A. There are many like it, but this one is yours.~2%" chan-obj-hash)
-        ;;  (log:debug "~2&[[[~{ ~A~^| ~}]]]~2%" (list nick chan-visibility channel names))
         (log:debug "~2&CHANNEL:: ~A JOIN DEFAULT HOOK, NAMES:: ~A~2%" channel names)
 
         (let ((name-list (channel-member-list-on-join message))) ;; seems redundant but this cleans punctuation
@@ -574,10 +584,10 @@ hook runs before the default-hook, extended here."
 (defun make-irc-client-instance-thunk (nickname channel channel-key ircserver connection)
   "Make the thunk which moves in and instantiates a new IRC connection.
 
-CHANNEL and CHANNEL-KEY are plain strings (or nil for no key).
-Channel join is deferred until 001 RPL_WELCOME confirms registration.
-If NICKSERV-PASSWORD is set on the connection, IDENTIFY is sent first and
-the JOIN is deferred further until NickServ acknowledges identification."
+   CHANNEL and CHANNEL-KEY are plain strings (or nil for no key).
+   Channel join is deferred until 001 RPL_WELCOME confirms registration.
+   If NICKSERV-PASSWORD is set on the connection, IDENTIFY is sent first and
+   the JOIN is deferred further until NickServ acknowledges identification."
   (declare (ignorable ircserver))
   (let ((channel-password channel-key))
     (lambda ()
@@ -602,19 +612,53 @@ the JOIN is deferred further until NickServ acknowledges identification."
                         (log:info "~&[JOIN] ~A joining ~A on ~A" nickname channel ircserver)
                         (cl-irc:join connection channel :password channel-password)))))
 
-      ;; --- NickServ NOTICE: proceed to JOIN once identified ---
+      ;; --- NickServ NOTICE: identification, registration, and join sequencing ---
       (add-hook connection 'irc::irc-notice-message
                 (lambda (message)
                   (let ((sender (source message))
                         (text (car (last (arguments message)))))
-                    (when (and (string-equal sender "NickServ")
-                               (eq (connection-state connection) :identifying)
-                               (or (search "You are now identified" text)
-                                   (search "You are now logged in" text)))
-                      (setf (connection-state connection) :joining)
-                      (log:info "~&[NickServ] Identified. ~A joining ~A on ~A"
-                                nickname channel ircserver)
-                      (cl-irc:join connection channel :password channel-password)))))
+                    (when (string-equal sender "NickServ")
+                      (cond
+                        ;; Identification confirmed → join.
+                        ((and (eq (connection-state connection) :identifying)
+                              (or (search "You are now identified" text)
+                                  (search "You are now logged in" text)))
+                         (setf (connection-state connection) :joining)
+                         (log:info "~&[NickServ] Identified. ~A joining ~A on ~A"
+                                   nickname channel ircserver)
+                         (cl-irc:join connection channel :password channel-password))
+
+                        ;; Nick not registered → REGISTER if we have an email, else just join.
+                        ((and (eq (connection-state connection) :identifying)
+                              (search "not registered" text))
+                         (if (nickserv-email connection)
+                             (progn
+                               (setf (connection-state connection) :registering)
+                               (log:info "~&[NickServ] ~A not registered. Sending REGISTER to ~A."
+                                         nickname (nickserv-email connection))
+                               (privmsg connection "NickServ"
+                                        (format nil "REGISTER ~A ~A"
+                                                (nickserv-password connection)
+                                                (nickserv-email connection))))
+                             (progn
+                               (log:warn "~&[NickServ] ~A not registered and no email configured. Joining without identification."
+                                         nickname)
+                               (setf (connection-state connection) :joining)
+                               (cl-irc:join connection channel :password channel-password))))
+
+                        ;; Registration response received → log it and proceed to join.
+                        ;; The nick will be unverified until the user clicks the email link;
+                        ;; on the next restart IDENTIFY will work normally.
+                        ((eq (connection-state connection) :registering)
+                         (log:info "~&[NickServ] Registration response for ~A: ~A"
+                                   nickname text)
+                         (when (or (search "email" text)
+                                   (search "registered" text)
+                                   (search "activation" text))
+                           (log:info "~&[NickServ] ~A registered. Check ~A for activation link. Joining now."
+                                     nickname (nickserv-email connection))
+                           (setf (connection-state connection) :joining)
+                           (cl-irc:join connection channel :password channel-password))))))))
 
       ;; --- irc-join-message: send bot announcement only on our own join ---
       (add-hook connection 'irc::irc-join-message
@@ -667,21 +711,49 @@ the JOIN is deferred further until NickServ acknowledges identification."
       ;; (add-hook connection 'irc::irc-nick-message #'irc-nick-change)
       (add-hook connection 'irc::irc-rpl_namreply-message #'channel-member-list-on-join)
 
-      (read-message-loop connection))))
+      ;; Resilient message loop.
+      ;;
+      ;; cl-irc signals SIMPLE-ERROR "Ignore unknown reply." for server
+      ;; numerics it doesn't recognise (e.g. 900 RPL_LOGGEDIN on Libera).
+      ;;
+      ;; Hook errors (database failures, etc.) must not kill the connection
+      ;; thread -- log them and continue.  Only stream-level errors (EOF,
+      ;; socket reset) indicate the connection is genuinely dead and should
+      ;; propagate to terminate the thread.
+      (loop
+        (handler-case (read-message connection)
+          (stream-error (e)
+            (log:warn "~&[IRC] Stream error on ~A, closing connection: ~A" ircserver e)
+            (error e))
+          (simple-error (e)
+            (if (search "Ignore unknown reply" (simple-condition-format-control e))
+                (log:debug "~&[IRC] Skipping unrecognized server message on ~A" ircserver)
+                (log:warn "~&[IRC] Error processing message on ~A: ~A" ircserver e)))
+          (error (e)
+            (log:warn "~&[IRC] Error in message handler on ~A: ~A" ircserver e)))))))
 
-(defun make-bot-connection (nickname ircserver connection-port &key nickserv-password)
+(defun make-bot-connection (nickname ircserver connection-port
+                            &key nickserv-password nickserv-email port)
   "Make a connection to an IRC server.
-NICKSERV-PASSWORD, when non-nil, will be used to IDENTIFY with NickServ
-after registration before the channel JOIN is attempted."
+NICKSERV-PASSWORD, when non-nil, triggers a NickServ IDENTIFY after RPL_WELCOME.
+NICKSERV-EMAIL, when non-nil along with NICKSERV-PASSWORD, enables automatic
+REGISTER if the nick is not yet registered.
+PORT, when a valid TCP port number (1-65535), connects to that specific port
+regardless of CONNECTION-PORT; useful for non-standard ports and test servers."
   (let ((connection (connect :nickname nickname
 			     :server ircserver
-                             :port (if (eq connection-port :ssl)
-                                       6697
-                                       :default)
-                             :connection-security connection-port
+                             :port (cond
+                                     ((and (integerp port) (<= 1 port 65535)) port)
+                                     ((eq connection-port :ssl) 6697)
+                                     (t :default))
+                             :connection-security (if (eq connection-port :ssl)
+                                                      :ssl
+                                                      :none)
 			     :connection-type 'bot-irc-connection)))
     (when nickserv-password
       (setf (nickserv-password connection) nickserv-password))
+    (when nickserv-email
+      (setf (nickserv-email connection) nickserv-email))
     (setf (gethash
            (list (string-upcase ircserver)
                  (string-upcase nickname))
@@ -702,10 +774,11 @@ after registration before the channel JOIN is attempted."
 
 (defun start-threaded-irc-client-instance (ircserver connection-port nickname
                                             channel channel-key
-                                            &key nickserv-password)
+                                            &key nickserv-password nickserv-email)
   "Make a connection to an IRC server and spawn a thread to service it."
   (let ((connection (make-bot-connection nickname ircserver connection-port
-                                         :nickserv-password nickserv-password)))
+                                         :nickserv-password nickserv-password
+                                         :nickserv-email nickserv-email)))
     (make-thread
      (make-irc-client-instance-thunk nickname channel channel-key ircserver connection)
      :name (format nil "IRC Client thread: server ~A, nick ~A"
@@ -727,7 +800,8 @@ Connections are staggered by *INTER-CONNECTION-DELAY* seconds."
         (start-threaded-irc-client-instance
          (cs-server cs) connection-port (cs-nick cs)
          (cs-channel cs) (cs-channel-key cs)
-         :nickserv-password (cs-nickserv-password cs))
+         :nickserv-password (cs-nickserv-password cs)
+         :nickserv-email (cs-nickserv-email cs))
         (sleep *inter-connection-delay*)))))
 
 (defun print-bot-config (botconfig)

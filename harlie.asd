@@ -79,7 +79,35 @@
   :depends-on (#:harlie #:harlie/test/fake-irc-server #:parachute)
   :components ((:file "test/nickserv-flow")))
 
+(asdf:defsystem #:harlie/test/unit
+  :depends-on (#:harlie #:parachute)
+  :serial t
+  :components ((:module "test/unit"
+                :serial t
+                :components ((:file "urls")
+                             (:file "triggers")
+                             (:file "config")))))
+
+(asdf:defsystem #:harlie/test/db
+  :depends-on (#:harlie #:parachute #:postmodern)
+  :serial t
+  :components ((:module "test/db"
+                :serial t
+                :components ((:file "package")
+                             (:file "contexts")
+                             (:file "users")))))
+
 (asdf:defsystem #:harlie/test/all
-  :depends-on (#:harlie/test/fake-irc-server #:harlie/test/nickserv-flow #:parachute)
+  :depends-on (#:harlie/test/fake-irc-server
+               #:harlie/test/nickserv-flow
+               #:harlie/test/unit
+               #:harlie/test/db
+               #:parachute)
   :perform (asdf:test-op (op c)
-             (uiop:symbol-call :parachute :test :harlie/test/nickserv-flow)))
+             (uiop:symbol-call :parachute :test
+                               '(:harlie/test/nickserv-flow
+                                 :harlie/test/unit/urls
+                                 :harlie/test/unit/triggers
+                                 :harlie/test/unit/config
+                                 :harlie/test/db/contexts
+                                 :harlie/test/db/users))))

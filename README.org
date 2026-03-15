@@ -25,12 +25,12 @@ channel showing the URL archive and bot source.
 
 * Requirements
 
-| Requirement   | Notes                                         |
-|---------------+-----------------------------------------------|
-| SBCL          | Tested on current releases                    |
-| Quicklisp     | For library loading                           |
-| PostgreSQL    | 14+ recommended; bot uses Unix socket auth    |
-| cl-irc        | Available via Quicklisp                          |
+| Requirement | Notes                                      |
+|-------------+--------------------------------------------|
+| SBCL        | Tested on current releases                 |
+| Quicklisp   | For library loading                        |
+| PostgreSQL  | 14+ recommended; bot uses Unix socket auth |
+| cl-irc      | Available via Quicklisp                    |
 
 All other Lisp dependencies are fetched by Quicklisp.
 
@@ -123,35 +123,35 @@ architecture.
 
 ~make-config~ accepts:
 
-| Key               | Type   | Purpose                                    |
-|-------------------+--------+--------------------------------------------|
-| ~:db-credentials~ | list   | Postmodern connection spec (db user pw host) |
-| ~:web-server-name~ | string | Hostname for web server ~Location:~ headers |
-| ~:connections~    | list   | One ~make-connection-spec~ per channel     |
+| Key              | Type   | Purpose                                      |
+|------------------+--------+----------------------------------------------|
+| ~:db-credentials~  | list   | Postmodern connection spec (db user pw host) |
+| ~:web-server-name~ | string | Hostname for web server ~Location:~ headers    |
+| ~:connections~     | list   | One ~make-connection-spec~ per channel         |
 
 ~make-connection-spec~ accepts:
 
-| Key                  | Required | Default | Purpose                       |
-|----------------------+----------+---------+-------------------------------|
-| ~:server~            | yes      | —       | IRC server hostname           |
-| ~:nick~              | yes      | —       | Bot nick                      |
-| ~:channel~           | yes      | —       | Channel to join               |
-| ~:ssl~               | no       | ~nil~   | Use TLS                       |
-| ~:web-port~          | no       | ~nil~   | Hunchentoot port for this context |
-| ~:channel-key~       | no       | ~nil~   | Channel password              |
-| ~:nickserv-password~ | no       | ~nil~   | NickServ IDENTIFY password    |
-| ~:nickserv-email~    | no       | ~nil~   | NickServ REGISTER email       |
+| Key                | Required | Default | Purpose                           |
+|--------------------+----------+---------+-----------------------------------|
+| ~:server~            | yes      | —       | IRC server hostname               |
+| ~:nick~              | yes      | —       | Bot nick                          |
+| ~:channel~           | yes      | —       | Channel to join                   |
+| ~:ssl~               | no       | ~nil~     | Use TLS                           |
+| ~:web-port~          | no       | ~nil~     | Hunchentoot port for this context |
+| ~:channel-key~       | no       | ~nil~     | Channel password                  |
+| ~:nickserv-password~ | no       | ~nil~     | NickServ IDENTIFY password        |
+| ~:nickserv-email~    | no       | ~nil~     | NickServ REGISTER email           |
 
 * IRC Commands
 
-| Command        | Effect                                          |
-|----------------+-------------------------------------------------|
-| ~!help~        | Print help URL and available commands           |
-| ~!babble~      | Generate text via Markov chain                  |
-| ~!haiku~       | Generate a haiku                                |
-| ~!metar ICAO~  | Fetch weather for airport ICAO code             |
-| ~!status~      | Short status report                             |
-| ~!status full~ | Full status including chainer phrase count      |
+| Command      | Effect                                     |
+|--------------+--------------------------------------------|
+| ~!help~        | Print help URL and available commands      |
+| ~!babble~      | Generate text via Markov chain             |
+| ~!haiku~       | Generate a haiku                           |
+| ~!metar ICAO~  | Fetch weather for airport ICAO code        |
+| ~!status~      | Short status report                        |
+| ~!status full~ | Full status including chainer phrase count |
 
 * License
 

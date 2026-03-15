@@ -2,6 +2,7 @@
 
 (asdf:defsystem #:harlie
   :serial t
+  :in-order-to ((asdf:test-op (asdf:test-op #:harlie/test/all)))
   :depends-on (#:alexandria
 	       #:bordeaux-threads
                #:lparallel
@@ -69,3 +70,16 @@
 	       (:file "sleep-timers")
                (:file "init-first-run")
 	       (:file "harlie")))
+
+(asdf:defsystem #:harlie/test/fake-irc-server
+  :depends-on (#:harlie #:bordeaux-threads #:usocket #:cl-ppcre)
+  :components ((:file "test/fake-irc-server")))
+
+(asdf:defsystem #:harlie/test/nickserv-flow
+  :depends-on (#:harlie #:harlie/test/fake-irc-server #:parachute)
+  :components ((:file "test/nickserv-flow")))
+
+(asdf:defsystem #:harlie/test/all
+  :depends-on (#:harlie/test/fake-irc-server #:harlie/test/nickserv-flow #:parachute)
+  :perform (asdf:test-op (op c)
+             (uiop:symbol-call :parachute :test :harlie/test/nickserv-flow)))

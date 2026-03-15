@@ -50,18 +50,22 @@
 ;; on the fly and setting up the trigger list.
 
 (defmethod cl-irc::default-hook :after ((message cl-irc:irc-join-message))
-  (let* ((connection (cl-irc:connection message))
-	 (channel-name (car (arguments message)))
-	 (channel (find-channel connection channel-name)))
-    (change-class channel 'bot-irc-channel
-		  :trigger-list (random-words
-				 (make-instance 'bot-context
-						:bot-nick (nickname (user connection))
-						:bot-irc-server (server-name connection)
-						:bot-irc-channel channel-name)
-				 10 #'acceptable-word-p))
-    (when (get-bot-channel-for-name channel-name (server-name connection))
-      (log:debug "~2&|| Created channel entry for ~A ||~2%" channel-name))))
+  (handler-case
+      (let* ((connection (cl-irc:connection message))
+	     (channel-name (car (arguments message)))
+	     (channel (find-channel connection channel-name)))
+        (change-class channel 'bot-irc-channel
+		      :trigger-list (random-words
+				     (make-instance 'bot-context
+						    :bot-nick (nickname (user connection))
+						    :bot-irc-server (server-name connection)
+						    :bot-irc-channel channel-name)
+				     10 #'acceptable-word-p))
+        (when (get-bot-channel-for-name channel-name (server-name connection))
+          (log:debug "~2&|| Created channel entry for ~A ||~2%" channel-name)))
+    (error (e)
+      (log:warn "~&[JOIN HOOK] Error setting up channel ~A: ~A"
+                (car (arguments message)) e))))
 
 ;; The rate-limiting queue structure for the connection to the IRC server.
 
@@ -444,7 +448,8 @@ a specific user in a specific channel."))
 
 (defun user-join (message)
   "Handle channel join events, manage channel rota for persistent state (ignores)"
-  (let* ((connection (connection message))
+  (handler-case
+   (let* ((connection (connection message))
          (sender (source message))
          (channel-name (car (arguments message)))
          (channel (gethash channel-name (channels connection) )) ;; 'BOT-IRC-CHANNEL object
@@ -479,7 +484,10 @@ a specific user in a specific channel."))
                                         (first cuo)
                                         cuo)))
                 ;; (setf (gethash sender *users*) (list uobject cobject channel-users))
-                (map-user-and-channel-to-sticky-state cobject (harlie-user-name uobject) :cumap channel-users))))))))
+                (map-user-and-channel-to-sticky-state cobject (harlie-user-name uobject) :cumap channel-users))))))
+   (error (e)
+     (log:warn "~&[USER-JOIN] Error handling join for ~A: ~A"
+               (source message) e)))))
 
 (defun irc-nick-change (message)
   (let* ((connection (connection message))
@@ -703,30 +711,41 @@ hook runs before the default-hook, extended here."
       ;; (add-hook connection 'irc::irc-nick-message #'irc-nick-change)
       (add-hook connection 'irc::irc-rpl_namreply-message #'channel-member-list-on-join)
 
-      ;; Replace read-message-loop with a tolerant equivalent.
-      ;; cl-irc signals SIMPLE-ERROR "Ignore unknown reply." for any
-      ;; server numeric it doesn't recognise (e.g. 900 RPL_LOGGEDIN,
-      ;; which Libera.Chat sends after SASL/NickServ login).  The
-      ;; default read-message-loop lets that kill the thread; we catch
-      ;; it per-iteration and continue instead.
+      ;; Resilient message loop.
+      ;;
+      ;; cl-irc signals SIMPLE-ERROR "Ignore unknown reply." for server
+      ;; numerics it doesn't recognise (e.g. 900 RPL_LOGGEDIN on Libera).
+      ;;
+      ;; Hook errors (database failures, etc.) must not kill the connection
+      ;; thread -- log them and continue.  Only stream-level errors (EOF,
+      ;; socket reset) indicate the connection is genuinely dead and should
+      ;; propagate to terminate the thread.
       (loop
         (handler-case (read-message connection)
+          (stream-error (e)
+            (log:warn "~&[IRC] Stream error on ~A, closing connection: ~A" ircserver e)
+            (error e))
           (simple-error (e)
             (if (search "Ignore unknown reply" (simple-condition-format-control e))
                 (log:debug "~&[IRC] Skipping unrecognized server message on ~A" ircserver)
-                (error e))))))))
+                (log:warn "~&[IRC] Error processing message on ~A: ~A" ircserver e)))
+          (error (e)
+            (log:warn "~&[IRC] Error in message handler on ~A: ~A" ircserver e)))))))
 
 (defun make-bot-connection (nickname ircserver connection-port
-                            &key nickserv-password nickserv-email)
+                            &key nickserv-password nickserv-email port)
   "Make a connection to an IRC server.
 NICKSERV-PASSWORD, when non-nil, triggers a NickServ IDENTIFY after RPL_WELCOME.
 NICKSERV-EMAIL, when non-nil along with NICKSERV-PASSWORD, enables automatic
-REGISTER if the nick is not yet registered."
+REGISTER if the nick is not yet registered.
+PORT, when a valid TCP port number (1-65535), connects to that specific port
+regardless of CONNECTION-PORT; useful for non-standard ports and test servers."
   (let ((connection (connect :nickname nickname
 			     :server ircserver
-                             :port (if (eq connection-port :ssl)
-                                       6697
-                                       :default)
+                             :port (cond
+                                     ((and (integerp port) (<= 1 port 65535)) port)
+                                     ((eq connection-port :ssl) 6697)
+                                     (t :default))
                              :connection-security (if (eq connection-port :ssl)
                                                       :ssl
                                                       :none)

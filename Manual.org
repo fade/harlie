@@ -172,7 +172,7 @@ tools handle the upgrade.
 Connect to the running legacy bot via Slynk and evaluate:
 
 #+begin_src lisp
-(load "/path/to/migrate-from-legacy.lisp")
+(load "/path/to/harlie/migrate_old_bot/migrate-from-legacy.lisp")
 (harlie::run-lisp-migration)
 #+end_src
 
@@ -185,7 +185,7 @@ Review ~new-config.lisp~, then stop the bot and copy it into place as
 ** Step 2 — Migrate the database
 
 #+begin_src sh
-bash migrate.sh
+bash migrate_old_bot/migrate.sh
 #+end_src
 
 This backs up the database, repairs any corrupted ~irc_server~ values (a
@@ -204,7 +204,8 @@ Options:
 ** Step 3 — Update the code and restart
 
 #+begin_src sh
-git checkout unfuck_configuration_and_state
+git checkout master
+git pull
 # start the bot normally
 #+end_src
 

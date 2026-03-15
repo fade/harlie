@@ -1,0 +1,158 @@
+#+TITLE: Harlie
+#+AUTHOR: Brian O'Reilly
+#+OPTIONS: toc:t num:nil
+
+/With respect to David Gerrold's/ When HARLIE Was One.
+
+Harlie is a multi-channel IRC bot written in Common Lisp.  It maintains
+persistent user state in PostgreSQL, shortens and annotates URLs, learns from
+conversation using a Markov chainer, and serves a small web interface per
+channel showing the URL archive and bot source.
+
+* Features
+
+- Connects to multiple IRC servers and channels simultaneously, each with its
+  own nick and web port
+- NickServ authentication and registration via an event-driven state machine
+- URL shortener with title fetching, UTM-parameter stripping, and a per-channel
+  web archive
+- Markov-chain text generation (~!babble~, ~!haiku~)
+- METAR weather lookups (~!metar~)
+- Per-user and per-channel persistent state in PostgreSQL
+- Built-in web server (Hunchentoot) per context
+- Slynk REPL server for live inspection (~slynky~)
+- Cron-style scheduled tasks
+
+* Requirements
+
+| Requirement   | Notes                                         |
+|---------------+-----------------------------------------------|
+| SBCL          | Tested on current releases                    |
+| Quicklisp     | For library loading                           |
+| PostgreSQL    | 14+ recommended; bot uses Unix socket auth    |
+| cl-irc        | Available via Quicklisp                          |
+
+All other Lisp dependencies are fetched by Quicklisp.
+
+* Quickstart
+
+** 1. Create the database
+
+#+begin_src sh
+createdb botdb
+sed 's/<bot_runner_uid>/YOUR_UNIX_USER/g' \
+    database/bot-schema.sql.template > database/bot-schema.sql
+psql botdb -f database/bot-schema.sql
+#+end_src
+
+** 2. Configure the bot
+
+Copy ~config-template.lisp~ to ~config.lisp~ and edit it:
+
+#+begin_src lisp
+(defparameter *bot-config*
+  (make-config
+   :db-credentials  (list "botdb" (uiop:getenv "USER") nil :unix)
+   :web-server-name "localhost"
+   :connections
+   (list
+    (make-connection-spec
+     :server  "irc.libera.chat" :ssl t
+     :nick    "MyBot"
+     :channel "#mychannel"
+     :web-port 9000))))
+#+end_src
+
+NickServ credentials should come from the environment, never from literals:
+
+#+begin_src lisp
+(make-connection-spec
+ ...
+ :nickserv-password (uiop:getenv "HARLIE_NICKSERV_PASSWORD")
+ :nickserv-email    (uiop:getenv "HARLIE_NICKSERV_EMAIL"))
+#+end_src
+
+#+begin_src sh
+export HARLIE_NICKSERV_PASSWORD="your-nickserv-password"
+export HARLIE_NICKSERV_EMAIL="your@email.com"
+#+end_src
+
+** 3. Load and start the bot
+
+#+begin_src lisp
+(ql:quickload :harlie)
+(in-package :harlie)
+(run-bot)
+#+end_src
+
+To also open a Slynk REPL for live inspection:
+
+#+begin_src lisp
+(slynky :port 4007)
+#+end_src
+
+** 4. Stop the bot
+
+#+begin_src lisp
+(kill-bot)
+#+end_src
+
+* Running the Tests
+
+A test database is required.  Create it once:
+
+#+begin_src sh
+createdb harlie-test
+pg_dump botdb --schema-only | psql harlie-test
+#+end_src
+
+Then from a Lisp image:
+
+#+begin_src lisp
+(asdf:test-system :harlie)
+#+end_src
+
+This runs the complete test suite: NickServ flow integration tests, pure-function
+unit tests, and database integration tests.  All tests target ~harlie-test~; the
+production ~botdb~ database is never touched.
+
+See the [[file:Manual.org][Operator's Manual]], §Testing, for a full description of the test suite
+architecture.
+
+* Configuration Reference
+
+~make-config~ accepts:
+
+| Key               | Type   | Purpose                                    |
+|-------------------+--------+--------------------------------------------|
+| ~:db-credentials~ | list   | Postmodern connection spec (db user pw host) |
+| ~:web-server-name~ | string | Hostname for web server ~Location:~ headers |
+| ~:connections~    | list   | One ~make-connection-spec~ per channel     |
+
+~make-connection-spec~ accepts:
+
+| Key                  | Required | Default | Purpose                       |
+|----------------------+----------+---------+-------------------------------|
+| ~:server~            | yes      | —       | IRC server hostname           |
+| ~:nick~              | yes      | —       | Bot nick                      |
+| ~:channel~           | yes      | —       | Channel to join               |
+| ~:ssl~               | no       | ~nil~   | Use TLS                       |
+| ~:web-port~          | no       | ~nil~   | Hunchentoot port for this context |
+| ~:channel-key~       | no       | ~nil~   | Channel password              |
+| ~:nickserv-password~ | no       | ~nil~   | NickServ IDENTIFY password    |
+| ~:nickserv-email~    | no       | ~nil~   | NickServ REGISTER email       |
+
+* IRC Commands
+
+| Command        | Effect                                          |
+|----------------+-------------------------------------------------|
+| ~!help~        | Print help URL and available commands           |
+| ~!babble~      | Generate text via Markov chain                  |
+| ~!haiku~       | Generate a haiku                                |
+| ~!metar ICAO~  | Fetch weather for airport ICAO code             |
+| ~!status~      | Short status report                             |
+| ~!status full~ | Full status including chainer phrase count      |
+
+* License
+
+See [[file:LICENSE][LICENSE]].

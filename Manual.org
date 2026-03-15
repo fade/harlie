@@ -211,3 +211,163 @@ git checkout unfuck_configuration_and_state
 ~load-contexts~ will sync the ~contexts~ table from the config on every
 subsequent startup — no further manual SQL is ever needed to add or
 change channels.
+
+* Testing
+
+** Overview
+
+Harlie's test suite is divided into three layers, each packaged as a
+separate ASDF sub-system under ~harlie.asd~.  All layers are wired to
+~(asdf:test-system :harlie)~ via the ~:in-order-to~ clause on the base
+system.
+
+| Sub-system                    | What it tests                                   |
+|-------------------------------+-------------------------------------------------|
+| ~harlie/test/unit~            | Pure functions: URL extraction, name-detector, config constructors |
+| ~harlie/test/db~              | DAO operations against a real database           |
+| ~harlie/test/nickserv-flow~   | Full IRC connection and NickServ state machine   |
+
+The test runner is [[https://shinmera.github.io/parachute/][Parachute]].
+
+** Prerequisites: the test database
+
+Database integration tests connect to a separate ~harlie-test~ database.
+Create it once:
+
+#+begin_src sh
+createdb harlie-test
+pg_dump botdb --schema-only | psql harlie-test
+#+end_src
+
+The production ~botdb~ database is never touched by the test suite.  Each
+test that writes rows cleans up after itself using ~unwind-protect~, so
+the suite is fully idempotent and can be re-run without resetting the schema.
+
+** Running the suite
+
+#+begin_src lisp
+(asdf:test-system :harlie)
+#+end_src
+
+Or to run a single layer interactively:
+
+#+begin_src lisp
+(asdf:load-system :harlie/test/unit)
+(parachute:test :harlie/test/unit/urls)
+
+(asdf:load-system :harlie/test/db)
+(parachute:test :harlie/test/db/users)
+
+(asdf:load-system :harlie/test/nickserv-flow)
+(parachute:test :harlie/test/nickserv-flow)
+#+end_src
+
+** Unit tests (~test/unit/~)
+
+These tests exercise pure functions that require no database or network.
+
+- ~test/unit/urls.lisp~ — ~extract-urls~ (http, https, www-prefixed, multiple
+  URLs per line, none, empty input) and ~de-utm-url~ (strips UTM tracking
+  parameters and other noise from URLs).
+
+- ~test/unit/triggers.lisp~ — ~make-name-detector~: verifies exact-match,
+  case-insensitivity, tolerance of surrounding punctuation, and correct
+  non-match for substrings embedded inside longer words.
+
+- ~test/unit/config.lisp~ — ~make-connection-spec~: required fields are
+  stored correctly, optional fields default to ~nil~, and explicit optional
+  values round-trip cleanly.
+
+** Database integration tests (~test/db/~)
+
+These tests call the real DAO functions against ~harlie-test~.  They are
+split across two files, both sharing the fixture defined in
+~test/db/package.lisp~.
+
+*** The ~with-test-db~ fixture
+
+~with-test-db~ is a macro that:
+
+1. Rebinds ~*bot-config*~ to a minimal config whose ~:db-credentials~ point
+   at ~harlie-test~.  The database username is taken from the ~$USER~
+   environment variable — no hardcoded credentials.
+
+2. Opens a ~postmodern:with-connection~ to that database, so the rest of the
+   body runs inside a live connection.
+
+Because all DAO helpers internally call ~(with-connection (db-credentials
+*bot-config*) ...)~, the rebinding is enough to redirect every database
+call made by the code under test.
+
+A one-time call to ~ensure-dao-classes-finalized~ runs at package load
+time.  Postmodern generates per-class methods (~insert-dao~, ~update-dao~,
+etc.) lazily via MOP ~finalize-inheritance~, but SBCL does not finalize
+DAO classes at ~defclass~ time.  Without explicit finalization the methods
+do not exist and the tests fail with "no applicable method for
+~insert-dao~".  Calling ~closer-mop:finalize-inheritance~ once per class
+at load time — guarded by ~class-finalized-p~ — generates the methods
+without producing redefinition warnings on subsequent runs.
+
+*** ~test/db/contexts.lisp~
+
+Tests for ~make-context-entry~ and ~load-contexts~:
+
+- Fresh insert creates exactly one row.
+- Calling ~make-context-entry~ twice for the same key leaves exactly one row
+  (idempotent).
+- Re-inserting with a different ~web-port~ updates the existing row in place.
+- ~load-contexts~ inserts one row per ~connection-spec~ in ~*bot-config*~.
+- Calling ~load-contexts~ twice still leaves exactly one row per spec.
+
+Each test deletes its rows in the ~unwind-protect~ cleanup form so the
+suite stays idempotent across runs.
+
+*** ~test/db/users.lisp~
+
+Tests for the three user-related DAO helpers:
+
+- ~make-bot-channel~ creates a ~bot-channel~ row and returns a DAO object;
+  a second call with the same name returns the same row (same ID).
+
+- ~get-user-for-handle~ creates a ~harlie-user~ row if none exists and
+  returns a DAO object; a second call returns the same row.
+
+- ~get-channel-user-mapping~ creates the join-table row linking a
+  ~bot-channel~ to a ~harlie-user~, with ~ignored~ defaulting to false;
+  a second call returns the same row.
+
+** NickServ flow tests (~test/nickserv-flow.lisp~)
+
+These tests spin up a fake IRC server (a plain TCP listener in
+~test/fake-irc-server.lisp~) in a background thread, connect a real bot
+instance to it, and drive it through the NickServ authentication state
+machine end-to-end.
+
+The fake server handles:
+
+- ~NICK~ / ~USER~ → sends the ~RPL_WELCOME~ (001) preamble.
+- ~PRIVMSG NickServ IDENTIFY ...~ → responds with NickServ's
+  "You are now identified" acknowledgement.
+- ~JOIN #channel~ → echoes the ~:nick!nick@host JOIN #channel~ confirmation
+  back to the client.
+
+Each test uses ~fis-wait-for~ to block until a specific line appears in
+the server's received-line log, with a timeout to prevent hangs.
+
+A key detail: ~cl-irc~ serialises the channel as a trailing IRC argument,
+sending ~JOIN :#channel~ (with a leading colon) on the wire.  Both the
+fake server's JOIN handler and the ~fis-wait-for~ assertions use the
+colon-prefixed form.
+
+** Adding new tests
+
+- *Unit tests*: add a file to ~test/unit/~, define a package with
+  ~uiop:define-package~, import only the symbols under test, and list the
+  file in the ~:components~ of ~harlie/test/unit~ in ~harlie.asd~.  Add the
+  package name to the ~parachute:test~ call in ~harlie/test/all~.
+
+- *DB integration tests*: add a file to ~test/db/~, use
+  ~(:use #:harlie/test/db/fixture)~ to get ~with-test-db~ and ~*test-db*~,
+  wrap each test body in ~(with-test-db (unwind-protect ... (cleanup)))~.
+  List the file in ~harlie/test/db~ in ~harlie.asd~ and add the package to
+  ~harlie/test/all~.

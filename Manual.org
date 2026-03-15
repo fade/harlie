@@ -195,9 +195,9 @@ constraint required by the new idempotent upsert.
 
 Options:
 
-| Flag        | Default      | Purpose                              |
-|-------------+--------------+--------------------------------------|
-| ~--db~      | ~botdb~      | PostgreSQL database name             |
+| Flag      | Default      | Purpose                              |
+|-----------+--------------+--------------------------------------|
+| ~--db~      | ~botdb~        | PostgreSQL database name             |
 | ~--user~    | current user | PostgreSQL username                  |
 | ~--dry-run~ | off          | Report what would be done; no writes |
 
@@ -221,11 +221,11 @@ separate ASDF sub-system under ~harlie.asd~.  All layers are wired to
 ~(asdf:test-system :harlie)~ via the ~:in-order-to~ clause on the base
 system.
 
-| Sub-system                    | What it tests                                   |
-|-------------------------------+-------------------------------------------------|
-| ~harlie/test/unit~            | Pure functions: URL extraction, name-detector, config constructors |
-| ~harlie/test/db~              | DAO operations against a real database           |
-| ~harlie/test/nickserv-flow~   | Full IRC connection and NickServ state machine   |
+| Sub-system                | What it tests                                                      |
+|---------------------------+--------------------------------------------------------------------|
+| ~harlie/test/unit~          | Pure functions: URL extraction, name-detector, config constructors |
+| ~harlie/test/db~            | DAO operations against a real database                             |
+| ~harlie/test/nickserv-flow~ | Full IRC connection and NickServ state machine                     |
 
 The test runner is [[https://shinmera.github.io/parachute/][Parachute]].
 

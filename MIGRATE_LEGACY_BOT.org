@@ -1,0 +1,205 @@
+#+TITLE: Harlie Legacy Migration — Analysis and Plan
+#+AUTHOR: Brian O'Reilly
+#+DATE: 2026-03-14
+#+OPTIONS: toc:t num:t
+
+* Problem Statement
+
+Legacy Harlie instances in production were configured with the old 13-slot
+~config~ class (~irc-joins~, ~web-server-ports~, ~psql-botdb-credentials~,
+etc.) and seeded their ~contexts~ database table once at first-run via a
+fragile, positionally-coupled ~load-contexts~ function.  Two concrete
+problems must be resolved before a legacy host can run the new code:
+
+1. *Config format mismatch* — the old ~make-config~ call structure is
+   incompatible with the new 3-slot ~config~ + ~connection-spec~ model.
+2. *Database state problems* — the ~contexts~ table on a legacy host may
+   contain one or both of:
+   - *Bug A rows*: ~irc_server~ stored as a stringified tuple
+     ~(irc.libera.chat :ssl)~ instead of the plain hostname
+     ~irc.libera.chat~ (caused by ~(car server-spec)~ instead of
+     ~(caar server-spec)~ in the old ~load-contexts~).
+   - *Duplicate rows*: from repeated first-run invocations, which would
+     block adding the unique constraint required by the new idempotent
+     upsert.
+
+* Background: What Changed
+
+** Old config class (13 slots, 9 dead)
+
+#+begin_src lisp
+(make-config
+  :irc-server-name      "irc.srh.org"
+  :irc-nickchannels     '(("chumby" ("#trinity" "knobjockey"))
+                           ("harlie" ("#busted")))
+  :ssl                  :ssl
+  :irc-joins            '((("irc.libera.chat" :ssl)
+                            (("Jankist" ("#deepsky")))))
+  :web-server-name      "localhost"
+  :web-server-ports     '(8888 5807 5791)
+  :url-store-type       :psql
+  :psql-botdb-credentials *bot-database-credentials*)
+#+end_src
+
+- ~irc-nickchannels~ was populated in every config and documented in the
+  Manual as the way to add channels, but was *never read* by the IRC
+  client code.  Only ~irc-joins~ was iterated.
+- ~web-server-ports~ was a flat list paired positionally with nick-specs
+  across all servers — an undocumented invariant with no validation.
+- Nine slots were dead: ~irc-server-name~, ~irc-channel-names~,
+  ~irc-nickchannels~, ~ssl~, ~url-store-type~, ~psql-old-credentials~,
+  ~psql-url-new-credentials~, ~psql-chain-credentials~,
+  ~psql-context-credentials~.
+
+** New config class (3 slots, all live)
+
+#+begin_src lisp
+(make-config
+  :db-credentials  '("botdb" "fade" nil :unix)
+  :web-server-name "localhost"
+  :connections
+  (list
+   (make-connection-spec
+    :server "irc.libera.chat" :ssl t
+    :nick "Jankist" :channel "#deepsky"
+    :web-port 8888)
+   (make-connection-spec
+    :server "irc.srh.org" :ssl t
+    :nick "chumby" :channel "#trinity" :channel-key "knobjockey"
+    :web-port 5807)
+   (make-connection-spec
+    :server "irc.srh.org" :ssl t
+    :nick "harlie" :channel "#busted"
+    :web-port 5791)))
+#+end_src
+
+Each connection is self-contained.  No positional coupling.  No ambiguous
+list structure.  ~load-contexts~ now runs an idempotent upsert on every
+startup so the ~contexts~ table is always in sync with the config.
+
+** Database: legacy ~contexts~ table issues
+
+The ~contexts~ table schema is unchanged (same columns).  What changes is:
+
+1. A unique constraint is added on ~(context_name, irc_server, irc_channel)~
+   to support the ~ON CONFLICT ... DO UPDATE~ upsert in ~load-contexts~.
+2. Bug A rows must be cleaned up before the constraint can be added (a
+   tuple string like ~(irc.libera.chat :ssl)~ would not deduplicate
+   correctly against the plain hostname ~irc.libera.chat~).
+3. Duplicate rows must be collapsed before the constraint can be added.
+
+* Deliverables
+
+** 1. ~migrate-from-legacy.lisp~
+
+Standalone Lisp file.  Loaded into a live legacy Harlie image (or any
+SBCL REPL that has the old ~config.lisp~ evaluated).  Reads the 13-slot
+~*bot-config*~ via ~slot-value~ — this works as long as the object was
+created by the old code, regardless of whether the class definition is
+still present.
+
+| Function | Purpose |
+|------------------------------+----------------------------------------------------------|
+| ~flatten-legacy-nick-specs~ | Walks nested ~irc-joins~; returns flat plist list |
+| ~pair-with-ports~ | Zips flat specs with port list; errors on count mismatch |
+| ~print-connection-spec-form~ | Prints one ~make-connection-spec~ form, nil fields omitted |
+| ~migrate-legacy-config~ | Prints complete new-style ~defparameter~ block |
+| ~run-lisp-migration~ | Orchestrator: validates, converts, writes file, prints checklist |
+
+~run-lisp-migration~ is the single operator entry point.  It:
+- Confirms ~*bot-config*~ has the old ~irc-joins~ slot (clear error if not)
+- Validates that nick-spec count equals ~web-server-ports~ count
+- Writes translated config to ~new-config.lisp~ (configurable)
+- Prints a numbered operator checklist
+
+** 2. ~database/migrate-to-connection-spec.sql~
+
+Idempotent SQL.  All steps run inside a single transaction.  Each step
+reports progress via ~RAISE NOTICE~.
+
+| Step | Action |
+|------+-----------------------------------------------------------------|
+| 1 | Detect and fix Bug A: extract hostname from tuple-formatted ~irc_server~ |
+| 2 | Deduplicate ~contexts~ rows: reassign ~urls~ and ~words~ FK references to lowest-id survivor, delete duplicates |
+| 3 | Add ~contexts_identity_unique UNIQUE (context_name, irc_server, irc_channel)~ — no-op if already present |
+
+** 3. ~migrate.sh~
+
+Shell orchestrator for the database side.  Run once on the target host.
+
+| Step | Action |
+|------+--------------------------------------------------------------|
+| 1 | Parse ~--db~, ~--user~, ~--dry-run~ arguments |
+| 2 | Warn and prompt if a Harlie process is detected running |
+| 3 | ~pg_dump~ to timestamped backup file — bail on failure |
+| 4 | ~psql~ the SQL migration script — bail on error |
+| 5 | Print summary and reminder to complete the Lisp side |
+
+** 4. ~Manual~ update
+
+Rewrite the "Adding a new channel" section:
+- Replace ~irc-nickchannels~ / ~web-server-ports~ editing instructions
+  with: add a ~make-connection-spec~ to ~connections~ in ~config.lisp~
+- Remove the manual ~INSERT INTO contexts~ instruction entirely
+- Add "Migrating a legacy installation" section pointing to ~migrate.sh~
+  and ~run-lisp-migration~
+- Remove the line "There is as yet no good way to add a bot instance on
+  the fly"
+
+* Files Produced
+
+#+begin_example
+migrate-from-legacy.lisp
+migrate.sh
+database/migrate-to-connection-spec.sql
+Manual                       (updated in place)
+MIGRATE_LEGACY_BOT.org       (this file)
+#+end_example
+
+No changes to ~harlie.asd~ or any runtime source file.  The migration
+bundle is entirely operator tooling.  Runtime changes are on the
+~unfuck_configuration_and_state~ branch.
+
+* Operator Procedure
+
+#+begin_example
+1. While the legacy bot is still running, connect via Slynk and
+   run the Lisp migration:
+
+     (load "/path/to/migrate-from-legacy.lisp")
+     (harlie::run-lisp-migration)
+
+   This reads the live *bot-config*, writes new-config.lisp into
+   *syspath* (the Harlie source directory), and prints a checklist.
+
+2. Review new-config.lisp.  Verify every connection-spec.
+
+3. Stop the legacy bot.
+
+4. Copy new-config.lisp into place as config.lisp.
+
+5. Run the database migration:
+
+     bash migrate.sh
+
+   This backs up the database, fixes Bug A rows, deduplicates
+   contexts, and adds the unique constraint.
+
+6. Check out or update to the new code
+   (branch: unfuck_configuration_and_state).
+
+7. Start the bot.  load-contexts upserts the contexts table on
+   every startup — no further manual SQL is ever needed to add
+   or change channels.
+#+end_example
+
+* Open Questions
+
+- Should ~migrate.sh~ also handle restarting the bot process (e.g. via
+  systemd), or remain purely a database migration tool?
+- Should ~run-lisp-migration~ attempt to verify the new ~config.lisp~
+  parses correctly (by loading it in a sandboxed package) before
+  declaring success?
+- Legacy instances on very old schemas may not have the ~contexts~ table
+  at all (pre-dating ~upgrade.sql~).  Should ~migrate.sh~ detect this
+  and offer to create it from ~bot-schema.sql.template~?

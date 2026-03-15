@@ -38,53 +38,71 @@ has a chaining database. shuffled for freshness.")
                               "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/47.0.2526.111 Safari/537.36"
                               "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:15.0) Gecko/20100101 Firefox/15.0.1"))
 
-;; these are examples.
-(defparameter *harlot-config*
-  (make-config
-   :db-credentials  '("botdb" "tuxedo" nil :unix)
-   :web-server-name "127.0.0.1"
-   :connections
-   (list
-    (make-connection-spec
-     :server "irc.srh.org" :ssl nil
-     :nick "Harlot" :channel "#trinity"
-     :web-port 5791))))
+;; ---------------------------------------------------------------------------
+;; Bot configuration
+;;
+;; Each IRC connection is described by a connection-spec.  One connection-spec
+;; = one nick on one channel on one server, with its own URL-shortener web
+;; port.  Collect them all in a make-config :connections list.
+;;
+;; make-connection-spec fields:
+;;   :server   — IRC server hostname                           (required)
+;;   :ssl      — t for TLS (port 6697), nil for plain (6667)  (required)
+;;   :nick     — IRC nickname                                  (required)
+;;   :channel  — channel to join, including the # sign        (required)
+;;   :web-port — port for the URL-shortener HTTP server       (required)
+;;   :channel-key       — channel password, if any            (optional)
+;;   :nickserv-password — NickServ IDENTIFY password, if any  (optional)
+;;
+;; On every startup, load-contexts syncs the database contexts table from
+;; this list automatically.  No manual SQL is needed when adding channels.
+;; ---------------------------------------------------------------------------
 
-(defparameter *sr-4-config*
+;; Minimal example: one bot, one channel.
+(defparameter *minimal-config*
   (make-config
-   :db-credentials  '("botdb" "fade" nil :unix)
+   :db-credentials  *bot-database-credentials*
    :web-server-name "localhost"
    :connections
    (list
     (make-connection-spec
-     :server "irc.srh.org" :ssl nil
-     :nick "SR-4" :channel "#trinity"
-     :web-port 5791))))
+     :server "irc.libera.chat" :ssl t
+     :nick "YourBotNick" :channel "#yourchannel"
+     :web-port 8888))))
 
-(defparameter *combined-config*
+;; Multi-connection example: nicks on both Libera.Chat and SRH.org,
+;; demonstrating optional fields (NickServ password, channel key).
+(defparameter *multi-config*
   (make-config
    :db-credentials  *bot-database-credentials*
-   :web-server-name "deepsky.com"
+   :web-server-name "yourhost.example.com"
    :connections
    (list
+    ;; Libera.Chat — registered nick with NickServ password
     (make-connection-spec
-     :server "irc.srh.org" :ssl nil
-     :nick "semaphor" :channel "#deepsky"
-     :web-port 7080)
+     :server "irc.libera.chat" :ssl t
+     :nick "YourBotNick" :channel "#yourchannel"
+     :nickserv-password "your-nickserv-password"
+     :web-port 8888)
+    ;; Libera.Chat — second nick, open channel, no NickServ
     (make-connection-spec
-     :server "irc.srh.org" :ssl nil
-     :nick "Bootsy" :channel "#funkrehab"
-     :web-port 8080)
+     :server "irc.libera.chat" :ssl t
+     :nick "AnotherNick" :channel "#anotherchannel"
+     :web-port 8889)
+    ;; SRH.org — open channel
     (make-connection-spec
-     :server "irc.srh.org" :ssl nil
-     :nick "shogun" :channel "#walled"
-     :web-port 8090)
+     :server "irc.srh.org" :ssl t
+     :nick "YourBotNick" :channel "#srh-channel"
+     :web-port 8890)
+    ;; SRH.org — password-protected channel
     (make-connection-spec
-     :server "irc.srh.org" :ssl nil
-     :nick "thugster" :channel "#wallednoc"
-     :web-port 9099))))
+     :server "irc.srh.org" :ssl t
+     :nick "AnotherNick" :channel "#private" :channel-key "channelpassword"
+     :web-port 8891))))
 
-(defparameter *bot-config* *combined-config*)
+;; Set *bot-config* to whichever config you want active.
+;; Start with *minimal-config* and expand from there.
+(defparameter *bot-config* *minimal-config*)
 
 (defparameter *twitter-auth* nil
   "if you want the bot to grab channel linked tweets and drop them in

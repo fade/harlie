@@ -63,17 +63,21 @@
 (defun setup-bot-channel (conn nick channel-name)
   "Populate the bot-irc-channel (created by clatter-irc on JOIN) with trigger words."
   (handler-case
-      (let ((bot-chan (find-channel conn channel-name)))
-        (when bot-chan
-          (setf (trigger-list bot-chan)
-                (random-words
-                 (make-instance 'bot-context
-                                :bot-nick (connection-nick conn)
-                                :bot-irc-server (connection-server conn)
-                                :bot-irc-channel channel-name)
-                 10 #'acceptable-word-p))
-          (when (get-bot-channel-for-name channel-name (connection-server conn))
-            (log:debug "~2&|| Created channel entry for ~A ||~2%" channel-name))))
+      (trivial-timeout:with-timeout (15)
+        (let ((bot-chan (find-channel conn channel-name)))
+          (when bot-chan
+            (setf (trigger-list bot-chan)
+                  (random-words
+                   (make-instance 'bot-context
+                                  :bot-nick (connection-nick conn)
+                                  :bot-irc-server (connection-server conn)
+                                  :bot-irc-channel channel-name)
+                   10 #'acceptable-word-p))
+            (when (get-bot-channel-for-name channel-name (connection-server conn))
+              (log:debug "~2&|| Created channel entry for ~A ||~2%" channel-name)))))
+    (trivial-timeout:timeout-error ()
+      (log:warn "~&[JOIN HOOK] Timeout setting up channel ~A (chaining DB may be sparse)"
+                channel-name))
     (error (e)
       (log:warn "~&[JOIN HOOK] Error setting up channel ~A: ~A"
                 channel-name e))))

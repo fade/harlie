@@ -563,6 +563,316 @@ error."
                           count))
                 "You have no pending memos.")))))
 
+;;; ============================================================
+;;; New utility plugins
+;;; ============================================================
+
+(defun format-duration (seconds)
+  "Format a duration in seconds as a human-readable string."
+  (let* ((days    (floor seconds 86400))
+         (rem     (mod seconds 86400))
+         (hours   (floor rem 3600))
+         (rem     (mod rem 3600))
+         (minutes (floor rem 60)))
+    (cond ((> days 0)   (format nil "~Dd ~Dh ~Dm" days hours minutes))
+          ((> hours 0)  (format nil "~Dh ~Dm" hours minutes))
+          (t            (format nil "~Dm" minutes)))))
+
+(defplugin uptime (plug-request)
+  (case (plugin-action plug-request)
+    (:docstring "How long has the bot been running? Usage: !uptime")
+    (:priority 1.0)
+    (:run (if *boot-time*
+              (format nil "Up for ~A" (format-duration (- (get-universal-time) *boot-time*)))
+              "I don't know when I started. Existential crisis."))))
+
+(defplugin seen (plug-request)
+  (case (plugin-action plug-request)
+    (:docstring "When was a user last active? Usage: !seen <nick>")
+    (:priority 1.0)
+    (:run (let ((target (second (plugin-token-text-list plug-request))))
+            (if (null target)
+                "Usage: !seen <nick>"
+                (handler-case
+                    (with-connection (db-credentials *bot-config*)
+                      (let ((user (first (select-dao 'harlie-user
+                                           (:or (:= 'harlie-user-name target)
+                                                (:= 'current-handle target))))))
+                        (if user
+                            (let* ((last (last-seen user))
+                                   (now (local-time:now))
+                                   (diff (local-time:timestamp-difference now last)))
+                              (format nil "~A was last seen ~A ago."
+                                      (current-handle user) (format-duration (floor diff))))
+                            (format nil "I've never seen ~A." target))))
+                  (error (e)
+                    (declare (ignore e))
+                    (format nil "Database unavailable, can't look up ~A." target))))))))
+
+(defun wiki-summary (term)
+  "Fetch the first sentence of a Wikipedia article via the REST API."
+  (handler-case
+      (trivial-timeout:with-timeout (10)
+        (let* ((encoded (substitute #\_ #\Space term))
+               (url (format nil "https://en.wikipedia.org/api/rest_v1/page/summary/~A" encoded))
+               (raw (drakma:http-request url
+                                         :method :get
+                                         :additional-headers '(("User-Agent" . "Consort-IRC-Bot/1.0"))
+                                         :want-stream nil))
+               (data (com.inuoe.jzon:parse raw)))
+          (let ((extract (gethash "extract" data))
+                (title (gethash "title" data)))
+            (if extract
+                (let ((first-sentence (first (str:split-omit-nulls #\. extract))))
+                  (format nil "~A: ~A." title first-sentence))
+                nil))))
+    (error () nil)))
+
+(defplugin wiki (plug-request)
+  (case (plugin-action plug-request)
+    (:docstring "Look up a Wikipedia summary. Usage: !wiki <term>")
+    (:priority 2.0)
+    (:run (let ((term (format nil "~{~A~^ ~}" (rest (plugin-token-text-list plug-request)))))
+            (if (str:empty? term)
+                "Usage: !wiki <term>"
+                (or (wiki-summary term)
+                    (format nil "No Wikipedia article found for '~A'." term)))))))
+
+(defun dict-lookup (word)
+  "Fetch the definition of a word from the Free Dictionary API."
+  (handler-case
+      (trivial-timeout:with-timeout (10)
+        (let* ((url (format nil "https://api.dictionaryapi.dev/api/v2/entries/en/~A"
+                            (drakma:url-encode word :utf-8)))
+               (raw (drakma:http-request url :method :get :want-stream nil))
+               (data (com.inuoe.jzon:parse raw)))
+          (when (and (vectorp data) (> (length data) 0))
+            (let* ((entry (aref data 0))
+                   (meanings (gethash "meanings" entry))
+                   (first-meaning (when (and meanings (> (length meanings) 0))
+                                    (aref meanings 0)))
+                   (part-of-speech (when first-meaning
+                                     (gethash "partOfSpeech" first-meaning)))
+                   (definitions (when first-meaning
+                                  (gethash "definitions" first-meaning)))
+                   (first-def (when (and definitions (> (length definitions) 0))
+                                (gethash "definition" (aref definitions 0)))))
+              (when first-def
+                (format nil "~A (~A): ~A" word part-of-speech first-def))))))
+    (error () nil)))
+
+(defplugin define (plug-request)
+  (case (plugin-action plug-request)
+    (:docstring "Look up a word definition. Usage: !define <word>")
+    (:priority 2.0)
+    (:run (let ((word (second (plugin-token-text-list plug-request))))
+            (if (null word)
+                "Usage: !define <word>"
+                (or (dict-lookup word)
+                    (format nil "No definition found for '~A'." word)))))))
+
+(defvar *timezones-loaded* nil)
+
+(defun ensure-timezones-loaded ()
+  "Make sure the full timezone repository is loaded."
+  (unless *timezones-loaded*
+    (local-time:reread-timezone-repository)
+    (setf *timezones-loaded* t)))
+
+(defplugin tz (plug-request)
+  (case (plugin-action plug-request)
+    (:docstring "Show current time in a timezone. Usage: !tz <timezone> (e.g. US/Eastern, Europe/London)")
+    (:priority 3.0)
+    (:run (let ((zone-name (second (plugin-token-text-list plug-request))))
+            (if (null zone-name)
+                "Usage: !tz <timezone> (e.g. US/Eastern, Europe/London, Asia/Tokyo)"
+                (handler-case
+                    (progn
+                      (ensure-timezones-loaded)
+                      (let ((tz (local-time:find-timezone-by-location-name zone-name)))
+                        (if tz
+                            (let* ((now (local-time:now))
+                                   (formatted (local-time:format-timestring
+                                               nil now
+                                               :format '((:year 4) #\- (:month 2) #\- (:day 2)
+                                                         #\Space (:hour 2) #\: (:min 2) #\: (:sec 2))
+                                               :timezone tz)))
+                              (format nil "~A: ~A" zone-name formatted))
+                            (format nil "Unknown timezone '~A'. Try e.g. US/Eastern, Europe/London, Asia/Tokyo" zone-name))))
+                  (error ()
+                    (format nil "Unknown timezone '~A'. Try e.g. US/Eastern, Europe/London, Asia/Tokyo" zone-name))))))))
+
+(defun github-repo-summary (repo-path)
+  "Fetch a GitHub repo summary. REPO-PATH is 'owner/repo'."
+  (handler-case
+      (trivial-timeout:with-timeout (10)
+        (let* ((url (format nil "https://api.github.com/repos/~A" repo-path))
+               (raw (drakma:http-request url
+                                         :method :get
+                                         :additional-headers '(("User-Agent" . "Consort-IRC-Bot/1.0")
+                                                               ("Accept" . "application/vnd.github+json"))
+                                         :want-stream nil))
+               (data (com.inuoe.jzon:parse raw)))
+          (let ((name (gethash "full_name" data))
+                (desc (gethash "description" data))
+                (stars (gethash "stargazers_count" data))
+                (lang (gethash "language" data))
+                (pushed (gethash "pushed_at" data)))
+            (when name
+              (format nil "~A~@[ — ~A~] | ~@[~A | ~]★~:D~@[ | pushed ~A~]"
+                      name desc lang stars
+                      (when pushed (subseq pushed 0 10)))))))
+    (error () nil)))
+
+(defplugin gh (plug-request)
+  (case (plugin-action plug-request)
+    (:docstring "GitHub repo summary. Usage: !gh <owner/repo>")
+    (:priority 2.0)
+    (:run (let ((repo (second (plugin-token-text-list plug-request))))
+            (if (null repo)
+                "Usage: !gh <owner/repo>"
+                (or (github-repo-summary repo)
+                    (format nil "Couldn't find repo '~A'." repo)))))))
+
+;;; ============================================================
+;;; Channel quote database (in-memory)
+;;; ============================================================
+
+(defvar *quotes* (make-hash-table :test 'equalp :synchronized t)
+  "Hash: channel-name → list of (id sender timestamp text).")
+
+(defvar *quote-counter* 0)
+
+(defplugin addquote (plug-request)
+  (case (plugin-action plug-request)
+    (:docstring "Save a channel quote. Usage: !addquote <text>")
+    (:priority 1.5)
+    (:run (let* ((tokens (plugin-token-text-list plug-request))
+                 (text (format nil "~{~A~^ ~}" (rest tokens)))
+                 (channel (plugin-channel-name plug-request))
+                 (sender (prefix-nick (parse-prefix (message-prefix (last-message (plugin-conn plug-request)))))))
+            (if (str:empty? text)
+                "Usage: !addquote <something funny someone said>"
+                (let ((id (incf *quote-counter*)))
+                  (push (list id sender (get-universal-time) text)
+                        (gethash channel *quotes*))
+                  (format nil "Quote #~D saved." id)))))))
+
+(defplugin quote (plug-request)
+  (case (plugin-action plug-request)
+    (:docstring "Recall a random quote, or by number. Usage: !quote [number]")
+    (:priority 1.5)
+    (:run (let* ((channel (plugin-channel-name plug-request))
+                 (quotes (gethash channel *quotes*))
+                 (num-str (second (plugin-token-text-list plug-request)))
+                 (num (when num-str (parse-integer num-str :junk-allowed t))))
+            (cond
+              ((null quotes) "No quotes saved yet. Use !addquote to add one.")
+              (num
+               (let ((q (find num quotes :key #'first)))
+                 (if q
+                     (format nil "#~D (by ~A): ~A" (first q) (second q) (fourth q))
+                     (format nil "No quote #~D." num))))
+              (t
+               (let ((q (alexandria:random-elt quotes)))
+                 (format nil "#~D (by ~A): ~A" (first q) (second q) (fourth q)))))))))
+
+;;; ============================================================
+;;; Self-reminders
+;;; ============================================================
+
+(defun parse-duration (s)
+  "Parse a duration string like '30m', '2h', '1d' into seconds. Returns nil on failure."
+  (let ((len (length s)))
+    (when (> len 1)
+      (let* ((unit (char-downcase (char s (1- len))))
+             (num (parse-integer (subseq s 0 (1- len)) :junk-allowed t)))
+        (when num
+          (case unit
+            (#\s num)
+            (#\m (* num 60))
+            (#\h (* num 3600))
+            (#\d (* num 86400))
+            (t nil)))))))
+
+(defplugin remind (plug-request)
+  (case (plugin-action plug-request)
+    (:docstring "Set a reminder. Usage: !remind <duration> <message> (e.g. !remind 30m check the build)")
+    (:priority 1.5)
+    (:run (let* ((tokens (plugin-token-text-list plug-request))
+                 (duration-str (second tokens))
+                 (message-words (cddr tokens))
+                 (sender (prefix-nick (parse-prefix (message-prefix (last-message (plugin-conn plug-request))))))
+                 (conn (plugin-conn plug-request))
+                 (channel (plugin-channel-name plug-request)))
+            (cond
+              ((null duration-str)
+               "Usage: !remind <duration> <message> (e.g. !remind 30m check the build)")
+              ((null (parse-duration duration-str))
+               (format nil "Invalid duration '~A'. Use e.g. 30s, 5m, 2h, 1d" duration-str))
+              ((null message-words)
+               "What should I remind you about?")
+              (t
+               (let ((seconds (parse-duration duration-str))
+                     (text (format nil "~{~A~^ ~}" message-words)))
+                 (bt:make-thread
+                  (lambda ()
+                    (sleep seconds)
+                    (privmsg conn channel
+                             (format nil "~A: Reminder — ~A" sender text)))
+                  :name (format nil "reminder-~A" sender))
+                 (format nil "Got it, I'll remind you in ~A." (format-duration seconds)))))))))
+
+;;; ============================================================
+;;; Sandboxed CL evaluator
+;;; ============================================================
+
+(defparameter *eval-banned-symbols*
+  '(eval load compile open delete-file rename-file ensure-directories-exist
+    run-program run-shell-command sb-ext:run-program uiop:run-program
+    with-open-file with-open-stream make-instance
+    require asdf:load-system ql:quickload
+    sb-ext:exit sb-ext:quit
+    setf setq defvar defparameter defun defmacro defclass
+    in-package delete-package make-package)
+  "Symbols that are not allowed in !eval expressions.")
+
+(defun safe-eval-p (form)
+  "Check if FORM is safe to evaluate (no banned symbols)."
+  (cond
+    ((null form) t)
+    ((symbolp form)
+     (not (member form *eval-banned-symbols* :test #'eq)))
+    ((atom form) t)
+    ((consp form)
+     (and (safe-eval-p (car form))
+          (safe-eval-p (cdr form))))
+    (t t)))
+
+(defplugin eval (plug-request)
+  (case (plugin-action plug-request)
+    (:docstring "Evaluate a Common Lisp expression (sandboxed). Usage: !eval <expr>")
+    (:priority 3.0)
+    (:run (let* ((tokens (plugin-token-text-list plug-request))
+                 (expr-str (format nil "~{~A~^ ~}" (rest tokens))))
+            (if (str:empty? expr-str)
+                "Usage: !eval (+ 1 2)"
+                (handler-case
+                    (trivial-timeout:with-timeout (5)
+                      (let ((form (let ((*read-eval* nil))
+                                    (read-from-string expr-str))))
+                        (if (safe-eval-p form)
+                            (let* ((result (eval form))
+                                   (text (format nil "~S" result)))
+                              (if (> (length text) 400)
+                                  (format nil "~A... [truncated]" (subseq text 0 400))
+                                  text))
+                            "Expression contains forbidden operations.")))
+                  (trivial-timeout:timeout-error ()
+                    "Evaluation timed out (5s limit).")
+                  (error (e)
+                    (format nil "Error: ~A" e))))))))
+
 ;; ===[ hyperspace motivator follows. ]===
 
 (defun plugin-docs ()

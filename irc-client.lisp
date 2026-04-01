@@ -736,6 +736,22 @@ access this object when we aren't in the throes of a message event."))
       ;; We block this thread by joining the read thread so the calling code
       ;; can detect when the connection drops (matching old cl-irc behavior).
       (connect connection)
+
+      ;; Keepalive: send PING every 60s to prevent silent SSL/NAT timeouts.
+      (bt:make-thread
+       (lambda ()
+         (loop while (not (eq (clatter-irc:connection-state connection) :disconnected))
+               do (sleep 60)
+                  (handler-case
+                      (when (and (clatter-irc:connection-stream connection)
+                                 (not (eq (clatter-irc:connection-state connection) :disconnected)))
+                        (clatter-irc:ping connection (clatter-irc:connection-server connection))
+                        (log:debug "~&[KEEPALIVE] Ping sent to ~A" (clatter-irc:connection-server connection)))
+                    (error (e)
+                      (log:warn "~&[KEEPALIVE] Ping failed: ~A" e)
+                      (return)))))
+       :name (format nil "keepalive-~A" nickname))
+
       (let ((read-thread (clatter-irc:connection-read-thread connection)))
         (when (and read-thread (bt:thread-alive-p read-thread))
           (bt:join-thread read-thread))))))
@@ -755,7 +771,7 @@ The actual TCP connection is established later by the thunk calling (connect)."
                                              ((eq connection-port :ssl) 6697)
                                              (t *default-port*))
                                      :tls (eq connection-port :ssl)
-                                     :reconnect nil
+                                     :reconnect t
                                      :connection-class 'bot-irc-connection
                                      :channel-class 'bot-irc-channel)))
     (when nickserv-password

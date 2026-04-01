@@ -78,7 +78,14 @@
    #:prefix-host
    ;; Constants
    #:*default-port*
-   #:*default-tls-port*)
+   #:*default-tls-port*
+   ;; Channel tracking (NOT channel-name or channel-user — conflicts with DAO classes)
+   #:channel
+   #:find-channel
+   #:ensure-channel
+   #:joined-channels
+   #:joined-channel-p
+   #:connection-channel-class)
   (:export #:run-bot
 	   #:kill-bot
 	   #:make-bot-connection

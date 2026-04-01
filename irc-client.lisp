@@ -34,8 +34,6 @@
    (message-q :initform (make-message-queue) :accessor message-q)
    ;;   (message-timer :initform nil :accessor message-timer)
    (mq-task :initform nil :accessor mq-task)
-   (bot-channels :initform (make-hash-table :test 'equalp :synchronized t) :accessor channels
-                 :documentation "Hash of channel-name -> bot-irc-channel objects")
    (bot-state :initform :connecting :accessor bot-state
               :documentation "Tracks registration lifecycle:
 :connecting -> :registered -> :identifying -> :joining -> :joined | :join-failed
@@ -45,32 +43,37 @@
    (nickserv-email    :initform nil :accessor nickserv-email
                       :documentation "Email address for NickServ REGISTER. nil if not registering.")))
 
-;; bot-irc-channel is now a standalone class (no longer subclassing cl-irc:channel).
-;; It stores per-channel state: trigger words and per-user ignore status.
+;; bot-irc-channel subclasses clatter-irc:channel, inheriting automatic tracking
+;; of users (nick-list), topic, and modes. It adds harlie-specific per-channel
+;; state: trigger words and per-user ignore status.
 
-(defclass bot-irc-channel ()
-  ((channel-name :initarg :channel-name :initform nil :accessor bot-channel-name)
-   (trigger-list :initarg :trigger-list :initform nil :accessor trigger-list)
+(defclass bot-irc-channel (channel)
+  ((trigger-list :initarg :trigger-list :initform nil :accessor trigger-list)
    (ignore-sticky :initarg :ignore-sticky
                   :initform (make-hash-table :test #'equalp :synchronized t) :accessor ignore-sticky)))
+
+;; Backward-compatible accessor: returns the same hash that clatter-irc uses
+;; for channel tracking, so existing (gethash name (channels conn)) calls work.
+(defmethod channels ((conn bot-irc-connection))
+  (connection-channels conn))
 
 ;; When the bot joins a channel, create a bot-irc-channel and populate the trigger list.
 ;; This is wired up as a clatter-irc on-join hook in make-irc-client-instance-thunk.
 
 (defun setup-bot-channel (conn nick channel-name)
-  "Create a bot-irc-channel entry for CHANNEL-NAME in CONN's channel hash."
+  "Populate the bot-irc-channel (created by clatter-irc on JOIN) with trigger words."
   (handler-case
-      (let ((bot-chan (make-instance 'bot-irc-channel
-                                     :channel-name channel-name
-                                     :trigger-list (random-words
-                                                    (make-instance 'bot-context
-                                                                   :bot-nick (connection-nick conn)
-                                                                   :bot-irc-server (connection-server conn)
-                                                                   :bot-irc-channel channel-name)
-                                                    10 #'acceptable-word-p))))
-        (setf (gethash channel-name (channels conn)) bot-chan)
-        (when (get-bot-channel-for-name channel-name (connection-server conn))
-          (log:debug "~2&|| Created channel entry for ~A ||~2%" channel-name)))
+      (let ((bot-chan (find-channel conn channel-name)))
+        (when bot-chan
+          (setf (trigger-list bot-chan)
+                (random-words
+                 (make-instance 'bot-context
+                                :bot-nick (connection-nick conn)
+                                :bot-irc-server (connection-server conn)
+                                :bot-irc-channel channel-name)
+                 10 #'acceptable-word-p))
+          (when (get-bot-channel-for-name channel-name (connection-server conn))
+            (log:debug "~2&|| Created channel entry for ~A ||~2%" channel-name))))
     (error (e)
       (log:warn "~&[JOIN HOOK] Error setting up channel ~A: ~A"
                 channel-name e))))
@@ -716,7 +719,8 @@ The actual TCP connection is established later by the thunk calling (connect)."
                                              (t *default-port*))
                                      :tls (eq connection-port :ssl)
                                      :reconnect nil
-                                     :connection-class 'bot-irc-connection)))
+                                     :connection-class 'bot-irc-connection
+                                     :channel-class 'bot-irc-channel)))
     (when nickserv-password
       (setf (nickserv-password connection) nickserv-password))
     (when nickserv-email

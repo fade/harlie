@@ -36,8 +36,8 @@
    (mq-task :initform nil :accessor mq-task)
    (bot-channels :initform (make-hash-table :test 'equalp :synchronized t) :accessor channels
                  :documentation "Hash of channel-name -> bot-irc-channel objects")
-   (connection-state :initform :connecting :accessor connection-state
-                     :documentation "Tracks registration lifecycle:
+   (bot-state :initform :connecting :accessor bot-state
+              :documentation "Tracks registration lifecycle:
 :connecting -> :registered -> :identifying -> :joining -> :joined | :join-failed
                               -> :registering --^  (when nick unregistered and email provided)")
    (nickserv-password :initform nil :accessor nickserv-password
@@ -563,7 +563,7 @@ access this object when we aren't in the throes of a message event."))
                                      (gethash this-user-name (ignore-sticky chan-obj-hash)) channel/user-map)
                                     ;; if the name is ignored in the database, ignore it in the world
                                     (when (ignored channel/user-map)
-                                      (start-ignoring conn this-user-name channel)))))))))))))
+                                      (start-ignoring conn this-user-name channel)))))))))))))))
 
 (defun make-irc-client-instance-thunk (nickname channel channel-key ircserver connection)
   "Make the thunk which sets up hooks and connects to IRC via clatter-irc.
@@ -578,22 +578,22 @@ access this object when we aren't in the throes of a message event."))
   (let ((channel-password channel-key))
     (lambda ()
       (setf (bot-irc-client-thread connection) (bt:current-thread))
-      (setf (connection-state connection) :connecting)
+      (setf (bot-state connection) :connecting)
       (log:info "~2&[CONNECT] nick=~A channel=~A server=~A" nickname channel ircserver)
 
       ;; --- on-connect: fired after 001 RPL_WELCOME ---
       (add-hook connection 'on-connect
                 (lambda (conn)
-                  (setf (connection-state conn) :registered)
+                  (setf (bot-state conn) :registered)
                   (log:info "~&[001] Registered as ~A on ~A" nickname ircserver)
                   (if (nickserv-password conn)
                       (progn
-                        (setf (connection-state conn) :identifying)
+                        (setf (bot-state conn) :identifying)
                         (log:info "~&[NickServ] Sending IDENTIFY for ~A" nickname)
                         (privmsg conn "NickServ"
                                  (format nil "IDENTIFY ~A" (nickserv-password conn))))
                       (progn
-                        (setf (connection-state conn) :joining)
+                        (setf (bot-state conn) :joining)
                         (log:info "~&[JOIN] ~A joining ~A on ~A" nickname channel ircserver)
                         (join conn channel channel-password)))))
 
@@ -604,20 +604,20 @@ access this object when we aren't in the throes of a message event."))
                   (when (string-equal sender "NickServ")
                     (cond
                       ;; Identification confirmed → join.
-                      ((and (eq (connection-state conn) :identifying)
+                      ((and (eq (bot-state conn) :identifying)
                             (or (search "You are now identified" text)
                                 (search "You are now logged in" text)))
-                       (setf (connection-state conn) :joining)
+                       (setf (bot-state conn) :joining)
                        (log:info "~&[NickServ] Identified. ~A joining ~A on ~A"
                                  nickname channel ircserver)
                        (join conn channel channel-password))
 
                       ;; Nick not registered → REGISTER if we have an email, else just join.
-                      ((and (eq (connection-state conn) :identifying)
+                      ((and (eq (bot-state conn) :identifying)
                             (search "not registered" text))
                        (if (nickserv-email conn)
                            (progn
-                             (setf (connection-state conn) :registering)
+                             (setf (bot-state conn) :registering)
                              (log:info "~&[NickServ] ~A not registered. Sending REGISTER to ~A."
                                        nickname (nickserv-email conn))
                              (privmsg conn "NickServ"
@@ -627,13 +627,13 @@ access this object when we aren't in the throes of a message event."))
                            (progn
                              (log:warn "~&[NickServ] ~A not registered and no email configured. Joining without identification."
                                        nickname)
-                             (setf (connection-state conn) :joining)
+                             (setf (bot-state conn) :joining)
                              (join conn channel channel-password))))
 
                       ;; Registration response received → log it and proceed to join.
                       ;; The nick will be unverified until the user clicks the email link;
                       ;; on the next restart IDENTIFY will work normally.
-                      ((eq (connection-state conn) :registering)
+                      ((eq (bot-state conn) :registering)
                        (log:info "~&[NickServ] Registration response for ~A: ~A"
                                  nickname text)
                        (when (or (search "email" text)
@@ -641,7 +641,7 @@ access this object when we aren't in the throes of a message event."))
                                  (search "activation" text))
                          (log:info "~&[NickServ] ~A registered. Check ~A for activation link. Joining now."
                                    nickname (nickserv-email conn))
-                         (setf (connection-state conn) :joining)
+                         (setf (bot-state conn) :joining)
                          (join conn channel channel-password)))))))
 
       ;; --- on-join: bot channel setup and announcement on our own join ---
@@ -652,7 +652,7 @@ access this object when we aren't in the throes of a message event."))
                   (setup-bot-channel conn (connection-nick conn) joined-channel)
                   ;; Our own join: announce and update state
                   (when (string-equal joining-nick nickname)
-                    (setf (connection-state conn) :joined)
+                    (setf (bot-state conn) :joined)
                     (log:info "~&[JOINED] ~A is now in ~A on ~A"
                               nickname joined-channel ircserver)
                     (privmsg conn joined-channel *ignore-phrase*))
@@ -668,19 +668,19 @@ access this object when we aren't in the throes of a message event."))
                     ;; JOIN error codes
                     (403 (log:warn "~&[JOIN FAIL 403 no-such-channel] ~A ~A"
                                    channel (message-params msg))
-                         (setf (connection-state conn) :join-failed))
+                         (setf (bot-state conn) :join-failed))
                     (405 (log:warn "~&[JOIN FAIL 405 too-many-channels] ~A ~A"
                                    channel (message-params msg))
-                         (setf (connection-state conn) :join-failed))
+                         (setf (bot-state conn) :join-failed))
                     (473 (log:warn "~&[JOIN FAIL 473 invite-only] ~A ~A"
                                    channel (message-params msg))
-                         (setf (connection-state conn) :join-failed))
+                         (setf (bot-state conn) :join-failed))
                     (474 (log:warn "~&[JOIN FAIL 474 banned] ~A ~A"
                                    channel (message-params msg))
-                         (setf (connection-state conn) :join-failed))
+                         (setf (bot-state conn) :join-failed))
                     (475 (log:warn "~&[JOIN FAIL 475 bad-channel-key] ~A ~A"
                                    channel (message-params msg))
-                         (setf (connection-state conn) :join-failed))
+                         (setf (bot-state conn) :join-failed))
                     ;; RPL_NAMREPLY: populate user state
                     (353 (handle-namreply conn msg)))))
 

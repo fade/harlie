@@ -14,8 +14,9 @@
   (:import-from #:harlie
                 #:make-bot-connection
                 #:make-irc-client-instance-thunk
-                #:connection-state
+                #:bot-state
                 #:*irc-connections*)
+  (:import-from #:clatter-irc #:disconnect)
   (:import-from #:bordeaux-threads #:make-thread #:destroy-thread)
   (:local-nicknames (#:tt #:parachute)))
 
@@ -34,7 +35,7 @@
 Returns T if the state was reached, NIL on timeout."
   (let ((deadline (+ (get-universal-time) timeout)))
     (loop
-      (when (eq (connection-state connection) target-state)
+      (when (eq (bot-state connection) target-state)
         (return t))
       (when (> (get-universal-time) deadline)
         (return nil))
@@ -66,6 +67,8 @@ Cleans up the connection and its thread on exit."
        (declare (ignorable ,thread-var))
        (unwind-protect
             (progn ,@body)
+         (ignore-errors (disconnect ,conn-var "test cleanup"))
+         (sleep 0.1)
          (ignore-errors (bt:destroy-thread ,thread-var))
          (cleanup-test-connection ,nick)))))
 
@@ -83,7 +86,7 @@ Cleans up the connection and its thread on exit."
   :description "When no nickserv-password is set the bot joins immediately after RPL_WELCOME."
   (with-fake-irc-server (server)
     (with-test-connection (conn "Plonk") server
-      (tt:true (fis-wait-for server "JOIN :#test-channel"))
+      (tt:true (fis-wait-for server "JOIN #test-channel"))
       ;; Must NOT have sent IDENTIFY.
       (tt:false (fis-received-p server "IDENTIFY")))))
 
@@ -94,7 +97,7 @@ Cleans up the connection and its thread on exit."
     :nickserv-identify-response
     (nickserv-notice "Plonk" "You are now logged in as Plonk"))
     (with-test-connection (conn "Plonk" :nickserv-password "s3kr3t") server
-      (tt:true (fis-wait-for server "JOIN :#test-channel"))
+      (tt:true (fis-wait-for server "JOIN #test-channel"))
       (tt:true (fis-received-p server "IDENTIFY s3kr3t")))))
 
 (tt:define-test "not-registered-without-email-joins-without-identification"
@@ -104,7 +107,7 @@ Cleans up the connection and its thread on exit."
     :nickserv-not-registered-response
     (nickserv-notice "Plonk" "This nickname is not registered."))
     (with-test-connection (conn "Plonk" :nickserv-password "s3kr3t") server
-      (tt:true (fis-wait-for server "JOIN :#test-channel"))
+      (tt:true (fis-wait-for server "JOIN #test-channel"))
       ;; Must NOT have attempted REGISTER.
       (tt:false (fis-received-p server "REGISTER")))))
 
@@ -120,7 +123,7 @@ Cleans up the connection and its thread on exit."
                                 :nickserv-password "s3kr3t"
                                 :nickserv-email "test@example.com")
         server
-      (tt:true (fis-wait-for server "JOIN :#test-channel"))
+      (tt:true (fis-wait-for server "JOIN #test-channel"))
       (tt:true (fis-received-p server "REGISTER s3kr3t test@example.com")))))
 
 (tt:define-test "identify-before-join"
@@ -130,7 +133,7 @@ Cleans up the connection and its thread on exit."
     :nickserv-identify-response
     (nickserv-notice "Plonk" "You are now logged in as Plonk"))
     (with-test-connection (conn "Plonk" :nickserv-password "s3kr3t") server
-      (tt:true (fis-wait-for server "JOIN :#test-channel"))
+      (tt:true (fis-wait-for server "JOIN #test-channel"))
       (let* ((lines (reverse (fis-received server)))
              (identify-pos (position-if (lambda (l) (search "IDENTIFY" l)) lines))
              (join-pos     (position-if (lambda (l) (search "JOIN" l)) lines)))

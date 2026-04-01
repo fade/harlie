@@ -15,6 +15,7 @@
            #:fis-received
            #:fis-received-p
            #:fis-wait-for
+           #:fis-inject
            #:with-fake-irc-server))
 
 (in-package #:harlie/test/fake-irc-server)
@@ -55,7 +56,11 @@
     :initarg :nickserv-register-response
     :initform nil
     :accessor fis-nickserv-register-response
-    :documentation "Line sent when PRIVMSG NickServ :REGISTER is received.")))
+    :documentation "Line sent when PRIVMSG NickServ :REGISTER is received.")
+   (client-stream
+    :initform nil
+    :accessor fis-client-stream
+    :documentation "The connected client's stream, set once accepted.")))
 
 ;;;; ---- Server loop ----------------------------------------------------------
 
@@ -75,6 +80,7 @@
 (defun run-server-loop (server client-socket)
   (let ((stream (usocket:socket-stream client-socket))
         (nick nil))
+    (setf (fis-client-stream server) stream)
     (loop
       (let ((raw (read-line stream nil nil)))
         (when (null raw) (return))
@@ -158,6 +164,14 @@
   (when (fis-listen-socket server)
     (ignore-errors (usocket:socket-close (fis-listen-socket server)))
     (setf (fis-listen-socket server) nil)))
+
+(defun fis-inject (server line)
+  "Send LINE from the server to the connected client.
+   Used in tests to simulate other users joining, speaking, etc."
+  (let ((stream (fis-client-stream server)))
+    (when stream
+      (send-line stream line)
+      t)))
 
 (defun fis-received-p (server substring)
   "Return the first received line containing SUBSTRING, or NIL."

@@ -61,6 +61,7 @@
 	       (:file "util")
 	       (:file "url-store")
 	       (:file "irc-client")
+	       (:file "memo")
 
 	       (:file "constants")
 	       (:file "chainer")
@@ -96,6 +97,10 @@
                 :components ((:file "package")
                              (:file "contexts")
                              (:file "users")))))
+
+(asdf:defsystem #:harlie/test/memo
+  :depends-on (#:harlie #:harlie/test/fake-irc-server #:parachute)
+  :components ((:file "test/memo-test")))
 
 (asdf:defsystem #:harlie/test/all
   :depends-on (#:harlie/test/fake-irc-server

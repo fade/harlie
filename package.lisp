@@ -91,6 +91,22 @@
 	   #:make-bot-connection
 	   #:make-irc-client-instance-thunk
 	   #:bot-state
-	   #:*irc-connections*))
+	   #:*irc-connections*
+	   ;; Memo system
+	   #:store-memo
+	   #:pending-memos-for
+	   #:pending-memo-count
+	   #:has-pending-memos-p
+	   #:clear-all-memos
+	   #:format-memo-age
+	   #:format-memo-delivery
+	   #:deliver-memos-for
+	   #:pending-memo
+	   #:pending-memo-sender
+	   #:pending-memo-recipient
+	   #:pending-memo-channel
+	   #:pending-memo-message
+	   #:pending-memo-created-at
+	   #:pending-memo-delivered-p))
 
 (local-time:set-local-time-cl-postgres-readers)

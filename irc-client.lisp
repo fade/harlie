@@ -309,60 +309,70 @@ allowing for leading and trailing punctuation characters in the match."
    CONN is the bot-irc-connection, MSG is the clatter-irc message object,
    SENDER is the nick, CHANNEL-NAME is the target, TEXT is the message text,
    ACTION is t for CTCP ACTION, nil for regular PRIVMSG."
-  (let* ((channel (gethash channel-name (channels conn) nil))
-         ;; the following becomes nil in the event of an irc query (/msg).
-	 (text (regex-replace-all "\\ca" text ""))
-         (token-text-list (split "\\s+" text))
-	 (command (string-upcase (first token-text-list)))
-	 (context (make-instance
-		   'bot-context
-		   :bot-nick (connection-nick conn)
-		   :bot-irc-server (connection-server conn)
-		   :bot-irc-channel channel))
-	 (reply-to (if (string-equal channel-name (bot-nick context))
-		       sender
-		       channel-name))
-         ;; naively strip tracking components from pasted URLs.
-	 (urls (mapcar #'de-utm-url (extract-urls text))))
-    
-    (flet ((irc-reply (s) (qmess conn reply-to s)))
-      ;; who what where...
-      (log:info "~&connection: ~A channel-name: ~A channel: ~A sender: ~A command: ~A context: ~A reply-to: ~A~%" conn channel-name channel sender command context reply-to)
-      (setf (last-message conn) msg)
-      (log:info "Message: ~A~%" (message-raw msg))
-      (log:debug "MSG-HOOK flet/reply   connection=~A channel-name=~A~%" conn channel-name)
-      ;; in following if channel is nil we're in a query.
-      (unless (ignoring conn sender text #'irc-reply channel channel-name)
-	(cond ((scan "^![^!]" command)
-	       (run-plugin (make-instance
-			    'plugin-request :botcmd command
-					    :plugin-context context
-					    :connection conn
-					    :channel-name channel-name
-					    :reply-to reply-to
-					    :token-text-list token-text-list)))
-	      (urls
-	       (dolist (url urls)
-		 (unless (or (scan (make-short-url-string context "") url)
-			     (scan "127.0.0.1" url))
-		   (when (scan "^www\." url)
-		     (setf url (format nil "http://~A" url)))
-		   (multiple-value-bind (short title) (lookup-url *the-url-store* context url sender)
-		     (cond ((and short title)
-                            (irc-reply (format nil "[ ~A ]::[ ~A ]" short title)))
-                           ((not short)
-                            (irc-reply (format nil "[ ~A ]::[ Couldn't fetch this page. ]" url)))
-                           ((not title)
-                            (irc-reply (format nil "[[ no title found for ~A ]]" url))
-                            (log:debug "[[ no title found for ~A ]]" url)))))))
-	      ((and channel (not action))
-	       (let ((trigger-tokens (triggered context token-text-list sender channel)))
-		 (chain-in context token-text-list)
-		 (when trigger-tokens
-		   (let ((outgoing (chain context (first trigger-tokens) (second trigger-tokens))))
-		     (unless (not (mismatch trigger-tokens outgoing :test #'string-equal))
-		       (irc-reply (format nil "~{~A~^ ~}" outgoing)))))))
-	      (t nil))))))
+  ;; Deliver any pending memos when a user speaks (before DB-dependent code)
+  (handler-case
+      (when (has-pending-memos-p sender)
+        (deliver-memos-for conn sender :channel channel-name))
+    (error (e)
+      (log:warn "~&[MEMO] Error during memo delivery for ~A: ~A" sender e)))
+  (handler-case
+      (let* ((channel (gethash channel-name (channels conn) nil))
+             ;; the following becomes nil in the event of an irc query (/msg).
+	     (text (regex-replace-all "\\ca" text ""))
+             (token-text-list (split "\\s+" text))
+	     (command (string-upcase (first token-text-list)))
+	     (context (make-instance
+		       'bot-context
+		       :bot-nick (connection-nick conn)
+		       :bot-irc-server (connection-server conn)
+		       :bot-irc-channel channel))
+	     (reply-to (if (string-equal channel-name (bot-nick context))
+			   sender
+			   channel-name))
+             ;; naively strip tracking components from pasted URLs.
+	     (urls (mapcar #'de-utm-url (extract-urls text))))
+        
+        (flet ((irc-reply (s) (qmess conn reply-to s)))
+          ;; who what where...
+          (log:info "~&connection: ~A channel-name: ~A channel: ~A sender: ~A command: ~A context: ~A reply-to: ~A~%" conn channel-name channel sender command context reply-to)
+          (setf (last-message conn) msg)
+          (log:info "Message: ~A~%" (message-raw msg))
+          (log:debug "MSG-HOOK flet/reply   connection=~A channel-name=~A~%" conn channel-name)
+          ;; in following if channel is nil we're in a query.
+          (unless (ignoring conn sender text #'irc-reply channel channel-name)
+	    (cond ((scan "^![^!]" command)
+	           (run-plugin (make-instance
+			        'plugin-request :botcmd command
+					        :plugin-context context
+					        :connection conn
+					        :channel-name channel-name
+					        :reply-to reply-to
+					        :token-text-list token-text-list)))
+	          (urls
+	           (dolist (url urls)
+		     (unless (or (scan (make-short-url-string context "") url)
+			         (scan "127.0.0.1" url))
+		       (when (scan "^www\." url)
+		         (setf url (format nil "http://~A" url)))
+		       (multiple-value-bind (short title) (lookup-url *the-url-store* context url sender)
+		         (cond ((and short title)
+                                (irc-reply (format nil "[ ~A ]::[ ~A ]" short title)))
+                               ((not short)
+                                (irc-reply (format nil "[ ~A ]::[ Couldn't fetch this page. ]" url)))
+                               ((not title)
+                                (irc-reply (format nil "[[ no title found for ~A ]]" url))
+                                (log:debug "[[ no title found for ~A ]]" url)))))))
+	          ((and channel (not action))
+	           (let ((trigger-tokens (triggered context token-text-list sender channel)))
+		     (chain-in context token-text-list)
+		     (when trigger-tokens
+		       (let ((outgoing (chain context (first trigger-tokens) (second trigger-tokens))))
+		         (unless (not (mismatch trigger-tokens outgoing :test #'string-equal))
+		           (irc-reply (format nil "~{~A~^ ~}" outgoing)))))))
+	          (t nil)))))
+    (error (e)
+      (log:warn "~&[MSG-HOOK] Error processing message from ~A in ~A: ~A"
+                sender channel-name e))))
 
 (defun nye-hack ()
   (maphash-values
@@ -662,6 +672,15 @@ access this object when we aren't in the throes of a message event."))
                   ;; Handle user join tracking (for non-self joins)
                   (unless (string-equal joining-nick nickname)
                     (user-join conn nil joining-nick joined-channel))))
+
+      ;; --- on-join: deliver pending memos (separate hook for isolation) ---
+      (add-hook connection 'on-join
+                (lambda (conn msg joining-nick joined-channel)
+                  (declare (ignore msg))
+                  (unless (string-equal joining-nick nickname)
+                    (when (has-pending-memos-p joining-nick)
+                      (deliver-memos-for conn joining-nick
+                                         :channel joined-channel)))))
 
       ;; --- on-numeric: join errors and RPL_NAMREPLY ---
       (add-hook connection 'on-numeric

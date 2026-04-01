@@ -523,6 +523,46 @@ error."
             (roll-aux n p base)))))
 
 
+;;; ============================================================
+;;; Memo / !tell system
+;;; ============================================================
+
+(defplugin tell (plug-request)
+  (case (plugin-action plug-request)
+    (:docstring "Leave a message for someone who's not here. Usage: !tell <nick> <message>")
+    (:priority 1.0)
+    (:run (let* ((tokens (plugin-token-text-list plug-request))
+                 (recipient (second tokens))
+                 (message-words (cddr tokens))
+                 (sender (prefix-nick (parse-prefix (message-prefix (last-message (plugin-conn plug-request)))))))
+            (cond
+              ((null recipient)
+               "Usage: !tell <nick> <message>")
+              ((null message-words)
+               (format nil "What do you want to tell ~A?" recipient))
+              ((string-equal recipient (connection-nick (plugin-conn plug-request)))
+               "I appreciate the thought, but I already know everything I need to.")
+              ((string-equal recipient sender)
+               "Talking to yourself? I won't judge, but I also won't help.")
+              (t
+               (let ((memo (store-memo sender recipient
+                                       (plugin-channel-name plug-request)
+                                       (format nil "~{~A~^ ~}" message-words))))
+                 (if memo
+                     (format nil "Got it, I'll tell ~A when they're around." recipient)
+                     "Something went wrong storing that memo."))))))))
+
+(defplugin memos (plug-request)
+  (case (plugin-action plug-request)
+    (:docstring "Check if you have any pending memos. Usage: !memos")
+    (:priority 1.0)
+    (:run (let ((sender (prefix-nick (parse-prefix (message-prefix (last-message (plugin-conn plug-request)))))))
+            (if (has-pending-memos-p sender)
+                (let ((count (pending-memo-count sender)))
+                  (format nil "You have ~D pending memo~:P. They'll be delivered shortly."
+                          count))
+                "You have no pending memos.")))))
+
 ;; ===[ hyperspace motivator follows. ]===
 
 (defun plugin-docs ()

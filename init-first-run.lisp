@@ -62,7 +62,7 @@ the table ownership, and excecute the schema."
       (DATABASE-ERROR (e)
         (log:debug "Database probably hasn't been created.. ~A" e)
         (log:info "Creating database to stand up the bot...")
-        (uiop:run-program (list "createdb" "botdb") :output t)
+        (uiop:run-program (list "createdb" (first (db-credentials *bot-config*))) :output t)
         (log:info "Creating tables for the various required users...")
         (make-base-tables db-schema)))
     ;; Sync contexts table from config on every startup.

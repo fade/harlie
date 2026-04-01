@@ -578,10 +578,12 @@ access this object when we aren't in the throes of a message event."))
                                     (when (ignored channel/user-map)
                                       (start-ignoring conn this-user-name channel)))))))))))))))
 
-(defun make-irc-client-instance-thunk (nickname channel channel-key ircserver connection)
+(defun make-irc-client-instance-thunk (nickname channel channel-key ircserver connection
+                                       &key extra-channels)
   "Make the thunk which sets up hooks and connects to IRC via clatter-irc.
 
    CHANNEL and CHANNEL-KEY are plain strings (or nil for no key).
+   EXTRA-CHANNELS is an optional list of additional channel names to join.
    Channel join is deferred until 001 RPL_WELCOME confirms registration.
    If NICKSERV-PASSWORD is set on the connection, IDENTIFY is sent first and
    the JOIN is deferred further until NickServ acknowledges identification.
@@ -672,6 +674,18 @@ access this object when we aren't in the throes of a message event."))
                   ;; Handle user join tracking (for non-self joins)
                   (unless (string-equal joining-nick nickname)
                     (user-join conn nil joining-nick joined-channel))))
+
+      ;; --- on-join: join extra channels (separate hook for isolation) ---
+      (when extra-channels
+        (add-hook connection 'on-join
+                  (lambda (conn msg joining-nick joined-channel)
+                    (declare (ignore msg))
+                    (when (and (string-equal joining-nick nickname)
+                               (string-equal joined-channel channel))
+                      (dolist (extra extra-channels)
+                        (log:info "~&[JOIN] ~A joining extra channel ~A on ~A"
+                                  nickname extra ircserver)
+                        (join conn extra))))))
 
       ;; --- on-join: deliver pending memos (separate hook for isolation) ---
       (add-hook connection 'on-join
@@ -769,13 +783,15 @@ The actual TCP connection is established later by the thunk calling (connect)."
 
 (defun start-threaded-irc-client-instance (ircserver connection-port nickname
                                             channel channel-key
-                                            &key nickserv-password nickserv-email)
+                                            &key nickserv-password nickserv-email
+                                                 extra-channels)
   "Make a connection to an IRC server and spawn a thread to service it."
   (let ((connection (make-bot-connection nickname ircserver connection-port
                                          :nickserv-password nickserv-password
                                          :nickserv-email nickserv-email)))
     (make-thread
-     (make-irc-client-instance-thunk nickname channel channel-key ircserver connection)
+     (make-irc-client-instance-thunk nickname channel channel-key ircserver connection
+                                     :extra-channels extra-channels)
      :name (format nil "IRC Client thread: server ~A, nick ~A"
 		   ircserver nickname))))
 
@@ -796,7 +812,8 @@ Connections are staggered by *INTER-CONNECTION-DELAY* seconds."
          (cs-server cs) connection-port (cs-nick cs)
          (cs-channel cs) (cs-channel-key cs)
          :nickserv-password (cs-nickserv-password cs)
-         :nickserv-email (cs-nickserv-email cs))
+         :nickserv-email (cs-nickserv-email cs)
+         :extra-channels (cs-extra-channels cs))
         (sleep *inter-connection-delay*)))))
 
 (defun print-bot-config (botconfig)

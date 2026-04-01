@@ -217,15 +217,17 @@
 
 (defplugin help (plug-request)
   (case (plugin-action plug-request)
-    (:docstring (format nil "Advertise how to get help with the bot's commands"))
+    (:docstring (format nil "List available commands, or get help on one. Usage: !help [command]"))
     (:priority 1.0)
     (:run (if (> (length (plugin-token-text-list plug-request)) 1)
 	      (funcall (plugin-hook
 			(gethash (string-upcase (remove #\! (second (plugin-token-text-list plug-request)))) *plugins* *doublehelp*))
 		       (make-instance 'plugin-request :action :docstring))
-	      (list
-	       (format nil "~A" (make-short-url-string (plugin-context plug-request) "help"))
-	       (format nil "  or !help <command>"))))))
+	      (let* ((docs (sort (plugin-docs) 'sort-docs))
+                     (visible (remove-if (lambda (d) (<= (third d) 0.0)) docs))
+                     (names (mapcar (lambda (d) (format nil "!~(~A~)" (first d))) visible)))
+                (list (format nil "Commands: ~{~A~^, ~}" names)
+                      "Use !help <command> for details."))))))
 
 (defun html-help ()
   "Return HTML for a page giving help with the bot's plugin commands."
@@ -735,13 +737,39 @@ error."
                     (format nil "Couldn't find repo '~A'." repo)))))))
 
 ;;; ============================================================
-;;; Channel quote database (in-memory)
+;;; Channel quote database (PostgreSQL-backed)
 ;;; ============================================================
 
-(defvar *quotes* (make-hash-table :test 'equalp :synchronized t)
-  "Hash: channel-name → list of (id sender timestamp text).")
+(defun db-add-quote (channel sender text)
+  "Insert a quote into the database. Returns the new quote_id."
+  (with-connection (db-credentials *bot-config*)
+    (query (:insert-into 'quotes :set
+            'channel channel 'added-by sender 'quote-text text)
+           :none)
+    (query (:select (:raw "currval('quotes_quote_id_seq')")) :single)))
 
-(defvar *quote-counter* 0)
+(defun db-get-quote-by-id (channel id)
+  "Retrieve a specific quote by ID and channel. Returns (id sender text) or nil."
+  (with-connection (db-credentials *bot-config*)
+    (let ((row (query (:select 'quote-id 'added-by 'quote-text
+                       :from 'quotes
+                       :where (:and (:= 'channel channel)
+                                    (:= 'quote-id id)))
+                      :row)))
+      row)))
+
+(defun db-get-random-quote (channel)
+  "Retrieve a random quote for the channel. Returns (id sender text) or nil."
+  (with-connection (db-credentials *bot-config*)
+    (let ((row (query (:limit
+                       (:order-by
+                        (:select 'quote-id 'added-by 'quote-text
+                         :from 'quotes
+                         :where (:= 'channel channel))
+                        (:raw "random()"))
+                       1)
+                      :row)))
+      row)))
 
 (defplugin addquote (plug-request)
   (case (plugin-action plug-request)
@@ -753,29 +781,30 @@ error."
                  (sender (prefix-nick (parse-prefix (message-prefix (last-message (plugin-conn plug-request)))))))
             (if (str:empty? text)
                 "Usage: !addquote <something funny someone said>"
-                (let ((id (incf *quote-counter*)))
-                  (push (list id sender (get-universal-time) text)
-                        (gethash channel *quotes*))
-                  (format nil "Quote #~D saved." id)))))))
+                (handler-case
+                    (let ((id (db-add-quote channel sender text)))
+                      (format nil "Quote #~D saved." id))
+                  (error (e)
+                    (format nil "Failed to save quote: ~A" e))))))))
 
 (defplugin quote (plug-request)
   (case (plugin-action plug-request)
     (:docstring "Recall a random quote, or by number. Usage: !quote [number]")
     (:priority 1.5)
     (:run (let* ((channel (plugin-channel-name plug-request))
-                 (quotes (gethash channel *quotes*))
                  (num-str (second (plugin-token-text-list plug-request)))
                  (num (when num-str (parse-integer num-str :junk-allowed t))))
-            (cond
-              ((null quotes) "No quotes saved yet. Use !addquote to add one.")
-              (num
-               (let ((q (find num quotes :key #'first)))
-                 (if q
-                     (format nil "#~D (by ~A): ~A" (first q) (second q) (fourth q))
-                     (format nil "No quote #~D." num))))
-              (t
-               (let ((q (alexandria:random-elt quotes)))
-                 (format nil "#~D (by ~A): ~A" (first q) (second q) (fourth q)))))))))
+            (handler-case
+                (let ((q (if num
+                             (db-get-quote-by-id channel num)
+                             (db-get-random-quote channel))))
+                  (if q
+                      (format nil "#~D (by ~A): ~A" (first q) (second q) (third q))
+                      (if num
+                          (format nil "No quote #~D." num)
+                          "No quotes saved yet. Use !addquote to add one.")))
+              (error (e)
+                (format nil "Error retrieving quote: ~A" e)))))))
 
 ;;; ============================================================
 ;;; Self-reminders

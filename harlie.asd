@@ -10,7 +10,7 @@
 	       #:cl-fad
                #:cl-sasl
                #:cl+ssl
-	       #:cl-irc
+	       #:clatter-irc
                #:log4cl
 	       #:cl-json
                #:com.inuoe.jzon

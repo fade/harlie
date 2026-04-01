@@ -82,6 +82,16 @@
           (bt:with-lock-held ((fis-lock server))
             (push line (fis-received server)))
           (cond
+            ;; CAP LS: clatter-irc sends this during registration.
+            ;; Reply with empty capabilities so it proceeds with CAP END.
+            ((cl-ppcre:scan "^CAP LS" line)
+             (send-line stream
+                        (format nil ":fake.irc.server CAP * LS :")))
+
+            ;; CAP REQ / CAP END: silently absorb.
+            ((cl-ppcre:scan "^CAP " line)
+             nil)
+
             ((cl-ppcre:scan "^NICK " line)
              (let ((raw (string-trim '(#\Space) (subseq line 5))))
                (setf nick (if (and (> (length raw) 0) (char= (char raw 0) #\:))
@@ -104,8 +114,8 @@
                (send-line stream (fis-nickserv-register-response server))))
 
             ;; JOIN: confirm the join so the bot transitions to :joined.
-            ;; cl-irc sends the channel as a trailing argument: "JOIN :#channel",
-            ;; so strip the leading colon before echoing back.
+            ;; clatter-irc sends "JOIN #channel" (no trailing colon);
+            ;; strip the leading colon if present for backward compat.
             ((cl-ppcre:scan "^JOIN " line)
              (let* ((raw-channel (string-trim '(#\Space) (subseq line 5)))
                     (channel (if (and (> (length raw-channel) 0)

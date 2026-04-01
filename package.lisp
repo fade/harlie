@@ -13,7 +13,6 @@
 	#:cxml-stp
 	#:drakma
 	#:hunchentoot
-	#:irc
 	#:json
 	#:local-time
 	#:parse-number
@@ -24,12 +23,55 @@
   (:shadowing-import-from :hunchentoot
    :host :*header-stream* :cookie-path :cookie-expires :cookie-name
                           :cookie-domain :parameter-error :cookie-value :url-encode)
-  (:shadowing-import-from :cl-irc :connect)
+  ;; clatter-irc's connect shadows postmodern's connect
+  (:shadowing-import-from :clatter-irc :connect)
   ;; (:shadowing-import-from :cl-who :with-html-output)
   (:shadowing-import-from :drakma :header-value)
   ;; (:shadowing-import-from :cl-log :log-message :make-timestamp :timestamp)
   (:shadowing-import-from :postmodern :encode-json-to-string)
+  (:import-from :clatter-irc
+   ;; Connection management
+   #:connection
+   #:make-connection
+   #:disconnect
+   #:connectedp
+   #:send-raw
+   #:connection-nick
+   #:connection-server
+   #:connection-port
+   #:connection-tls-p
+   #:connection-user-data
+   #:connection-channels
+   #:connection-stream
+   #:connection-socket
+   ;; Hook system
+   #:add-hook
+   #:remove-hook
+   #:run-hooks
+   ;; IRC commands
+   #:privmsg
+   #:join
+   #:notice
+   #:quit
+   ;; Message parsing
+   #:message
+   #:message-command
+   #:message-params
+   #:message-prefix
+   #:message-raw
+   #:message-tags
+   #:parse-prefix
+   #:prefix-nick
+   #:prefix-user
+   #:prefix-host
+   ;; Constants
+   #:*default-port*
+   #:*default-tls-port*)
   (:export #:run-bot
-	   #:kill-bot))
+	   #:kill-bot
+	   #:make-bot-connection
+	   #:make-irc-client-instance-thunk
+	   #:connection-state
+	   #:*irc-connections*))
 
 (local-time:set-local-time-cl-postgres-readers)

@@ -16,14 +16,28 @@
         (let* ((context-query-head '(:select 'context-name 'irc-server 'irc-channel
                                      'web-server 'web-port 'web-uri-prefix
                                      :from 'contexts))
-               (context-query (cond ((bot-nick context)
-                                     (append context-query-head
-                                             `(:where (:= (:raw "lower(context_name)")
-                                                          ,(string-downcase (bot-nick context))))))
-                                    ((bot-web-port context)
-                                     (append context-query-head
-                                             `(:where (:= 'web-port ,(bot-web-port context)))))
-                                    (t nil))))
+               (context-query
+                (cond
+                  ;; Nick + channel: exact per-channel lookup.
+                  ((and (bot-nick context)
+                        (bot-irc-channel context)
+                        (stringp (bot-irc-channel context)))
+                   (append context-query-head
+                           `(:where (:and
+                                     (:= (:raw "lower(context_name)")
+                                         ,(string-downcase (bot-nick context)))
+                                     (:= 'irc-channel
+                                         ,(bot-irc-channel context))))))
+                  ;; Nick only: falls back to first matching row.
+                  ((bot-nick context)
+                   (append context-query-head
+                           `(:where (:= (:raw "lower(context_name)")
+                                        ,(string-downcase (bot-nick context))))))
+                  ;; Web port lookup (for URL context).
+                  ((bot-web-port context)
+                   (append context-query-head
+                           `(:where (:= 'web-port ,(bot-web-port context)))))
+                  (t nil))))
           (let ((conlist (first (query (sql-compile context-query)))))
             (when conlist
               (setf (bot-nick context) (string-downcase (first conlist)))
@@ -35,25 +49,35 @@
     (error (e)
       (log:warn "~&[CONTEXT] DB lookup failed, using partial context: ~A" e))))
 
-(defun chain-context (nick)
+(defun chain-context (nick &optional channel)
+  "Return the context-id for NICK, optionally narrowed to CHANNEL.
+When CHANNEL is supplied the lookup is exact (one row per channel);
+otherwise the first matching row for NICK is returned."
   (with-connection (db-credentials *bot-config*)
-    (query (:select 'context-id
-	    :from 'contexts
-	    :where (:= (:raw "lower(context_name)")
-		       (string-downcase nick)))
-	   :single)))
+    (if (and channel (stringp channel))
+        (query (:select 'context-id
+                :from 'contexts
+                :where (:and (:= (:raw "lower(context_name)")
+                                 (string-downcase nick))
+                             (:= 'irc-channel channel)))
+               :single)
+        (query (:select 'context-id
+                :from 'contexts
+                :where (:= (:raw "lower(context_name)")
+                           (string-downcase nick)))
+               :single))))
 
 (defgeneric chain-read-context-id (context)
   (:documentation "Returns the context ID for reading the chaining DB in a given context."))
 
 (defmethod chain-read-context-id ((context bot-context)) 
-  (chain-context (bot-nick context)))
+  (chain-context (bot-nick context) (bot-irc-channel context)))
 
 (defgeneric chain-write-context-id (context)
   (:documentation "Returns the context ID for writing to the chaining DB in a given context."))
 
 (defmethod chain-write-context-id ((context bot-context)) 
-  (chain-context (bot-nick context)))
+  (chain-context (bot-nick context) (bot-irc-channel context)))
 
 (defgeneric url-read-context-id (context)
   (:documentation "Returns the context ID for reading the URL DB in a given context."))

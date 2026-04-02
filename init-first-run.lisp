@@ -45,7 +45,17 @@ with the config without requiring manual SQL."
        (cs-channel cs)
        (web-server-name *bot-config*)
        (cs-web-port cs)
-       "/"))))
+       "/")
+      (dolist (extra (cs-extra-channels cs))
+        (log:debug "~&CONTEXT (extra): nick=~A server=~A channel=~A port=~A"
+                   (cs-nick cs) (cs-server cs) extra (cs-web-port cs))
+        (make-context-entry
+         (cs-nick cs)
+         (cs-server cs)
+         extra
+         (web-server-name *bot-config*)
+         (cs-web-port cs)
+         "/")))))
 
 (defun make-base-tables (sqlfile)
   "given the full path to a sql schema template 'SQLFILE for Harlie, fix

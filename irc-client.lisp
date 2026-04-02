@@ -329,7 +329,7 @@ allowing for leading and trailing punctuation characters in the match."
 		       'bot-context
 		       :bot-nick (connection-nick conn)
 		       :bot-irc-server (connection-server conn)
-		       :bot-irc-channel channel))
+		       :bot-irc-channel channel-name))
 	     (reply-to (if (string-equal channel-name (bot-nick context))
 			   sender
 			   channel-name))

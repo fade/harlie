@@ -56,7 +56,7 @@
 (defclass channel-user ()
   ((channel-id :col-type integer :col-references ((bot-channel bot-channel-id) :cascade) :initarg :channel-id :accessor channel-id)
    (user-id :col-type integer :col-references ((harlie-user harlie-user-id) :cascade) :initarg :user-id :accessor user-id)
-   (ignored :col-type boolean :col-default nil :iniform nil :initarg :ignored :accessor ignored))
+   (ignored :col-type boolean :col-default nil :initform nil :initarg :ignored :accessor ignored))
   (:documentation "A table to bridge between a channel and the users it contains.")
   (:metaclass postmodern:dao-class)
   (:keys channel-id user-id))

@@ -63,6 +63,9 @@
                       :initform nil)
    (nickserv-email    :initarg :nickserv-email    :accessor cs-nickserv-email
                       :initform nil)
+   (extra-channels    :initarg :extra-channels    :accessor cs-extra-channels
+                      :initform nil
+                      :documentation "List of additional channels to join on this connection.")
    (web-port          :initarg :web-port          :accessor cs-web-port)))
 
 (defun make-connection-spec (&rest args)

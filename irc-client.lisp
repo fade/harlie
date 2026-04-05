@@ -606,7 +606,7 @@ hook runs before the default-hook, extended here."
                         (setf (connection-state connection) :identifying)
                         (log:info "~&[NickServ] Sending IDENTIFY for ~A" nickname)
                         (privmsg connection "NickServ"
-                                 (format nil "IDENTIFY ~A" (nickserv-password connection))))
+                                 (format nil "IDENTIFY ~A ~A" nickname (nickserv-password connection))))
                       (progn
                         (setf (connection-state connection) :joining)
                         (log:info "~&[JOIN] ~A joining ~A on ~A" nickname channel ircserver)

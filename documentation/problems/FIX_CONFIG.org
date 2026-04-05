@@ -3,6 +3,10 @@
 #+DATE: 2026-03-14
 #+OPTIONS: toc:t num:t
 
+*HISTORICAL: The config overhaul proposed here was implemented as part of
+the ~unfuck_configuration_and_state~ branch and refined during the
+clatter-irc migration in April 2026.  Retained for reference.*
+
 * Current State Analysis
 
 ** The ~config~ Class (~confobjects.lisp~)

@@ -3,6 +3,10 @@
 #+DATE: 2026-03-13
 #+OPTIONS: toc:t num:t
 
+*HISTORICAL: This document analyses bugs in the cl-irc backend that was
+replaced by clatter-irc in April 2026.  The issues described below are
+resolved by the migration.  Retained for reference.*
+
 * Overview
 
 This document analyses the Harlie IRC bot codebase (~harlie/~) and its primary

@@ -42,7 +42,9 @@
   - [ ] empty path == "/"
   - [ ] do lookups on raw IP addrs?
 
-- [ ] Smart rejoin.  Detect disconnects from server.
+- [X] Smart rejoin.  Detect disconnects from server.
+  A: Done.  clatter-irc provides auto-reconnect with exponential backoff;
+  harlie adds a keepalive PING thread.
 
 - [X] Is it worth exploring the Google Calc JSON API? (no, google is a dead end)
 
@@ -66,7 +68,8 @@
     be in order, not a freeze.
 - [ ] Count plugin usage to see what's popular?
 
-- [ ] Calendars, reminders within the bot
+- [X] Calendars, reminders within the bot
+  A: Basic !remind plugin implemented.
   - [ ] Hook into Google Calendar/iCal/other services for same
 
 - [ ] Get full host string w/Web request

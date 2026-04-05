@@ -13,11 +13,16 @@ channel showing the URL archive and bot source.
 
 - Connects to multiple IRC servers and channels simultaneously, each with its
   own nick and web port
+- Auto-reconnect with exponential backoff and keepalive PING
 - NickServ authentication and registration via an event-driven state machine
 - URL shortener with title fetching, UTM-parameter stripping, and a per-channel
   web archive
-- Markov-chain text generation (~!babble~, ~!haiku~)
+- Markov-chain text generation (~!babble~, ~!haiku~) with per-channel contexts
+- Memo system (~!tell~, ~!memos~) for leaving messages for offline users
 - METAR weather lookups (~!metar~)
+- Wikipedia, dictionary, GitHub, and timezone lookups
+  (~!wiki~, ~!define~, ~!gh~, ~!tz~)
+- Channel quote database (~!addquote~, ~!quote~)
 - Per-user and per-channel persistent state in PostgreSQL
 - Built-in web server (Hunchentoot) per context
 - Slynk REPL server for live inspection (~slynky~)
@@ -25,12 +30,13 @@ channel showing the URL archive and bot source.
 
 * Requirements
 
-| Requirement | Notes                                      |
-|-------------+--------------------------------------------|
-| SBCL        | Tested on current releases                 |
-| Quicklisp   | For library loading                        |
-| PostgreSQL  | 14+ recommended; bot uses Unix socket auth |
-| cl-irc      | Available via Quicklisp                    |
+| Requirement  | Notes                                      |
+|--------------+--------------------------------------------|
+| SBCL         | Tested on current releases                 |
+| Quicklisp    | For library loading                        |
+| PostgreSQL   | 14+ recommended; bot uses Unix socket auth |
+| clatter-irc  | [[https://github.com/glenneth1/clatter-irc][glenneth1/clatter-irc]] — clone to a path     |
+|              | visible to ASDF's source registry          |
 
 All other Lisp dependencies are fetched by Quicklisp.
 
@@ -141,17 +147,32 @@ architecture.
 | ~:channel-key~       | no       | ~nil~     | Channel password                  |
 | ~:nickserv-password~ | no       | ~nil~     | NickServ IDENTIFY password        |
 | ~:nickserv-email~    | no       | ~nil~     | NickServ REGISTER email           |
+| ~:extra-channels~    | no       | ~nil~     | List of additional channels to join |
 
 * IRC Commands
 
-| Command      | Effect                                     |
-|--------------+--------------------------------------------|
-| ~!help~        | Print help URL and available commands      |
-| ~!babble~      | Generate text via Markov chain             |
-| ~!haiku~       | Generate a haiku                           |
-| ~!metar ICAO~  | Fetch weather for airport ICAO code        |
-| ~!status~      | Short status report                        |
-| ~!status full~ | Full status including chainer phrase count |
+| Command          | Effect                                       |
+|------------------+----------------------------------------------|
+| ~!help~            | List available commands                       |
+| ~!help CMD~        | Show help for a specific command              |
+| ~!babble~          | Generate text via Markov chain                |
+| ~!haiku~           | Generate a haiku                              |
+| ~!metar ICAO~      | Fetch weather for airport ICAO code           |
+| ~!status~          | Short status report                           |
+| ~!status full~     | Full status including chainer phrase count     |
+| ~!tell USER MSG~   | Leave a message for USER, delivered on return |
+| ~!memos~           | Check your pending memos                      |
+| ~!wiki TOPIC~      | Wikipedia summary                             |
+| ~!define WORD~     | Dictionary definition                         |
+| ~!tz TIMEZONE~     | Current time in a timezone                    |
+| ~!gh OWNER/REPO~   | GitHub repository summary                     |
+| ~!addquote TEXT~   | Save a channel quote                          |
+| ~!quote~           | Recall a random quote                         |
+| ~!quote N~         | Recall quote number N                         |
+| ~!uptime~          | How long the bot has been running             |
+| ~!seen USER~       | When a user was last seen speaking            |
+| ~!remind TIME MSG~ | Set a reminder (e.g. ~!remind 30m check build~) |
+| ~!rpn EXPR~        | RPN calculator                                |
 
 * License
 

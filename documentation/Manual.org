@@ -138,10 +138,12 @@ before joining the channel.  The connection passes through these states:
    depends on whether ~:nickserv-email~ is also set:
 
    - *With* ~:nickserv-email~: the bot sends ~REGISTER~ to NickServ,
-     enters state ~:registering~, and proceeds to join once NickServ
-     acknowledges.  The nick will be unverified until you click the
-     activation link in the email; on the next restart ~IDENTIFY~ will
-     succeed normally.
+     enters state ~:registering~, and waits up to 5 seconds for NickServ
+     to acknowledge.  If NickServ responds in time, the bot joins
+     normally.  If the timeout expires, the bot logs a warning and joins
+     anyway.  The nick will be unverified until you click the activation
+     link in the email; on the next restart ~IDENTIFY~ will succeed
+     normally.
 
    - *Without* ~:nickserv-email~: the bot logs a warning and joins
      without identification.
@@ -153,12 +155,13 @@ No manual SQL is required.
 The contexts table will look like this after restart:
 
 #+begin_example
-botdb=# SELECT context_id, context_name, irc_server, irc_channel, web_port
-        FROM contexts;
- context_id | context_name |    irc_server    | irc_channel | web_port
-------------+--------------+------------------+-------------+----------
-          1 | Jankist      | irc.libera.chat  | #deepsky    |     8888
-          2 | NewNick      | irc.libera.chat  | #newchannel |     9000
+  botdb=# SELECT context_id, context_name, irc_server, irc_channel, web_port
+          FROM contexts;
+    =>
+   context_id | context_name |    irc_server    | irc_channel | web_port
+  ------------+--------------+------------------+-------------+----------
+            1 | Jankist      | irc.libera.chat  | #deepsky    |     8888
+            2 | NewNick      | irc.libera.chat  | #newchannel |     9000
 #+end_example
 
 * Migrating a Legacy Installation
@@ -227,6 +230,7 @@ system.
 | ~harlie/test/unit~          | Pure functions: URL extraction, name-detector, config constructors |
 | ~harlie/test/db~            | DAO operations against a real database                             |
 | ~harlie/test/nickserv-flow~ | Full IRC connection and NickServ state machine                     |
+| ~harlie/test/memo~          | Memo storage, retrieval, formatting, and delivery via fake server  |
 
 The test runner is [[https://shinmera.github.io/parachute/][Parachute]].
 
@@ -355,10 +359,20 @@ The fake server handles:
 Each test uses ~fis-wait-for~ to block until a specific line appears in
 the server's received-line log, with a timeout to prevent hangs.
 
-A key detail: ~cl-irc~ serialises the channel as a trailing IRC argument,
-sending ~JOIN :#channel~ (with a leading colon) on the wire.  Both the
-fake server's JOIN handler and the ~fis-wait-for~ assertions use the
-colon-prefixed form.
+The fake server handles both ~cl-irc~ style ~JOIN :#channel~ (with a
+leading colon) and ~clatter-irc~ style ~JOIN #channel~ (without colon)
+for backward compatibility.  The current codebase uses ~clatter-irc~.
+
+** Memo tests (~test/memo-test.lisp~)
+
+Unit tests verify memo storage and retrieval: store-and-retrieve,
+multiple memos per recipient, no self-memos, no empty memos, no memos
+for unknown users, age formatting, and delivery message formatting.
+
+Integration tests use the fake IRC server to exercise end-to-end flows:
+a memo stored for a user is delivered when that user joins the channel
+or speaks, and no spurious delivery occurs when a user with no pending
+memos joins.
 
 ** Adding new tests
 

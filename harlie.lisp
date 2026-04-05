@@ -9,8 +9,11 @@
 (defun slynky (&key (port 4007))
   (slynk:create-server :port port :dont-close t))
 
+(defvar *boot-time* nil "Universal time when the bot was started.")
+
 (defun run-bot ()
   "Start up the IRC client and the Web servers."
+  (setf *boot-time* (get-universal-time))
   (setf *random-state* (make-random-state t))
   (start-web-client)
   (start-web-servers)

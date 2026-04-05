@@ -1,0 +1,300 @@
+#+TITLE: clatter-irc Migration: Active Work Tracker
+#+DATE: 2026-04-05
+
+* Active Tasks
+
+** DONE [agent-1] Obtain clatter-irc library
+- Located at ~/SourceCode/lisp/clatter-irc/
+- ASDF system definition: clatter-irc.asd
+
+** DONE [agent-2] Merge branch and catalogue conflicts
+
+Merge of =glenneth/glenneth/clatter-refactor= into =fade/migrate-to-clatter= attempted
+with =git merge --no-commit=. Result: 1 conflicted file, 17 cleanly merged files.
+
+*** Branch statistics (18 files changed, +1748 / -592 lines)
+
+New files from branch:
+- bin/consort.sh, bin/run-consort.lisp (new launcher)
+- database/bot-schema.sql.template
+- docs/clatter-refactor-difficulties.org
+- memo.lisp, test/memo-test.lisp (memo/reminder subsystem)
+
+Modified files (merged cleanly):
+- confobjects.lisp, context.lisp, harlie.asd, harlie.lisp
+- init-first-run.lisp, package.lisp, plugins.lisp
+- test/fake-irc-server.lisp, test/nickserv-flow.lisp, users.lisp
+
+Deleted by branch:
+- IRC-LIBRARY-MIGRATION.org
+
+*** Conflict 1: irc-client.lisp (lines 612-621)
+
+**** What each side has
+
+- HEAD (master / fade/migrate-to-clatter), lines 613-614:
+  #+begin_src lisp
+  (privmsg connection "NickServ"
+           (format nil "IDENTIFY ~A ~A" nickname (nickserv-password connection)))
+  #+end_src
+  Uses the outer variable =connection= and a two-argument IDENTIFY format
+  (=IDENTIFY <nick> <password>=). This was intentionally changed on master to
+  fix NickServ identification for servers that require =IDENTIFY nick pass=.
+
+- glenneth/glenneth/clatter-refactor, lines 619-620:
+  #+begin_src lisp
+  (privmsg conn "NickServ"
+           (format nil "IDENTIFY ~A" (nickserv-password conn)))
+  #+end_src
+  Uses the lambda parameter =conn= (correct binding) and the original
+  one-argument IDENTIFY format (=IDENTIFY <password>=).
+
+- Merge base (092d994), lines 616-617:
+  #+begin_src lisp
+  (privmsg connection "NickServ"
+           (format nil "IDENTIFY ~A" (nickserv-password connection)))
+  #+end_src
+  Original: outer =connection=, one-argument IDENTIFY.
+
+**** Recommended resolution
+
+Combine both improvements: use the lambda parameter =conn= from the branch
+(correct scoping fix) AND the two-argument =IDENTIFY ~A ~A= format from
+master (correct NickServ protocol fix). The result should be:
+#+begin_src lisp
+(privmsg conn "NickServ"
+         (format nil "IDENTIFY ~A ~A" nickname (nickserv-password conn)))
+#+end_src
+
+*** Summary
+
+Only a single, small conflict exists. The merge is straightforward.
+
+** DONE [agent-3] Audit new code for issues
+
+Audited new code added by =glenneth/glenneth/clatter-refactor=.
+Files reviewed: plugins.lisp (diff), memo.lisp, database/bot-schema.sql.template,
+and the clatter-irc library at =~/SourceCode/lisp/clatter-irc/=.
+
+*** 1. plugins.lisp -- New plugins
+
+The branch adds 12 new plugin definitions: =tell=, =memos=, =uptime=, =seen=,
+=wiki=, =define=, =tz=, =gh=, =addquote=, =quote=, =remind=, =eval=.
+
+**** 1a. Error handling around external API calls
+
+- =wiki-summary=: handler-case + trivial-timeout (10s). OK.
+- =dict-lookup=: handler-case + trivial-timeout (10s). OK.
+- =github-repo-summary=: handler-case + trivial-timeout (10s). OK.
+- =tz= plugin: handler-case around timezone lookup. OK, no network call.
+- =seen= plugin: handler-case around DB access. OK.
+
+[INFO] All external-call plugins have error handling and 10s timeouts. Consistent.
+
+**** 1b. Input validation
+
+- [WARNING] =wiki-summary=: URL is built with =(substitute #\_ #\Space term)= but
+  the term is NOT URL-encoded. A term containing =/=, =?=, =#=, or non-ASCII
+  characters will produce a malformed or unexpected URL. Should use
+  =drakma:url-encode= (as =dict-lookup= already does).
+
+- [WARNING] =github-repo-summary=: The =repo-path= argument (from user input) is
+  interpolated directly into the URL with no validation. A user could supply
+  =../../../some/path= or inject query params. Should validate it matches
+  =^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$= or at minimum URL-encode it.
+
+- [INFO] =dict-lookup= correctly uses =drakma:url-encode=.
+
+- [INFO] =define=, =tell=, =remind=, =quote=, =addquote= all validate for
+  missing arguments. Good.
+
+*** 2. memo.lisp -- Memo store
+
+**** [WARNING] Unbounded growth
+
+=*pending-memos*= is a plain hash table with no size limit. A malicious user
+(or just a busy channel) can issue unlimited =!tell= commands. There is no
+per-sender limit, no per-recipient limit, and no global cap. Over time this
+will consume unbounded memory.
+
+Recommendation: Add a per-recipient cap (e.g. 20 memos) and/or a global cap
+(e.g. 1000 total). Reject new memos when the cap is hit.
+
+**** [WARNING] No thread safety
+
+=*pending-memos*= is a bare hash table accessed from multiple threads (the
+IRC read thread calls =deliver-memos-for= on join/speak events, while =!tell=
+stores memos). SBCL hash tables are not thread-safe for concurrent writes.
+This can corrupt the table.
+
+Recommendation: Wrap accesses in a lock, or use a thread-safe structure.
+
+**** [INFO] Purely in-memory -- no persistence
+
+Memos are lost on restart. This is acceptable for a first pass but worth
+documenting for users. The code comments say "optional DB persistence" but
+none is implemented.
+
+**** [INFO] =deliver-memos-for= removes ALL memos on partial delivery
+
+If delivery of one memo fails (error in =privmsg=), the remaining memos are
+still removed from the hash because =remhash= runs unconditionally when
+=count > 0=. This means successfully-counted memos plus undelivered ones all
+get deleted.
+
+Recommendation: Only remove memos that were actually delivered, or re-store
+the ones that failed.
+
+*** 3. !eval sandbox -- SECURITY AUDIT
+
+**** [CRITICAL] Sandbox is trivially escapable
+
+The sandbox checks a banned-symbol list against the parsed form tree, but:
+
+1. =symbol-function=, =fdefinition=, =symbol-value=, =find-symbol=, =intern=,
+   =funcall=, =apply=, =progn=, =let=, =flet=, =labels=, =macrolet=,
+   =change-class=, =slot-value= are all ALLOWED. An attacker can do:
+   #+begin_example
+   !eval (funcall (symbol-function 'delete-file) "important.dat")
+   !eval (uiop:run-program "rm -rf /" :output :string)
+   !eval (funcall (fdefinition 'sb-ext:run-program) "sh" '("-c" "id") :search t :output t)
+   #+end_example
+   The banned list catches direct use of =sb-ext:run-program= but NOT indirect
+   invocation via =funcall=, =apply=, =symbol-function=, or =fdefinition=.
+
+2. =find-symbol= / =intern= can construct any symbol at runtime, completely
+   bypassing the name check:
+   #+begin_example
+   !eval (funcall (intern "RUN-PROGRAM" "SB-EXT") "id" (list) :search t :output t)
+   #+end_example
+
+3. =#.= reader macro is correctly disabled (=*read-eval*= is NIL). Good.
+
+4. The timeout wraps both =read-from-string= AND =eval=, which is correct.
+
+5. =make-instance= is banned, but =change-class=, =allocate-instance=,
+   =shared-initialize= are not. CLOS can still be abused.
+
+6. =setf= is banned but =set=, =(setf symbol-value)= via =funcall= are not.
+
+Recommendation: This sandbox MUST NOT go to production. A symbol-blacklist
+approach is fundamentally flawed in Common Lisp. The only safe approaches are:
+(a) a whitelist-only evaluator that walks the form and only permits known-safe
+    functions (arithmetic, string ops, list ops), rejecting everything else; or
+(b) evaluate in a restricted package with only safe symbols imported; or
+(c) remove !eval entirely.
+
+**** [WARNING] Timeout is 5s -- eval runs in the calling thread
+
+The =eval= happens inside =trivial-timeout:with-timeout= in the plugin
+dispatch thread. If evaluation triggers an infinite loop that does NOT hit
+a safe-point (e.g. a tight CFFI call or a foreign function), the timeout
+signal may not be delivered, blocking the plugin dispatcher.
+
+*** 4. database/bot-schema.sql.template -- quotes table
+
+**** [INFO] Schema addition is correct
+
+The =quotes= table has:
+- =quote_id= integer PK with serial sequence
+- =channel= text NOT NULL
+- =added_by= text NOT NULL
+- =quote_text= text NOT NULL
+- =added_at= timestamptz DEFAULT now()
+- Proper sequence ownership and DEFAULT wiring
+
+**** [WARNING] Missing index on =channel= column
+
+=db-get-random-quote= and =db-get-quote-by-id= both filter by =channel=.
+Without an index on =channel=, these become sequential scans as the table
+grows.
+
+Recommendation: Add =CREATE INDEX quotes_channel_idx ON public.quotes (channel);=
+
+**** [INFO] =db-add-quote= uses =currval()= to get the new ID
+
+This is correct for single-session use. =currval= is session-scoped in
+PostgreSQL so it is safe under concurrent inserts. However, using =RETURNING
+quote_id= in the INSERT would be simpler and more idiomatic with Postmodern.
+
+*** 5. !remind plugin
+
+**** [WARNING] Unbounded thread creation
+
+Each =!remind= invocation spawns a new =bt:make-thread= that sleeps for the
+requested duration. There is no limit on how many reminders a user can set.
+A malicious user can issue thousands of =!remind 86400d msg= commands, each
+creating a sleeping thread consuming stack space (typically 1-8 MB per thread).
+
+Recommendation: Cap reminders per-user (e.g. 5) and per-channel, and enforce
+a maximum duration (e.g. 7d). Consider using a single scheduler thread with
+a priority queue instead of one thread per reminder.
+
+**** [WARNING] Reminder threads hold reference to connection object
+
+If the bot disconnects and reconnects (getting a new connection object), the
+sleeping reminder thread still holds the old =conn= reference. The =privmsg=
+call will fail or go nowhere.
+
+*** 6. clatter-irc library assessment
+
+Reviewed: =clatter-irc.asd=, =package.lisp=, =constants.lisp=, =connection.lisp=, =handlers.lisp=.
+
+**** Dependencies
+
+=usocket=, =bordeaux-threads=, =cl+ssl=, =flexi-streams=, =cl-base64=,
+=split-sequence=, =cl-ppcre=. All standard, no exotic deps.
+
+**** PING/PONG handling
+
+[INFO] Correct. =handle-ping= responds with =pong= to the server parameter.
+=handle-pong= clears the =ping-sent-time= slot. No PING keepalive initiator
+was found in the reviewed files -- the bot responds to server PINGs but does
+not proactively ping to detect dead connections. This may be handled elsewhere
+or may be missing.
+
+**** Unknown numeric replies
+
+[INFO] Handled gracefully. The =handle-numeric= function uses a =case= for
+known codes (001, 324, 329, 332, 333, 353, 433, 903, 904/905/906) and falls
+through to =run-hooks conn 'on-numeric= for all codes (including unknown
+ones). The =reply-code-name= function returns NIL for unrecognized codes,
+which is passed as the =name= argument to hooks. This is correct.
+
+**** Hook signatures
+
+- =on-privmsg=: =(conn msg sender target text)= -- 5 args
+- =on-join=: =(conn msg nick channel)= -- 4 args
+- =on-numeric=: =(conn msg code name)= -- 4 args
+- =on-connect=: =(conn)= -- 1 arg
+- =on-disconnect=: =(conn)= -- 1 arg
+
+[INFO] These differ from cl-irc's hook signatures. The migration will need
+to update all existing hook registrations to match.
+
+**** Reconnection
+
+[INFO] Exponential backoff with base 5s, max 300s, unlimited attempts by
+default. Reconnect runs in a fresh thread. Looks solid.
+
+**** Thread safety
+
+[INFO] =send-raw= is protected by =write-lock=. The read loop runs in its
+own thread. Hook errors are caught and logged without crashing the read loop.
+
+*** Summary of findings
+
+| Severity | Count | Key items                                                    |
+|----------+-------+--------------------------------------------------------------|
+| CRITICAL |     1 | !eval sandbox trivially escapable via funcall/symbol-function |
+| WARNING  |     6 | memo unbounded + not thread-safe; remind unbounded threads;   |
+|          |       | wiki URL not encoded; gh repo-path not validated;             |
+|          |       | quotes table missing channel index                           |
+| INFO     |     7 | memo not persistent; memo partial-delivery loss; schema OK;   |
+|          |       | clatter-irc hook signatures differ from cl-irc;               |
+|          |       | no proactive PING keepalive; currval vs RETURNING style;      |
+|          |       | all API plugins have timeouts                                |
+
+* Resolved Tasks
+
+* Notes

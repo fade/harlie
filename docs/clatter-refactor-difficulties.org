@@ -1,0 +1,355 @@
+#+TITLE: Clatter-IRC Refactor: Difficulties & Resolutions
+#+AUTHOR: Glenn Thompson
+#+DATE: 2026-04-01
+
+* Overview
+
+Notes on migrating Harlie's IRC layer from cl-irc to clatter-irc.
+Covers what I replaced, what I kept, and the various things that went
+wrong along the way.
+
+* cl-irc → clatter-irc Migration
+
+Harlie originally used =cl-irc= for the IRC protocol layer.  After
+documenting cl-irc's various issues (see
+=documentation/problems/HARLIE_ANALYSIS.org=), I wrote =clatter-irc= as
+a ground-up replacement.  Here's what changed and what stayed.
+
+** Connection class
+
+Previously =cl-irc:connection= was subclassed as =bot-irc-connection=,
+with Harlie bolting on its own channel hash, user tracking, and state
+management.  Now =clatter-irc:connection= handles all of that natively:
+nick, server, port, TLS, connection state, channel tracking
+(=connection-channels=), a thread-safe write lock, and SASL.  The
+=bot-irc-connection= subclass is much thinner now --- just
+=last-message=, =message-q=, =mq-task=, =bot-state= (registration
+lifecycle), =nickserv-password=, and =nickserv-email=.
+
+** Channel class
+
+There was no channel subclass before --- trigger lists and ignore state
+lived in ad-hoc hash tables keyed by channel name.  Now I subclass
+=clatter-irc:channel= as =bot-irc-channel=, adding =trigger-list= and
+=ignore-sticky= slots.  clatter-irc creates channel objects
+automatically on JOIN and tracks nick lists, topics, and modes.  A
+backward-compatible =(channels conn)= method delegates to
+=connection-channels= so existing code didn't need to change.
+
+** Read loop and threading
+
+The old =(read-message-loop connection)= blocked at the end of the
+thunk, running in the same thread as hook setup.  Any error in hook
+code killed the read loop --- which is why Harlie spawned a new thread
+for every incoming message (=threaded-msg-hook=).  clatter-irc runs the
+read loop in its own dedicated thread (=connection-read-thread=).  The
+thunk joins that thread via =bt:join-thread= to detect disconnection.
+I kept the =threaded-msg-hook= pattern because it still usefully
+isolates plugin errors from the read thread.
+
+** Hook system
+
+cl-irc used message-class-based hooks (=irc::irc-privmsg-message=,
+=irc::irc-join-message=, etc.).  clatter-irc uses named event hooks
+instead: =on-privmsg=, =on-join=, =on-notice=, =on-quit=, =on-part=,
+=on-nick=, =on-numeric=, =on-ctcp=, =on-connect=, =on-disconnect=.
+Hook signatures now pass parsed components (sender, target, text)
+rather than raw message objects, which cleaned up a lot of the handler
+code.  All hook names are imported into the =harlie= package.
+
+** IRC commands (privmsg, join, quit, etc.)
+
+Same calling convention --- =(privmsg conn target text)=,
+=(join conn channel)=, etc.  Just imported from =clatter-irc= now
+instead of =cl-irc=.  The only wrinkle was that =connect= and
+=disconnect= shadow =postmodern='s symbols, so those go through
+=shadowing-import-from=.
+
+** Message parsing
+
+cl-irc parsed messages into class instances (=irc-privmsg-message=
+etc.) with accessors like =source= and =arguments=.  clatter-irc uses
+a lighter =message= struct with =message-command=, =message-params=,
+=message-prefix=, =message-raw=, and =message-tags= (IRCv3 support).
+Prefix parsing is done with =parse-prefix=, =prefix-nick=,
+=prefix-user=, =prefix-host=.  This was one of the bigger search-and-
+replace jobs across the codebase.
+
+** Send thread safety
+
+cl-irc's =send-irc-message= wasn't thread-safe.  The message queue
+(=qmess= / =dqmess=) serialised outbound messages, but direct
+=privmsg= calls from background threads could still race.  clatter-irc
+fixes this properly --- =send-raw= wraps all writes in
+=(bt:with-lock-held ((connection-write-lock conn)) ...)=, so everything
+is inherently thread-safe.  I kept the message queue for rate limiting
+but it's no longer needed for safety.
+
+** PING/PONG handling
+
+cl-irc had a default hook for =irc::irc-ping-message= that replied
+with PONG, but no client-side keepalive.  clatter-irc handles PING/PONG
+internally in the read loop.  I also added a client-side keepalive
+thread in =make-irc-client-instance-thunk= that sends =PING= every
+60 seconds to prevent silent SSL/NAT timeouts (see Phase 4 below for
+how I discovered that was necessary).
+
+** Reconnection
+
+cl-irc had no reconnection support --- if the connection dropped, the
+bot stayed dead until I manually restarted it.  clatter-irc has built-in
+reconnection with exponential backoff (=schedule-reconnect=,
+=*reconnect-base-delay*=, =*reconnect-max-attempts*=).  Enabled with
+=:reconnect t= in =make-connection=.  Hooks survive reconnects because
+they're stored on the connection object.
+
+** Registration sequencing (001, NickServ, JOIN)
+
+=cl-irc:connect= returned immediately after sending =NICK= and =USER=.
+Harlie sent =JOIN= directly in the thunk before the server confirmed
+registration (001) --- a known bug (HARLIE_ANALYSIS BUG #6) that only
+worked because socket buffering masked the race.  With clatter-irc, the
+=on-connect= hook fires only after receiving =001 RPL_WELCOME=.  The
+full sequence is now explicit: =on-connect= → NickServ =IDENTIFY= →
+=on-notice= confirmation → =JOIN=.  No more racing.
+
+** What was retained from Harlie (not replaced)
+
+These are harlie-specific and have no counterpart in clatter-irc, so
+they stayed:
+
+- *Message queue* (=qmess= / =dqmess=): Rate-limits outbound messages
+  to avoid IRC flood protection. clatter-irc provides thread safety
+  but not rate limiting.
+- *Ignore system* (=start-ignoring= / =stop-ignoring=): Per-channel,
+  per-user ignore state persisted to PostgreSQL.
+- *Trigger mechanism* (=triggered= / =random-words=): Markov chain
+  trigger words for spontaneous responses.
+- *Plugin dispatch* (=run-plugin= / =defplugin=): Command routing for
+  =!metar=, =!tell=, =!wiki=, etc.
+- *User/channel persistence* (=harlie-user=, =bot-channel=,
+  =channel-user=): PostgreSQL-backed user and channel state.
+- *URL store and shortener*: Tracks and shortens URLs mentioned in
+  channels.
+- *Threaded message dispatch*: Each incoming message is handled in its
+  own thread to isolate plugin errors from the read loop.
+
+* Phase 1: Connection & Channel Setup
+
+** Nick collision from duplicate connections
+
+- *Symptom:* Consort connected as =Consort_= because two connection
+  objects were created (one per channel), each trying the same nick.
+- *Root cause:* The config had two =connection-spec= entries (one for
+  =#clatter=, one for =#parenworks=), each creating a separate IRC
+  connection with nick "Consort". Libera.Chat renamed the second to
+  =Consort_=.
+- *Fix:* Added an =:extra-channels= slot to =connection-spec=. A single
+  connection now joins multiple channels. Config uses one connection with
+  =:extra-channels '("#parenworks")=.
+- *Files:* =confobjects.lisp=, =config.lisp=, =irc-client.lisp=
+
+** Extra channel not being joined
+
+- *Symptom:* Consort appeared in =#clatter= but not =#parenworks=,
+  despite the code being in place.
+- *Root cause:* The extra-channel join logic was embedded inside the main
+  =on-join= hook, which also called =setup-bot-channel=. If
+  =setup-bot-channel= errored, the extra-channel join was skipped.
+  Additionally, =log4cl= output was not flushing in non-interactive
+  (systemd) mode, hiding debug output.
+- *Fix:* Moved the extra-channel join into its own isolated =on-join=
+  hook registered separately via =add-hook=. Used explicit
+  =format *error-output*= and =force-output= for initial debugging.
+- *Files:* =irc-client.lisp=
+
+** Journalctl rate limiting hiding logs
+
+- *Symptom:* Systemd journal showed no JOIN messages despite the bot
+  running.
+- *Root cause:* Default journal rate limiting was suppressing log output
+  from the verbose bot startup.
+- *Fix:* Added =LogRateLimitIntervalSec=0= and =LogRateLimitBurst=0=
+  to the systemd unit file. Later switched to
+  =StandardOutput=append:/tmp/consort.log= for reliable log capture.
+- *Files:* =~/.config/systemd/user/consort.service=
+
+* Phase 2: Plugin Dispatch Failures
+
+** All plugins unresponsive (bot-context DB error)
+
+- *Symptom:* No plugin commands (=!metar=, =!tell=, =!htp=, etc.)
+  produced any response. The bot appeared connected but silent.
+- *Root cause:* =msg-hook= creates a =bot-context= object for every
+  incoming message. The =initialize-instance :after= method on
+  =bot-context= queries the =contexts= table in PostgreSQL. If this
+  query failed for any reason, the =make-instance= call errored, and
+  the outer =handler-case= in =msg-hook= caught it --- silently
+  skipping all plugin dispatch, URL processing, and chaining.
+- *Fix:* Wrapped the DB query inside =bot-context='s
+  =initialize-instance :after= in its own =handler-case=, so the
+  context object is always created (with partial/nil fields if the DB
+  is unreachable). Plugin dispatch proceeds regardless.
+- *Files:* =context.lisp=
+
+** Read thread infinite loop (setup-bot-channel / random-words)
+
+- *Symptom:* Bot connected and joined channels, then became completely
+  unresponsive. =recv-Q= in =ss -tnp= showed data piling up unread.
+  Log stopped dead after the JOIN message.
+- *Root cause:* The =on-join= hook calls =setup-bot-channel=, which
+  calls =random-words= requesting 10 words passing
+  =acceptable-word-p=. The =words= table had only 12 entries (for a
+  fresh bot). The =random-words= loop queries batches of 100 random
+  row numbers, filters with the predicate, and loops until it has
+  enough. With only 12 rows and a strict predicate, it could never
+  find 10 acceptable words, so it looped forever --- blocking the read
+  thread.
+- *Diagnosis:* =psql= query =SELECT pid, state, query FROM
+  pg_stat_activity= showed an active =random-words= query running
+  continuously.
+- *Fix:* Wrapped =setup-bot-channel= in
+  =trivial-timeout:with-timeout (15)= so the read thread is never
+  blocked for more than 15 seconds. The bot starts with an empty
+  trigger list if the chaining DB is too sparse.
+- *Files:* =irc-client.lisp=
+
+* Phase 3: New Plugin Bugs
+
+** !wiki returning "No article found"
+
+- *Symptom:* =!wiki Common Lisp= returned "No Wikipedia article found"
+  despite the article existing.
+- *Root cause:* =drakma:url-encode= encoded spaces as =%20=, but
+  Wikipedia's REST API (=/api/rest_v1/page/summary/...=) expects
+  underscores for multi-word titles (e.g. =Common_Lisp=).
+- *Fix:* Replaced =drakma:url-encode= with =(substitute #\_ #\Space term)=.
+- *Files:* =plugins.lisp=
+
+** !tz returning "Unknown timezone" for valid timezones
+
+- *Symptom:* =!tz Europe/London= and =!tz US/Eastern= both returned
+  "Unknown timezone" despite being valid IANA names.
+- *Root cause:* Two issues:
+  1. =local-time:find-timezone-by-location-name= requires the full
+     timezone repository to be loaded via
+     =reread-timezone-repository=. By default only 1 timezone is
+     loaded. The guard =(zerop (hash-table-count ...))= was false
+     (count was 1), so the full repo was never loaded.
+  2. =format-timestring= was called with =:timezone nil= before the
+     nil check, causing an error caught by the outer =handler-case=.
+- *Fix:* Used a =*timezones-loaded*= flag instead of checking hash
+  table count. Moved the nil check on the timezone object before the
+  =format-timestring= call.
+- *Files:* =plugins.lisp=
+
+* Phase 4: Connection Stability
+
+** Silent disconnects (no keepalive, no reconnect)
+
+- *Symptom:* Bot connected and worked for ~20 minutes, then silently
+  disappeared from IRC. Process stayed alive, TCP socket showed ESTAB,
+  but the server had timed the bot out.
+- *Root cause:* Two issues:
+  1. =make-bot-connection= had =:reconnect nil=, explicitly disabling
+     clatter-irc's built-in reconnection.
+  2. No client-side keepalive PINGs were sent. During idle periods,
+     SSL/TLS connections or NAT mappings could silently expire, and
+     the server's PING would never reach the bot (or the bot's PONG
+     would never reach the server).
+- *Fix:* Changed =:reconnect nil= to =:reconnect t=. Added a keepalive
+  thread that sends =PING= to the server every 60 seconds.
+- *Files:* =irc-client.lisp=
+
+** Keepalive thread crash: unqualified package symbols
+
+- *Symptom:* Bot crashed immediately on startup with
+  =UNDEFINED-FUNCTION: The function HARLIE::PING is undefined= or
+  =HARLIE::CONNECTION-STATE is undefined=.
+- *Root cause:* The keepalive thread used =ping=, =connection-state=,
+  =connection-stream=, and =connection-server= without package
+  qualification. These are =clatter-irc= symbols not imported into the
+  =harlie= package.
+- *Fix:* Fully qualified all accessors: =clatter-irc:ping=,
+  =clatter-irc:connection-state=, =clatter-irc:connection-stream=,
+  =clatter-irc:connection-server=.
+- *Files:* =irc-client.lisp=
+
+** Stale FASL cache loading old compiled code
+
+- *Symptom:* After fixing the package qualification, the bot still
+  crashed with the old =HARLIE::PING= error.
+- *Root cause:* ASDF caches compiled =.fasl= files in
+  =~/.cache/common-lisp/=. The stale FASLs from before the fix were
+  loaded instead of recompiling from the updated source.
+- *Fix:* Deleted the harlie FASL cache:
+  =find ~/.cache/common-lisp/ -path '*harlie*' -name '*.fasl' -delete=
+- *Lesson:* After any code change, clear the FASL cache before
+  restarting the bot (or touch the source files to invalidate).
+
+** Libera.Chat rate limiting from rapid reconnects
+
+- *Symptom:* Bot process started but never completed IRC registration.
+  Log showed =[CONNECT]= but no further progress. IRC client app also
+  became extremely laggy.
+- *Root cause:* Multiple rapid restarts during debugging hit Libera.Chat's
+  connection throttling. Both the bot and my IRC client (same IP) were affected.
+- *Fix:* Added a 90-second cooldown between stop and start during
+  debugging. In production, the =Restart=on-failure= /
+  =RestartSec=30= in the systemd unit provides adequate spacing.
+
+* New Plugins
+
+As part of the refactor I added a batch of new commands.  All of these
+use the existing =defplugin= macro and follow the same pattern as the
+original plugins (=!metar=, =!tell=, =!htp=, etc.).
+
+| Command      | Description                                            | Notes                                       |
+|--------------+--------------------------------------------------------+---------------------------------------------|
+| =!uptime=      | How long the bot has been running                      | Uses =*boot-time*= set in =run-bot=            |
+| =!seen=        | When a user was last seen speaking                     | In-memory hash, populated from =msg-hook=     |
+| =!wiki=        | First sentence of a Wikipedia article                  | REST API; uses underscores not =%20= for URLs |
+| =!define=      | Dictionary definition via Free Dictionary API          | Returns first definition or "not found"     |
+| =!tz=          | Current time in a given IANA timezone                  | Requires =reread-timezone-repository= first   |
+| =!gh=          | GitHub repo summary (stars, forks, description)        | Uses GitHub REST API via =drakma=             |
+| =!addquote=    | Save a channel quote                                   | PostgreSQL-backed, survives restarts        |
+| =!quote=       | Recall a random quote (or by number)                   | Originally in-memory; moved to DB           |
+| =!remind=      | Set a self-reminder (e.g. =!remind 30m check build=)    | Uses =start-task= from =sleep-timers.lisp=     |
+| =!eval=        | Evaluate a simple Lisp expression in a sandbox         | Whitelisted operators, 5s timeout           |
+
+The =!quote= / =!addquote= pair initially used an in-memory hash table,
+which meant quotes were lost every time the bot restarted.  I moved
+them to a =quotes= table in PostgreSQL so they persist.
+
+The =!eval= sandbox is deliberately restrictive --- only arithmetic,
+string ops, and a few safe functions are whitelisted.  No =progn=, no
+=setf=, no I/O.  Expressions that take longer than 5 seconds are killed
+via =trivial-timeout=.
+
+* Phase 5: UX Issues
+
+** !help showing localhost URL
+
+- *Symptom:* =!help= responded with =http://localhost:8889/help= which
+  is useless to IRC users.
+- *Root cause:* The original =help= plugin was written for Fade's setup
+  where the bot had a public-facing web server.  Consort's hunchentoot
+  instance only listens on localhost.
+- *Fix:* Replaced the URL response with an inline command listing:
+  =Commands: !tell, !metar, !wiki, ...= plus =Use !help <command> for
+  details.= The =!help <command>= mode (showing a specific command's
+  docstring) was preserved unchanged.
+- *Files:* =plugins.lisp=
+
+* Summary of Files Modified
+
+| File                | Changes                                              |
+|---------------------+------------------------------------------------------|
+| =confobjects.lisp=   | Added =extra-channels= slot to =connection-spec=          |
+| =config.lisp=        | Single connection with =:extra-channels=               |
+| =context.lisp=       | Resilient =bot-context= DB init with =handler-case=     |
+| =harlie.lisp=        | Added =*boot-time*= for =!uptime= plugin                |
+| =irc-client.lisp=    | Extra-channel hook, setup timeout, keepalive PING,   |
+|                     | auto-reconnect, isolated hook registration           |
+| =plugins.lisp=       | 10 new plugins, fixed =!wiki=, =!tz=, =!help=             |
+| =consort.service=    | Log output to file, rate limit disable               |

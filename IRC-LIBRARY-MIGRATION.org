@@ -1,0 +1,200 @@
+#+TITLE: Migration Plan: cl-irc to clatter-irc
+#+AUTHOR: Brian O'Reilly
+#+DATE: 2026-04-05
+
+* Overview
+
+Glenn Thompson's =glenneth/clatter-refactor= branch replaces cl-irc with
+=clatter-irc=, a ground-up IRC protocol library.  The branch also adds
+10 new plugins, a memo system, per-channel Markov contexts, keepalive
+PING, auto-reconnect, and a quotes table.
+
+This document plans the merge of that work into master via the local
+branch =fade/migrate-to-clatter=.
+
+* Branch Inventory
+
+| Source                              | Commits | +Lines | -Lines |
+|-------------------------------------+---------+--------+--------|
+| glenneth/glenneth/clatter-refactor  |      11 |  1748  |   392  |
+
+Files changed: 17 (including 3 new files: =memo.lisp=, =test/memo-test.lisp=,
+=bin/consort.sh=, =bin/run-consort.lisp=, =docs/clatter-refactor-difficulties.org=,
+=database/bot-schema.sql.template= additions).
+
+* Pre-Merge: Blocking Issues
+
+These must be resolved before any merge attempt.
+
+** BLOCKER 1: users.lisp =:initform= regression
+
+The branch carries the =:iniform= typo on the =ignored= slot of
+=channel-user= (line 59 of users.lisp).  Master already has the fix
+(commit ed36ea7).  The branch version will revert this fix.
+
+- *Action:* After merge, ensure the =:initform= spelling is preserved
+  from master.  This is a simple conflict resolution.
+
+** BLOCKER 2: NickServ IDENTIFY format regression
+
+Master's commit 2de764e changed the IDENTIFY command from
+=IDENTIFY <password>= to =IDENTIFY <nick> <password>= to fix
+multi-word password parsing on networks that expect the two-argument
+form.  The branch uses the old single-argument form.
+
+- *Action:* Port the two-argument IDENTIFY format into the clatter-irc
+  hook code.  The relevant code is in the =on-notice= NickServ handler
+  in =irc-client.lisp=.
+
+** BLOCKER 3: clatter-irc library availability
+
+=clatter-irc= is not present in Quicklisp or in =~/SourceCode/lisp/=.
+The system definition in =harlie.asd= depends on =:clatter-irc= but the
+library must be sourced.
+
+- *Action:* Obtain =clatter-irc= source.  Confirm Glenn's repo location,
+  clone to =~/SourceCode/lisp/clatter-irc/=, verify ASDF can find it
+  via the existing source registry tree scan.
+
+* Merge Strategy
+
+Given that the branch touches 17 files with 1748 insertions across 11
+commits, a selective cherry-pick or rebase is impractical.  The
+recommended approach:
+
+1. Merge =glenneth/glenneth/clatter-refactor= into =fade/migrate-to-clatter=.
+2. Resolve conflicts (at minimum: =users.lisp=, =irc-client.lisp=).
+3. Apply fixups as separate commits on the migration branch.
+4. Test compilation, then runtime against a test IRC server.
+5. Merge =fade/migrate-to-clatter= into master once validated.
+
+* Phase 1: Library & Build (compile gate)
+
+Goal: =harlie= compiles cleanly with =clatter-irc= as its IRC backend.
+
+| Task                                          | Status |
+|-----------------------------------------------+--------|
+| Obtain and install clatter-irc                | TODO   |
+| Merge branch into fade/migrate-to-clatter     | TODO   |
+| Resolve users.lisp initform conflict          | TODO   |
+| Resolve irc-client.lisp conflicts with master | TODO   |
+| Fix NickServ IDENTIFY two-arg format          | TODO   |
+| Clear FASL cache, compile from clean state    | TODO   |
+| Verify all ASDF systems load: harlie,         | TODO   |
+|   harlie/test/fake-irc-server,                |        |
+|   harlie/test/nickserv-flow,                  |        |
+|   harlie/test/memo                            |        |
+
+* Phase 2: Database Schema (schema gate)
+
+Goal: PostgreSQL schema supports all new features.
+
+| Task                                          | Status |
+|-----------------------------------------------+--------|
+| Review quotes table addition in schema        | TODO   |
+| Run bot-schema.sql.template against test DB   | TODO   |
+| Verify existing tables unaffected             | TODO   |
+| Write migration SQL for live botdb            | TODO   |
+
+* Phase 3: Test Suite (test gate)
+
+Goal: All existing and new tests pass.
+
+| Task                                          | Status |
+|-----------------------------------------------+--------|
+| Run harlie/test/nickserv-flow                 | TODO   |
+| Run harlie/test/memo                          | TODO   |
+| Run harlie/test/db tests                      | TODO   |
+| Run harlie/test/all                           | TODO   |
+| Manual test: MCP eval-lisp-form tool          | TODO   |
+
+* Phase 4: Runtime Validation (integration gate)
+
+Goal: Bot connects, joins channels, and operates correctly.
+
+| Task                                          | Status |
+|-----------------------------------------------+--------|
+| Start bot against irc.srh.org (local test)    | TODO   |
+| Verify channel join on all configured channels| TODO   |
+| Verify NickServ identification on Libera      | TODO   |
+| Verify keepalive PING thread active           | TODO   |
+| Verify auto-reconnect on disconnect           | TODO   |
+| Test !metar, !tell, !wiki, !quote plugins     | TODO   |
+| Test Markov chain trigger/response            | TODO   |
+| Test ignore system (per-user, per-channel)    | TODO   |
+| Verify no HARLIE::E or SETF VISIBILITY errors | TODO   |
+
+* Phase 5: Merge to Master
+
+| Task                                          | Status |
+|-----------------------------------------------+--------|
+| Squash or tidy commit history                 | TODO   |
+| Final review of diff against master           | TODO   |
+| Merge fade/migrate-to-clatter into master     | TODO   |
+| Push to origin                                | TODO   |
+| Deploy to outrider.deepsky.com                | TODO   |
+
+* Architecture Changes to Understand
+
+** Hook System Migration
+
+cl-irc hooks were keyed by message class names (=irc::irc-privmsg-message=)
+and dispatched through CLOS generic functions (=default-hook=, =:after=
+methods).  clatter-irc uses named event symbols:
+
+| cl-irc hook class                  | clatter-irc hook    |
+|------------------------------------+---------------------|
+| irc::irc-privmsg-message           | on-privmsg          |
+| irc::irc-notice-message            | on-notice           |
+| irc::irc-join-message              | on-join             |
+| irc::irc-part-message              | on-part             |
+| irc::irc-quit-message              | on-quit             |
+| irc::irc-nick-message              | on-nick             |
+| irc::irc-rpl_welcome-message       | on-numeric (001)    |
+| irc::irc-rpl_namreply-message      | on-numeric (353)    |
+| irc::irc-ping-message              | (handled internally)|
+| irc::ctcp-action-message           | on-ctcp             |
+
+Hook signatures change from =(lambda (message))= to parsed components:
+=(lambda (conn sender target text))= or similar per hook type.
+
+** Connection Class Thinning
+
+=bot-irc-connection= now only carries: =last-message=, =message-q=,
+=mq-task=, =bot-state=, =nickserv-password=, =nickserv-email=.
+
+Previously it also carried channel hashes, user tracking, ignore lists,
+and connection state --- all now handled by clatter-irc natively.
+
+** Read Loop Removal
+
+The manual =(loop (handler-case (read-message connection) ...))= in the
+thunk is replaced by clatter-irc's internal read thread.  The thunk now
+calls =(bt:join-thread (connection-read-thread connection))= to block
+until disconnection.  This eliminates the class of bugs where hook
+errors killed the read loop.
+
+** What Our Recent Fixes Address
+
+The =fix/guard-nil-channel-in-namreply= (cl-irc) and
+=fix/harden-namreply-after-hook= (harlie) branches fix bugs in the
+cl-irc code path.  Once clatter-irc replaces cl-irc, these fixes become
+moot --- clatter-irc handles channel tracking internally and the
+=default-hook :after= methods are removed entirely.
+
+However, the fixes remain valuable as long as:
+1. We are testing on master before the migration branch is ready.
+2. We need a fallback if the migration stalls.
+
+* Risks and Mitigations
+
+| Risk                                      | Mitigation                          |
+|-------------------------------------------+-------------------------------------|
+| clatter-irc not available / won't load    | Obtain source before starting merge |
+| Unknown numeric handling regression       | Verify clatter-irc silently ignores |
+|                                           | unrecognised server numerics        |
+| Memo system unbounded memory growth       | Add TTL or max-count to memo store  |
+| Plugin external API failures (wiki, gh)   | Verify timeout/error handling       |
+| !eval sandbox escape                      | Audit whitelisted symbols carefully |
+| Per-channel contexts break shared state   | Test with existing botdb data       |
+| FASL cache serving stale compiled code    | Clear cache at every phase boundary |

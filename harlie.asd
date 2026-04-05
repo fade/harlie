@@ -10,7 +10,7 @@
 	       #:cl-fad
                #:cl-sasl
                #:cl+ssl
-	       #:cl-irc
+	       #:clatter-irc
                #:log4cl
 	       #:cl-json
                #:com.inuoe.jzon
@@ -61,6 +61,7 @@
 	       (:file "util")
 	       (:file "url-store")
 	       (:file "irc-client")
+	       (:file "memo")
 
 	       (:file "constants")
 	       (:file "chainer")
@@ -97,15 +98,21 @@
                              (:file "contexts")
                              (:file "users")))))
 
+(asdf:defsystem #:harlie/test/memo
+  :depends-on (#:harlie #:harlie/test/fake-irc-server #:parachute)
+  :components ((:file "test/memo-test")))
+
 (asdf:defsystem #:harlie/test/all
   :depends-on (#:harlie/test/fake-irc-server
                #:harlie/test/nickserv-flow
+               #:harlie/test/memo
                #:harlie/test/unit
                #:harlie/test/db
                #:parachute)
   :perform (asdf:test-op (op c)
              (uiop:symbol-call :parachute :test
                                '(:harlie/test/nickserv-flow
+                                 :harlie/test/memo
                                  :harlie/test/unit/urls
                                  :harlie/test/unit/triggers
                                  :harlie/test/unit/config

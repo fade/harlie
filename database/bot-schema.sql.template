@@ -292,6 +292,43 @@ ALTER SEQUENCE public.words_row_num_seq OWNED BY public.words.row_num;
 
 
 --
+-- Name: quotes; Type: TABLE; Schema: public; Owner: <bot_runner_uid>
+--
+
+CREATE TABLE public.quotes (
+    quote_id integer NOT NULL,
+    channel text NOT NULL,
+    added_by text NOT NULL,
+    quote_text text NOT NULL,
+    added_at timestamp with time zone DEFAULT now()
+);
+
+
+ALTER TABLE public.quotes OWNER TO <bot_runner_uid>;
+
+--
+-- Name: quotes_quote_id_seq; Type: SEQUENCE; Schema: public; Owner: <bot_runner_uid>
+--
+
+CREATE SEQUENCE public.quotes_quote_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.quotes_quote_id_seq OWNER TO <bot_runner_uid>;
+
+--
+-- Name: quotes_quote_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: <bot_runner_uid>
+--
+
+ALTER SEQUENCE public.quotes_quote_id_seq OWNED BY public.quotes.quote_id;
+
+
+--
 -- Name: bot_channel bot_channel_id; Type: DEFAULT; Schema: public; Owner: <bot_runner_uid>
 --
 
@@ -334,6 +371,13 @@ ALTER TABLE ONLY public.words ALTER COLUMN row_num SET DEFAULT nextval('public.w
 
 
 --
+-- Name: quotes quote_id; Type: DEFAULT; Schema: public; Owner: <bot_runner_uid>
+--
+
+ALTER TABLE ONLY public.quotes ALTER COLUMN quote_id SET DEFAULT nextval('public.quotes_quote_id_seq'::regclass);
+
+
+--
 -- Name: bot_channel bot_channel_channel_name_key; Type: CONSTRAINT; Schema: public; Owner: <bot_runner_uid>
 --
 
@@ -355,6 +399,14 @@ ALTER TABLE ONLY public.bot_channel
 
 ALTER TABLE ONLY public.channel_user
     ADD CONSTRAINT channel_user_pkey PRIMARY KEY (channel_id, user_id);
+
+
+--
+-- Name: quotes quotes_pkey; Type: CONSTRAINT; Schema: public; Owner: <bot_runner_uid>
+--
+
+ALTER TABLE ONLY public.quotes
+    ADD CONSTRAINT quotes_pkey PRIMARY KEY (quote_id);
 
 
 --

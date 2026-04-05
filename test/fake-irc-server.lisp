@@ -15,6 +15,7 @@
            #:fis-received
            #:fis-received-p
            #:fis-wait-for
+           #:fis-inject
            #:with-fake-irc-server))
 
 (in-package #:harlie/test/fake-irc-server)
@@ -55,7 +56,11 @@
     :initarg :nickserv-register-response
     :initform nil
     :accessor fis-nickserv-register-response
-    :documentation "Line sent when PRIVMSG NickServ :REGISTER is received.")))
+    :documentation "Line sent when PRIVMSG NickServ :REGISTER is received.")
+   (client-stream
+    :initform nil
+    :accessor fis-client-stream
+    :documentation "The connected client's stream, set once accepted.")))
 
 ;;;; ---- Server loop ----------------------------------------------------------
 
@@ -75,6 +80,7 @@
 (defun run-server-loop (server client-socket)
   (let ((stream (usocket:socket-stream client-socket))
         (nick nil))
+    (setf (fis-client-stream server) stream)
     (loop
       (let ((raw (read-line stream nil nil)))
         (when (null raw) (return))
@@ -82,6 +88,16 @@
           (bt:with-lock-held ((fis-lock server))
             (push line (fis-received server)))
           (cond
+            ;; CAP LS: clatter-irc sends this during registration.
+            ;; Reply with empty capabilities so it proceeds with CAP END.
+            ((cl-ppcre:scan "^CAP LS" line)
+             (send-line stream
+                        (format nil ":fake.irc.server CAP * LS :")))
+
+            ;; CAP REQ / CAP END: silently absorb.
+            ((cl-ppcre:scan "^CAP " line)
+             nil)
+
             ((cl-ppcre:scan "^NICK " line)
              (let ((raw (string-trim '(#\Space) (subseq line 5))))
                (setf nick (if (and (> (length raw) 0) (char= (char raw 0) #\:))
@@ -104,8 +120,8 @@
                (send-line stream (fis-nickserv-register-response server))))
 
             ;; JOIN: confirm the join so the bot transitions to :joined.
-            ;; cl-irc sends the channel as a trailing argument: "JOIN :#channel",
-            ;; so strip the leading colon before echoing back.
+            ;; clatter-irc sends "JOIN #channel" (no trailing colon);
+            ;; strip the leading colon if present for backward compat.
             ((cl-ppcre:scan "^JOIN " line)
              (let* ((raw-channel (string-trim '(#\Space) (subseq line 5)))
                     (channel (if (and (> (length raw-channel) 0)
@@ -148,6 +164,14 @@
   (when (fis-listen-socket server)
     (ignore-errors (usocket:socket-close (fis-listen-socket server)))
     (setf (fis-listen-socket server) nil)))
+
+(defun fis-inject (server line)
+  "Send LINE from the server to the connected client.
+   Used in tests to simulate other users joining, speaking, etc."
+  (let ((stream (fis-client-stream server)))
+    (when stream
+      (send-line stream line)
+      t)))
 
 (defun fis-received-p (server substring)
   "Return the first received line containing SUBSTRING, or NIL."

@@ -631,9 +631,10 @@ access this object when we aren't in the throes of a message event."))
                                  nickname channel ircserver)
                        (join conn channel channel-password))
 
-                      ;; Nick not registered → REGISTER if we have an email, else just join.
+                      ;; Nick not registered → attempt REGISTER if we have an email,
+                      ;; wait up to 5s for a response, then join regardless.
                       ((and (eq (bot-state conn) :identifying)
-                            (search "not registered" text))
+                            (scan "not .* registered" text))
                        (if (nickserv-email conn)
                            (progn
                              (setf (bot-state conn) :registering)
@@ -642,16 +643,27 @@ access this object when we aren't in the throes of a message event."))
                              (privmsg conn "NickServ"
                                       (format nil "REGISTER ~A ~A"
                                               (nickserv-password conn)
-                                              (nickserv-email conn))))
+                                              (nickserv-email conn)))
+                             ;; Give NickServ 5s to respond; if it does, the
+                             ;; :registering handler below will join.  If not,
+                             ;; the timer thread joins the channel anyway.
+                             (bt:make-thread
+                              (lambda ()
+                                (sleep 5)
+                                (when (eq (bot-state conn) :registering)
+                                  (log:warn "~&[NickServ] REGISTER timeout for ~A. Joining ~A anyway."
+                                            nickname channel)
+                                  (setf (bot-state conn) :joining)
+                                  (join conn channel channel-password)))
+                              :name (format nil "nickserv-register-timeout/~A" nickname)))
                            (progn
                              (log:warn "~&[NickServ] ~A not registered and no email configured. Joining without identification."
                                        nickname)
                              (setf (bot-state conn) :joining)
                              (join conn channel channel-password))))
 
-                      ;; Registration response received → log it and proceed to join.
-                      ;; The nick will be unverified until the user clicks the email link;
-                      ;; on the next restart IDENTIFY will work normally.
+                      ;; Registration response received → log it and join.
+                      ;; Cancels the timeout by transitioning out of :registering.
                       ((eq (bot-state conn) :registering)
                        (log:info "~&[NickServ] Registration response for ~A: ~A"
                                  nickname text)

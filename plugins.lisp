@@ -898,22 +898,34 @@ Returns :ok, :not-found, or :not-owner."
 ;;; Sandboxed CL evaluator
 ;;; ============================================================
 
-(defparameter *eval-banned-symbols*
-  '(eval load compile open delete-file rename-file ensure-directories-exist
-    run-program run-shell-command sb-ext:run-program uiop:run-program
-    with-open-file with-open-stream make-instance
-    require asdf:load-system ql:quickload
-    sb-ext:exit sb-ext:quit
-    setf setq defvar defparameter defun defmacro defclass
-    in-package delete-package make-package)
-  "Symbols that are not allowed in !eval expressions.")
+(defparameter *eval-banned-cl-symbols*
+  '(eval load compile compile-file open close delete-file rename-file
+    ensure-directories-exist probe-file file-write-date file-author truename
+    directory wild-pathname-p translate-pathname merge-pathnames
+    with-open-file with-open-stream with-input-from-string
+    make-instance make-condition signal error cerror warn invoke-restart
+    require provide
+    setf setq defvar defparameter defun defmacro defclass defgeneric defmethod
+    in-package delete-package make-package use-package shadow export import
+    intern find-symbol)
+  "CL symbols banned from !eval even though they're in the COMMON-LISP package.")
 
 (defun safe-eval-p (form)
-  "Check if FORM is safe to evaluate (no banned symbols)."
+  "Check if FORM is safe to evaluate.
+Only symbols from COMMON-LISP (minus banned ones) and KEYWORD are allowed.
+This blocks all external packages (UIOP, SB-EXT, SB-POSIX, ASDF, etc.)."
   (cond
     ((null form) t)
     ((symbolp form)
-     (not (member form *eval-banned-symbols* :test #'eq)))
+     (let ((pkg (symbol-package form)))
+       (cond
+         ;; Keywords are always safe
+         ((eq pkg (find-package :keyword)) t)
+         ;; CL symbols are safe unless banned
+         ((eq pkg (find-package :common-lisp))
+          (not (member form *eval-banned-cl-symbols* :test #'eq)))
+         ;; Everything else (uiop, sb-ext, sb-posix, asdf, etc.) is blocked
+         (t nil))))
     ((atom form) t)
     ((consp form)
      (and (safe-eval-p (car form))

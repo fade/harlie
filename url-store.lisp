@@ -142,6 +142,32 @@
 	((not (query (:select '* :from 'urls :where (:= 'short-url short))))
 	 short))))
 
+(defgeneric store-binary-url (store context url nick)
+  (:documentation "Index a binary-suffixed URL with title 'Binary File', skipping fetch-title.
+Return the short URL and title, or existing values if already stored."))
+
+(defmethod store-binary-url ((store postmodern-url-store) context url nick)
+  (let ((result (with-connection (readwrite-url-db store)
+		  (query (:order-by
+			  (:select 'short-url 'title
+				   :from 'urls
+				   :where (:or (:= 'input-url url)
+					       (:= 'redirected-url url)))
+			  (:raw "tstamp desc"))))))
+    (if result
+	(destructuring-bind (short title) (first result)
+	  (values (make-short-url-string context short) title))
+	(let ((short (make-unique-shortstring store url)))
+	  (with-connection (readwrite-url-db store)
+	    (insert-dao (make-instance 'urls
+				       :input-url url
+				       :redirected-url url
+				       :short-url short
+				       :title "Binary File"
+				       :from-nick nick
+				       :context-id (url-write-context-id context)))
+	    (values (make-short-url-string context short) "Binary File"))))))
+
 (defgeneric lookup-url (store context url nick)
   (:documentation "Return present or new short URL and title for specified URL."))
 

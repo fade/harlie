@@ -634,7 +634,7 @@ access this object when we aren't in the throes of a message event."))
                       ;; Nick not registered → attempt REGISTER if we have an email,
                       ;; wait up to 5s for a response, then join regardless.
                       ((and (eq (bot-state conn) :identifying)
-                            (scan "not .* registered" text))
+                            (scan "not .*registered" text))
                        (if (nickserv-email conn)
                            (progn
                              (setf (bot-state conn) :registering)

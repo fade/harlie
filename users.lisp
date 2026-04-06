@@ -146,13 +146,15 @@ object and swap the old handle with the new one.
    between runs in CHANNEL-USER). 
    CHANNEL/USER-MAP -> per channel state for each user
    in the database."
-  `(let* ((chan (find-the-bot-state ,channel))
-          (theuserstate (gethash ,user (ignore-sticky chan)))
-          (this-user (get-user-for-handle ,user))
-          (this-channel (get-bot-channel-for-name ,channel))
-          (channel/user-map (get-channel-user-mapping this-channel this-user)))
-     (log:debug "~2&<< [WITH-CHANNEL-USER] ~%THEUSERSTATE: ~A~% THIS-USER:~A /~% USER-NAME:~A~% THIS-CHANNEL:~A~% CHANNEL/USER-MAP:~A~%>>~2%" theuserstate this-user (harlie-user-name this-user) this-channel channel/user-map)
-     ,@body))
+  `(let ((chan (find-the-bot-state ,channel)))
+     (if (null chan)
+         (log:warn "~&[WITH-CHANNEL-USER] No bot state found for channel ~A, skipping." ,channel)
+         (let* ((theuserstate (gethash ,user (ignore-sticky chan)))
+                (this-user (get-user-for-handle ,user))
+                (this-channel (get-bot-channel-for-name ,channel))
+                (channel/user-map (get-channel-user-mapping this-channel this-user)))
+           (log:debug "~2&<< [WITH-CHANNEL-USER] ~%THEUSERSTATE: ~A~% THIS-USER:~A /~% USER-NAME:~A~% THIS-CHANNEL:~A~% CHANNEL/USER-MAP:~A~%>>~2%" theuserstate this-user (harlie-user-name this-user) this-channel channel/user-map)
+           ,@body))))
 
 (defgeneric get-channel-user-mapping (channel user)
   (:documentation "given a channel object and a user object, return a mapping between them in the database."))

@@ -114,13 +114,13 @@ SBCL REPL that has the old ~config.lisp~ evaluated).  Reads the 13-slot
 created by the old code, regardless of whether the class definition is
 still present.
 
-| Function                    | Purpose                                                    |
-|-----------------------------+------------------------------------------------------------|
-| ~flatten-legacy-nick-specs~ | Walks nested ~irc-joins~; returns flat plist list          |
-| ~pair-with-ports~           | Zips flat specs with port list; errors on count mismatch   |
-| ~print-connection-spec-form~ | Prints one ~make-connection-spec~ form, nil fields omitted |
-| ~migrate-legacy-config~     | Prints complete new-style ~defparameter~ block             |
-| ~run-lisp-migration~        | Orchestrator: validates, converts, writes file, prints checklist |
+| Function                   | Purpose                                                          |
+|----------------------------+------------------------------------------------------------------|
+| ~flatten-legacy-nick-specs~  | Walks nested ~irc-joins~; returns flat plist list                  |
+| ~pair-with-ports~            | Zips flat specs with port list; errors on count mismatch         |
+| ~print-connection-spec-form~ | Prints one ~make-connection-spec~ form, nil fields omitted         |
+| ~migrate-legacy-config~      | Prints complete new-style ~defparameter~ block                     |
+| ~run-lisp-migration~         | Orchestrator: validates, converts, writes file, prints checklist |
 
 ~run-lisp-migration~ is the single operator entry point.  It:
 - Confirms ~*bot-config*~ has the old ~irc-joins~ slot (clear error if not)
@@ -137,23 +137,23 @@ before starting the bot.
 Idempotent SQL.  All steps run inside a single transaction.  Each step
 reports progress via ~RAISE NOTICE~.
 
-| Step | Action                                                                          |
-|------+---------------------------------------------------------------------------------|
-|    1 | Detect and fix Bug A: extract hostname from tuple-formatted ~irc_server~        |
+| Step | Action                                                                                                    |
+|------+-----------------------------------------------------------------------------------------------------------|
+|    1 | Detect and fix Bug A: extract hostname from tuple-formatted ~irc_server~                                    |
 |    2 | Deduplicate ~contexts~ rows: reassign ~urls~ and ~words~ FK references to lowest-id survivor, delete duplicates |
-|    3 | Add ~contexts_identity_unique UNIQUE (context_name, irc_server, irc_channel)~ — no-op if already present |
+|    3 | Add ~contexts_identity_unique UNIQUE (context_name, irc_server, irc_channel)~ — no-op if already present    |
 
 ** 3. ~migrate_old_bot/migrate.sh~
 
 Shell orchestrator for the database side.  Run once on the target host.
 
-| Step | Action                                                           |
-|------+------------------------------------------------------------------|
-|    1 | Parse ~--db~, ~--user~, ~--dry-run~ arguments                   |
-|    2 | Warn and prompt if a Harlie process is detected running          |
-|    3 | ~pg_dump~ to timestamped backup file — bail on failure           |
-|    4 | ~psql~ the SQL migration script — bail on error                  |
-|    5 | Print summary and reminder to complete the Lisp side             |
+| Step | Action                                                  |
+|------+---------------------------------------------------------|
+|    1 | Parse ~--db~, ~--user~, ~--dry-run~ arguments                 |
+|    2 | Warn and prompt if a Harlie process is detected running |
+|    3 | ~pg_dump~ to timestamped backup file — bail on failure    |
+|    4 | ~psql~ the SQL migration script — bail on error           |
+|    5 | Print summary and reminder to complete the Lisp side    |
 
 ** 4. ~Manual.org~ update
 

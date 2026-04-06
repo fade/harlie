@@ -19,6 +19,7 @@
   (start-web-servers)
   ;; if the database isn't configured, do it.
   (initialize-startup-maybe :go? t)
+  (load-memos-from-db)
   (sleep 3)
   (start-threaded-irc-client-instances :go? t)
   (start-cron)

@@ -142,6 +142,12 @@
 	((not (query (:select '* :from 'urls :where (:= 'short-url short))))
 	 short))))
 
+(defun get-filename-from-url (url-string)
+  "Given a string encoded URL, return the filename it points to."
+  (let* ((uri (quri:uri url-string))
+         (path (quri:uri-path uri)))
+    (file-namestring path)))
+
 (defgeneric store-binary-url (store context url nick)
   (:documentation "Index a binary-suffixed URL with title 'Binary File', skipping fetch-title.
 Return the short URL and title, or existing values if already stored."))
@@ -150,9 +156,9 @@ Return the short URL and title, or existing values if already stored."))
   (let ((result (with-connection (readwrite-url-db store)
 		  (query (:order-by
 			  (:select 'short-url 'title
-				   :from 'urls
-				   :where (:or (:= 'input-url url)
-					       (:= 'redirected-url url)))
+                            :from 'urls
+                            :where (:or (:= 'input-url url)
+                                        (:= 'redirected-url url)))
 			  (:raw "tstamp desc"))))))
     (if result
 	(destructuring-bind (short title) (first result)
@@ -166,7 +172,7 @@ Return the short URL and title, or existing values if already stored."))
 				       :title "Binary File"
 				       :from-nick nick
 				       :context-id (url-write-context-id context)))
-	    (values (make-short-url-string context short) "Binary File"))))))
+	    (values (make-short-url-string context short) (format nil "~A: ~A" "Binary File" (get-filename-from-url url))))))))
 
 (defgeneric lookup-url (store context url nick)
   (:documentation "Return present or new short URL and title for specified URL."))

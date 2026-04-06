@@ -673,6 +673,60 @@ error."
                 (or (dict-lookup word)
                     (format nil "No definition found for '~A'." word)))))))
 
+;;; Planetary time
+;;; Rotation periods in Earth seconds (sidereal day).
+;;; Epoch: J2000.0 = 2000-01-01 12:00:00 UTC = 3155760000 universal-time
+
+(defparameter *j2000-universal-time* 3155760000
+  "J2000.0 epoch as Lisp universal-time (2000-01-01 12:00:00 UTC).")
+
+(defparameter *planet-data*
+  '(("mercury"  (:day-seconds  5067360   :abbrev "MET"  :emoji "☿"
+                 :note "1 solar day = 176 Earth days (tidally locked 3:2)"))
+    ("venus"    (:day-seconds  20996928  :abbrev "VET"  :emoji "♀"
+                 :note "1 day = 243 Earth days (retrograde rotation)"))
+    ("earth"    (:day-seconds  86164     :abbrev "UTC"  :emoji "🜨"
+                 :note "1 sidereal day = 23h 56m 4s"))
+    ("mars"     (:day-seconds  88642     :abbrev "MTC"  :emoji "♂"
+                 :note "1 sol = 24h 37m 22s"))
+    ("jupiter"  (:day-seconds  35730     :abbrev "JOT"  :emoji "♃"
+                 :note "1 day = 9h 55m 30s"))
+    ("saturn"   (:day-seconds  38362     :abbrev "SAT"  :emoji "♄"
+                 :note "1 day = 10h 39m 22s"))
+    ("uranus"   (:day-seconds  62064     :abbrev "URT"  :emoji "♅"
+                 :note "1 day = 17h 14m 24s (retrograde)"))
+    ("neptune"  (:day-seconds  57996     :abbrev "NPT"  :emoji "♆"
+                 :note "1 day = 16h 6m 36s"))
+    ("pluto"    (:day-seconds  551857    :abbrev "PLT"  :emoji "♇"
+                 :note "1 day = 6.39 Earth days (retrograde)")))
+  "Solar system planets with sidereal rotation periods.")
+
+(defun get-planet-data (name)
+  "Look up planet by name (case-insensitive). Returns plist or nil."
+  (second (assoc name *planet-data* :test #'string-equal)))
+
+(defun format-planet-time (planet-name)
+  "Compute and format the current 'local time' on a planet.
+Maps elapsed Earth seconds since J2000 into planetary day cycles,
+then projects the fractional day onto a 24-hour clock."
+  (let ((pdata (get-planet-data planet-name)))
+    (when pdata
+      (let* ((day-secs (getf pdata :day-seconds))
+             (abbrev   (getf pdata :abbrev))
+             (emoji    (getf pdata :emoji))
+             (note     (getf pdata :note))
+             (elapsed  (- (get-universal-time) *j2000-universal-time*))
+             (total-days (floor elapsed day-secs))
+             (frac     (/ (mod elapsed day-secs) day-secs))
+             ;; Map fractional planetary day to 24-hour clock
+             (day-hrs  (* frac 24.0))
+             (hrs      (floor day-hrs))
+             (mins     (floor (* (- day-hrs hrs) 60)))
+             (secs     (floor (* (- (* (- day-hrs hrs) 60) mins) 60))))
+        (format nil "~A ~A: ~2,'0D:~2,'0D:~2,'0D ~A — Sol ~:D (~A)"
+                emoji (string-capitalize planet-name)
+                hrs mins secs abbrev total-days note)))))
+
 (defvar *timezones-loaded* nil)
 
 (defun ensure-timezones-loaded ()
@@ -686,23 +740,29 @@ error."
     (:docstring "Show current time in a timezone. Usage: !tz <timezone> (e.g. US/Eastern, Europe/London)")
     (:priority 3.0)
     (:run (let ((zone-name (second (plugin-token-text-list plug-request))))
-            (if (null zone-name)
-                "Usage: !tz <timezone> (e.g. US/Eastern, Europe/London, Asia/Tokyo)"
-                (handler-case
-                    (progn
-                      (ensure-timezones-loaded)
-                      (let ((tz (local-time:find-timezone-by-location-name zone-name)))
-                        (if tz
-                            (let* ((now (local-time:now))
-                                   (formatted (local-time:format-timestring
-                                               nil now
-                                               :format '((:year 4) #\- (:month 2) #\- (:day 2)
-                                                         #\Space (:hour 2) #\: (:min 2) #\: (:sec 2))
-                                               :timezone tz)))
-                              (format nil "~A: ~A" zone-name formatted))
-                            (format nil "Unknown timezone '~A'. Try e.g. US/Eastern, Europe/London, Asia/Tokyo" zone-name))))
-                  (error ()
-                    (format nil "Unknown timezone '~A'. Try e.g. US/Eastern, Europe/London, Asia/Tokyo" zone-name))))))))
+            (cond
+              ((null zone-name)
+               "Usage: !tz <timezone|planet> (e.g. US/Eastern, Europe/London, Mars, Neptune)")
+              ;; Check for planetary time first
+              ((get-planet-data zone-name)
+               (format-planet-time zone-name))
+              ;; Otherwise try Earth timezone
+              (t
+               (handler-case
+                   (progn
+                     (ensure-timezones-loaded)
+                     (let ((tz (local-time:find-timezone-by-location-name zone-name)))
+                       (if tz
+                           (let* ((now (local-time:now))
+                                  (formatted (local-time:format-timestring
+                                              nil now
+                                              :format '((:year 4) #\- (:month 2) #\- (:day 2)
+                                                        #\Space (:hour 2) #\: (:min 2) #\: (:sec 2))
+                                              :timezone tz)))
+                             (format nil "~A: ~A" zone-name formatted))
+                           (format nil "Unknown timezone '~A'. Try e.g. US/Eastern, Europe/London, Mars, Neptune" zone-name))))
+                 (error ()
+                   (format nil "Unknown timezone '~A'. Try e.g. US/Eastern, Europe/London, Mars, Neptune" zone-name)))))))))
 
 (defun github-repo-summary (repo-path)
   "Fetch a GitHub repo summary. REPO-PATH is 'owner/repo'."

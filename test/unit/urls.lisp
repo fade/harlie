@@ -7,7 +7,8 @@
   (:use #:cl)
   (:import-from #:harlie
                 #:extract-urls
-                #:de-utm-url)
+                #:de-utm-url
+                #:get-filename-from-url)
   (:local-nicknames (#:tt #:parachute)))
 
 (in-package #:harlie/test/unit/urls)
@@ -82,3 +83,28 @@
   ;; empty string — unchanged
   (tt:is string= ""
          (de-utm-url "")))
+
+;;;; ---- get-filename-from-url -----------------------------------------------
+
+(tt:define-test "get-filename-from-url"
+  :parent "harlie.unit.urls"
+
+  ;; simple binary filename
+  (tt:is string= "archive.tar.gz"
+         (get-filename-from-url "https://example.com/files/archive.tar.gz"))
+
+  ;; filename with no directory
+  (tt:is string= "image.iso"
+         (get-filename-from-url "https://example.com/image.iso"))
+
+  ;; deep path
+  (tt:is string= "package.deb"
+         (get-filename-from-url "https://mirror.example.com/debian/pool/main/p/pkg/package.deb"))
+
+  ;; URL with query string — filename still extracted from path
+  (tt:is string= "release.zip"
+         (get-filename-from-url "https://example.com/downloads/release.zip?token=abc123"))
+
+  ;; URL ending in slash — no filename
+  (tt:is string= ""
+         (get-filename-from-url "https://example.com/path/")))

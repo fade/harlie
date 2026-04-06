@@ -318,6 +318,9 @@ allowing for leading and trailing punctuation characters in the match."
    CONN is the bot-irc-connection, MSG is the clatter-irc message object,
    SENDER is the nick, CHANNEL-NAME is the target, TEXT is the message text,
    ACTION is t for CTCP ACTION, nil for regular PRIVMSG."
+  ;; Never process our own messages.
+  (when (string-equal sender (connection-nick conn))
+    (return-from msg-hook nil))
   ;; Deliver any pending memos when a user speaks (before DB-dependent code)
   (handler-case
       (when (has-pending-memos-p sender)
@@ -360,7 +363,8 @@ allowing for leading and trailing punctuation characters in the match."
 	          (urls
 	           (dolist (url urls)
 		     (unless (or (scan (make-short-url-string context "") url)
-			         (scan "127.0.0.1" url))
+			         (scan "127.0.0.1" url)
+				 (bad-suffix url))
 		       (when (scan "^www\." url)
 		         (setf url (format nil "http://~A" url)))
 		       (multiple-value-bind (short title) (lookup-url *the-url-store* context url sender)

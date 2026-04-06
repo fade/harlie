@@ -52,6 +52,22 @@ BEGIN
     END IF;
 END $$;
 
+-- ---------------------------------------------------------------------------
+-- Step 3: Grant permissions to the bot user
+--
+-- The bot connects as its own DB role, not as postgres.
+-- Adjust 'consort' below to match your bot's database user.
+-- ---------------------------------------------------------------------------
+
+DO $$
+BEGIN
+    EXECUTE 'GRANT ALL ON quotes TO consort';
+    EXECUTE 'GRANT USAGE, SELECT ON SEQUENCE quotes_quote_id_seq TO consort';
+    RAISE NOTICE 'Step 3: Granted permissions on quotes to consort.';
+EXCEPTION WHEN undefined_object THEN
+    RAISE NOTICE 'Step 3: Role "consort" not found — adjust the GRANT to your bot user.';
+END $$;
+
 COMMIT;
 
 -- ---------------------------------------------------------------------------
@@ -60,5 +76,5 @@ DO $$
 BEGIN
     RAISE NOTICE '';
     RAISE NOTICE 'Quotes migration complete.';
-    RAISE NOTICE 'The bot can now use !addquote and !quote commands.';
+    RAISE NOTICE 'The bot can now use !addquote, !quote, and !editquote commands.';
 END $$;

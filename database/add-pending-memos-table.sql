@@ -55,6 +55,22 @@ BEGIN
     END IF;
 END $$;
 
+-- ---------------------------------------------------------------------------
+-- Step 3: Grant permissions to the bot user
+--
+-- The bot connects as its own DB role, not as postgres.
+-- Adjust 'consort' below to match your bot's database user.
+-- ---------------------------------------------------------------------------
+
+DO $$
+BEGIN
+    EXECUTE 'GRANT ALL ON pending_memos TO consort';
+    EXECUTE 'GRANT USAGE, SELECT ON SEQUENCE pending_memos_memo_id_seq TO consort';
+    RAISE NOTICE 'Step 3: Granted permissions on pending_memos to consort.';
+EXCEPTION WHEN undefined_object THEN
+    RAISE NOTICE 'Step 3: Role "consort" not found — adjust the GRANT to your bot user.';
+END $$;
+
 COMMIT;
 
 -- ---------------------------------------------------------------------------

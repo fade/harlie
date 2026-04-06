@@ -878,29 +878,30 @@ error."
           (safe-eval-p (cdr form))))
     (t t)))
 
-(defplugin eval (plug-request)
-  (case (plugin-action plug-request)
-    (:docstring "Evaluate a Common Lisp expression (sandboxed). Usage: !eval <expr>")
-    (:priority 3.0)
-    (:run (let* ((tokens (plugin-token-text-list plug-request))
-                 (expr-str (format nil "~{~A~^ ~}" (rest tokens))))
-            (if (str:empty? expr-str)
-                "Usage: !eval (+ 1 2)"
-                (handler-case
-                    (trivial-timeout:with-timeout (5)
-                      (let ((form (let ((*read-eval* nil))
-                                    (read-from-string expr-str))))
-                        (if (safe-eval-p form)
-                            (let* ((result (eval form))
-                                   (text (format nil "~S" result)))
-                              (if (> (length text) 400)
-                                  (format nil "~A... [truncated]" (subseq text 0 400))
-                                  text))
-                            "Expression contains forbidden operations.")))
-                  (trivial-timeout:timeout-error ()
-                    "Evaluation timed out (5s limit).")
-                  (error (e)
-                    (format nil "Error: ~A" e))))))))
+;; this plugin is too dangerous to live, glenneth. -F
+;; (defplugin eval (plug-request)
+;;   (case (plugin-action plug-request)
+;;     (:docstring "Evaluate a Common Lisp expression (sandboxed). Usage: !eval <expr>")
+;;     (:priority 3.0)
+;;     (:run (let* ((tokens (plugin-token-text-list plug-request))
+;;                  (expr-str (format nil "~{~A~^ ~}" (rest tokens))))
+;;             (if (str:empty? expr-str)
+;;                 "Usage: !eval (+ 1 2)"
+;;                 (handler-case
+;;                     (trivial-timeout:with-timeout (5)
+;;                       (let ((form (let ((*read-eval* nil))
+;;                                     (read-from-string expr-str))))
+;;                         (if (safe-eval-p form)
+;;                             (let* ((result (eval form))
+;;                                    (text (format nil "~S" result)))
+;;                               (if (> (length text) 400)
+;;                                   (format nil "~A... [truncated]" (subseq text 0 400))
+;;                                   text))
+;;                             "Expression contains forbidden operations.")))
+;;                   (trivial-timeout:timeout-error ()
+;;                     "Evaluation timed out (5s limit).")
+;;                   (error (e)
+;;                     (format nil "Error: ~A" e))))))))
 
 ;; ===[ hyperspace motivator follows. ]===
 

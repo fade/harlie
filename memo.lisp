@@ -1,8 +1,11 @@
 ;;;; memo.lisp — Leave-a-message / !tell system
 ;;
-;; In-memory memo store with optional DB persistence.
 ;; Memos are stored per-recipient (case-insensitive nick) and delivered
 ;; when the recipient next joins a channel or speaks.
+;;
+;; Persistence: memos are written through to PostgreSQL (pending_memos
+;; table) and loaded back into the in-memory cache on startup.  Run
+;; database/add-pending-memos-table.sql to create the table.
 
 (in-package #:harlie)
 
@@ -34,10 +37,68 @@ Only undelivered memos are kept; delivered ones are removed immediately.")
   "Clear the in-memory memo store. Useful for tests."
   (clrhash *pending-memos*))
 
+;;; Database persistence
+
+(defun db-store-memo (memo)
+  "Persist a pending-memo to the database. Returns the new memo_id."
+  (handler-case
+      (with-connection (db-credentials *bot-config*)
+        (query (:insert-into 'pending-memos :set
+                'sender     (pending-memo-sender memo)
+                'recipient  (pending-memo-recipient memo)
+                'channel    (pending-memo-channel memo)
+                'message    (pending-memo-message memo)
+                'created-at (pending-memo-created-at memo))
+               :none)
+        (query (:select (:raw "currval('pending_memos_memo_id_seq')")) :single))
+    (error (e)
+      (log:warn "~&[MEMO] DB store failed: ~A" e)
+      nil)))
+
+(defun db-delete-memos-for (recipient)
+  "Delete all pending memos for RECIPIENT from the database."
+  (handler-case
+      (with-connection (db-credentials *bot-config*)
+        (query (:delete-from 'pending-memos
+                :where (:= (:lower 'recipient) (:lower recipient)))
+               :none))
+    (error (e)
+      (log:warn "~&[MEMO] DB delete failed for ~A: ~A" recipient e))))
+
+(defun load-memos-from-db ()
+  "Load all pending memos from the database into the in-memory cache.
+  Called once at bot startup to restore memos that survived a restart."
+  (handler-case
+      (with-connection (db-credentials *bot-config*)
+        (let ((rows (query (:order-by
+                            (:select 'sender 'recipient 'channel
+                                     'message 'created-at
+                             :from 'pending-memos)
+                            'created-at)
+                           :rows))
+              (count 0))
+          (clrhash *pending-memos*)
+          (dolist (row rows)
+            (let ((memo (make-pending-memo
+                         :sender     (first row)
+                         :recipient  (second row)
+                         :channel    (third row)
+                         :message    (fourth row)
+                         :created-at (fifth row))))
+              (push memo (gethash (second row) *pending-memos*))
+              (incf count)))
+          (when (> count 0)
+            (log:info "~&[MEMO] Loaded ~D pending memo~:P from database." count))
+          count))
+    (error (e)
+      (log:warn "~&[MEMO] Failed to load memos from DB: ~A" e)
+      0)))
+
 ;;; Core operations
 
 (defun store-memo (sender recipient channel message)
   "Store a memo for RECIPIENT from SENDER in CHANNEL.
+Persists to the database and caches in memory.
 Returns the newly created pending-memo, or NIL if inputs are invalid."
   (when (and sender recipient channel message
              (> (length (string-trim " " message)) 0)
@@ -47,6 +108,7 @@ Returns the newly created pending-memo, or NIL if inputs are invalid."
                                     :channel channel
                                     :message (string-trim " " message))))
       (push memo (gethash recipient *pending-memos*))
+      (db-store-memo memo)
       memo)))
 
 (defun pending-memos-for (recipient)
@@ -104,9 +166,10 @@ Returns the number of memos delivered."
               (incf count))
           (error (e)
             (log:warn "~&[MEMO] Error delivering memo to ~A: ~A" recipient e)))))
-    ;; Remove delivered memos
+    ;; Remove delivered memos from memory and database
     (when (> count 0)
-      (remhash recipient *pending-memos*))
+      (remhash recipient *pending-memos*)
+      (db-delete-memos-for recipient))
     count))
 
 ;;; Query helpers (for !memos command)

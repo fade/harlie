@@ -275,6 +275,11 @@ allowing for leading and trailing punctuation characters in the match."
   "Apply commands related to ignoring/not ignoring the speaker.  Return t if
    the rest of the bot should ignore this utterance; return nil otherwise."
 
+  ;; Ignore state is per-channel.  In a private message (query) channel
+  ;; is NIL, so there is nothing to look up — let the message through.
+  (unless channel
+    (return-from ignoring nil))
+
   (let ((ignore-phrase *ignore-phrase*))
     (cond ((string= ignore-phrase text)
            (log:debug "Caught BOT Ignore Phrase, ignoring cousin from across the river: ~A on channel: ~A"

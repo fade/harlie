@@ -102,10 +102,15 @@
   :depends-on (#:harlie #:harlie/test/fake-irc-server #:parachute)
   :components ((:file "test/memo-test")))
 
+(asdf:defsystem #:harlie/test/url-shortener
+  :depends-on (#:harlie #:harlie/test/fake-irc-server #:parachute)
+  :components ((:file "test/url-shortener-test")))
+
 (asdf:defsystem #:harlie/test/all
   :depends-on (#:harlie/test/fake-irc-server
                #:harlie/test/nickserv-flow
                #:harlie/test/memo
+               #:harlie/test/url-shortener
                #:harlie/test/unit
                #:harlie/test/db
                #:parachute)
@@ -113,6 +118,7 @@
              (uiop:symbol-call :parachute :test
                                '(:harlie/test/nickserv-flow
                                  :harlie/test/memo
+                                 :harlie/test/url-shortener
                                  :harlie/test/unit/urls
                                  :harlie/test/unit/triggers
                                  :harlie/test/unit/config

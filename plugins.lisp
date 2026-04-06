@@ -954,68 +954,7 @@ Returns :ok, :not-found, or :not-owner."
                   :name (format nil "reminder-~A" sender))
                  (format nil "Got it, I'll remind you in ~A." (format-duration seconds)))))))))
 
-;;; ============================================================
-;;; Sandboxed CL evaluator
-;;; ============================================================
-
-(defparameter *eval-banned-cl-symbols*
-  '(eval load compile compile-file open close delete-file rename-file
-    ensure-directories-exist probe-file file-write-date file-author truename
-    directory wild-pathname-p translate-pathname merge-pathnames
-    with-open-file with-open-stream with-input-from-string
-    make-instance make-condition signal error cerror warn invoke-restart
-    require provide
-    setf setq defvar defparameter defun defmacro defclass defgeneric defmethod
-    in-package delete-package make-package use-package shadow export import
-    intern find-symbol)
-  "CL symbols banned from !eval even though they're in the COMMON-LISP package.")
-
-(defun safe-eval-p (form)
-  "Check if FORM is safe to evaluate.
-Only symbols from COMMON-LISP (minus banned ones) and KEYWORD are allowed.
-This blocks all external packages (UIOP, SB-EXT, SB-POSIX, ASDF, etc.)."
-  (cond
-    ((null form) t)
-    ((symbolp form)
-     (let ((pkg (symbol-package form)))
-       (cond
-         ;; Keywords are always safe
-         ((eq pkg (find-package :keyword)) t)
-         ;; CL symbols are safe unless banned
-         ((eq pkg (find-package :common-lisp))
-          (not (member form *eval-banned-cl-symbols* :test #'eq)))
-         ;; Everything else (uiop, sb-ext, sb-posix, asdf, etc.) is blocked
-         (t nil))))
-    ((atom form) t)
-    ((consp form)
-     (and (safe-eval-p (car form))
-          (safe-eval-p (cdr form))))
-    (t t)))
-
-;; this plugin is too dangerous to live, glenneth. -F
-;; (defplugin eval (plug-request)
-;;   (case (plugin-action plug-request)
-;;     (:docstring "Evaluate a Common Lisp expression (sandboxed). Usage: !eval <expr>")
-;;     (:priority 3.0)
-;;     (:run (let* ((tokens (plugin-token-text-list plug-request))
-;;                  (expr-str (format nil "~{~A~^ ~}" (rest tokens))))
-;;             (if (str:empty? expr-str)
-;;                 "Usage: !eval (+ 1 2)"
-;;                 (handler-case
-;;                     (trivial-timeout:with-timeout (5)
-;;                       (let ((form (let ((*read-eval* nil))
-;;                                     (read-from-string expr-str))))
-;;                         (if (safe-eval-p form)
-;;                             (let* ((result (eval form))
-;;                                    (text (format nil "~S" result)))
-;;                               (if (> (length text) 400)
-;;                                   (format nil "~A... [truncated]" (subseq text 0 400))
-;;                                   text))
-;;                             "Expression contains forbidden operations.")))
-;;                   (trivial-timeout:timeout-error ()
-;;                     "Evaluation timed out (5s limit).")
-;;                   (error (e)
-;;                     (format nil "Error: ~A" e))))))))
+;;; !eval removed — "this plugin is too dangerous to live" -Fade
 
 ;; ===[ hyperspace motivator follows. ]===
 

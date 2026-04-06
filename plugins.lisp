@@ -758,6 +758,23 @@ error."
                       :row)))
       row)))
 
+(defun db-edit-quote (channel id sender new-text)
+  "Update a quote's text, but only if SENDER matches the original added_by.
+Returns :ok, :not-found, or :not-owner."
+  (with-connection (db-credentials *bot-config*)
+    (let ((existing (query (:select 'added-by :from 'quotes
+                            :where (:and (:= 'channel channel)
+                                         (:= 'quote-id id)))
+                           :row)))
+      (cond
+        ((null existing) :not-found)
+        ((not (string-equal sender (first existing))) :not-owner)
+        (t (query (:update 'quotes :set 'quote-text new-text
+                   :where (:and (:= 'channel channel)
+                                (:= 'quote-id id)))
+                  :none)
+           :ok)))))
+
 (defun db-get-random-quote (channel)
   "Retrieve a random quote for the channel. Returns (id sender text) or nil."
   (with-connection (db-credentials *bot-config*)
@@ -805,6 +822,31 @@ error."
                           "No quotes saved yet. Use !addquote to add one.")))
               (error (e)
                 (format nil "Error retrieving quote: ~A" e)))))))
+
+(defplugin editquote (plug-request)
+  (case (plugin-action plug-request)
+    (:docstring "Edit a quote you added. Usage: !editquote <number> <new text>")
+    (:priority 1.5)
+    (:run (let* ((tokens (plugin-token-text-list plug-request))
+                 (num-str (second tokens))
+                 (num (when num-str (parse-integer num-str :junk-allowed t)))
+                 (new-text (format nil "~{~A~^ ~}" (cddr tokens)))
+                 (channel (plugin-channel-name plug-request))
+                 (sender (prefix-nick (parse-prefix (message-prefix (last-message (plugin-conn plug-request)))))))
+            (cond
+              ((null num)
+               "Usage: !editquote <number> <new text>")
+              ((str:empty? new-text)
+               "Usage: !editquote <number> <new text>")
+              (t
+               (handler-case
+                   (let ((result (db-edit-quote channel num sender new-text)))
+                     (case result
+                       (:ok (format nil "Quote #~D updated." num))
+                       (:not-found (format nil "No quote #~D found." num))
+                       (:not-owner (format nil "Only the original author can edit quote #~D." num))))
+                 (error (e)
+                   (format nil "Error editing quote: ~A" e)))))))))
 
 ;;; ============================================================
 ;;; Self-reminders

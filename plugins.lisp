@@ -57,7 +57,7 @@
   (case (plugin-action plug-request)
     (:docstring (format nil "Tell us where the source is kept."))
     (:priority -1.0)
-    (:run (format nil "🔗 https://github.com/fade/harlie.git"))))
+    (:run (format nil "🔗  https://github.com/fade/harlie.git"))))
 
 (defplugin status (plug-request)
   (case (plugin-action plug-request)
@@ -69,7 +69,7 @@
 				    (machine-instance) (lisp-implementation-type) (lisp-implementation-version)
 				    (software-type) (software-version) (machine-type) (machine-version)))
 		      nil)
-		  (list (format nil "🧠 I know ~:D phrases." (count-phrases (plugin-context plug-request))))))))
+		  (list (format nil "🧠  I know ~:D phrases." (count-phrases (plugin-context plug-request))))))))
 
 (defplugin conv (plug-request)
   (case (plugin-action plug-request)
@@ -81,12 +81,12 @@
                  (pair (str:join "" (list from to))))
             (declare (ignorable pair))
 	    (cond ((string= from to)
-		   (format nil "💱 Converting ~A to ~A is redundant." from to))
+		   (format nil "💱  Converting ~A to ~A is redundant." from to))
                   (t
                    (handler-case
                        (trivial-timeout:with-timeout (10)
 		         (let* ((data (convert-pairs from to amount)))
-		           (format nil "💱 ~A" (cdr (assoc :text data)))))
+		           (format nil "💱  ~A" (cdr (assoc :text data)))))
                      (trivial-timeout:timeout-error (c)
                        (format nil "Timeout error: ~A~%" c)))))))))
 
@@ -99,7 +99,7 @@
 		 (to (string-upcase (third (plugin-token-text-list plug-request)))))
             (format t "~2&||  ~A ~A ~A~2%" amount from to)
 	    (if (string= from to)
-		(format nil "💱 The rate of ~A in ~A is obvious." from to)
+		(format nil "💱  The rate of ~A in ~A is obvious." from to)
 		(progn
 		  (let* ((fx (convert-pairs from to amount)) ;; <-- alist of vals from remote API.
 			 (c1amt amount)
@@ -108,7 +108,7 @@
 					 c1amt from c2amt to))
 			 (c2->c1 (format nil " ~$ ~A  =  ~$ ~A "
 					 amount to (/ c1amt c2amt ) from)))
-		    (format nil "💱 [ ~A | ~A ]" c1->c2 c2->c1))))))))
+		    (format nil "💱  [ ~A | ~A ]" c1->c2 c2->c1))))))))
 
 (defplugin stock (plug-request)
   (case (plugin-action plug-request)
@@ -119,10 +119,10 @@
     (:run (let* ((symbol (string-upcase (second (plugin-token-text-list plug-request))))
 		 (quote (make-stock symbol)))
 	    (if quote
-		(format nil "📈 ~A opened at $~$ with high of ~A low of ~A, closing at ~A with volume of ~A"
+		(format nil "📈  ~A opened at $~$ with high of ~A low of ~A, closing at ~A with volume of ~A"
 			(stock-name quote)  (stock-open quote) (stock-high quote) (stock-low quote)
                         (stock-close quote) (stock-volume quote))
-		(format nil "📈 No quotes for symbol: ~A. Perhaps you mistyped?" symbol))))))
+		(format nil "📈  No quotes for symbol: ~A. Perhaps you mistyped?" symbol))))))
 
 (defplugin toynb (plug-request)
   (case (plugin-action plug-request)
@@ -150,8 +150,8 @@
 		 (countries (country-lookup country)))
 	    (if (and countries (listp countries))
 		(loop for (a . b) in countries
-		      :collect (format nil "🌍 [ ~a ][ ~a ]" a b))
-		(format nil "🌍 No match for search term: ~A" country))))))
+		      :collect (format nil "🌍  [ ~a ][ ~a ]" a b))
+		(format nil "🌍  No match for search term: ~A" country))))))
 
 (defplugin area (plug-request)
   (case (plugin-action plug-request)
@@ -163,8 +163,8 @@
             ;; (format t "~&~A || ~A~%" pokearoo searchterm)
 	    (if (and area (listp area))
 		(loop for (a . b) in area
-		      :collect (format nil "☎ [ ~A ][ ~A ]" a b))
-		(format nil "☎ No area code found for your search term: ~A" searchterm))))))
+		      :collect (format nil "☎  [ ~A ][ ~A ]" a b))
+		(format nil "☎  No area code found for your search term: ~A" searchterm))))))
 
 (defplugin iata (plug-request)
   (case (plugin-action plug-request)
@@ -174,8 +174,8 @@
 		 (airports (airport-lookup searchterm)))
 	    (if (and airports (listp airports))
 		(loop for (a . b) in airports
-		      :collect (format nil "✈ [ ~A ][ ~A ]" a b))
-		(format nil "✈ No match for your airport: ~A" searchterm))))))
+		      :collect (format nil "✈  [ ~A ][ ~A ]" a b))
+		(format nil "✈  No match for your airport: ~A" searchterm))))))
 
 (defplugin ciso (plug-request)
   (case (plugin-action plug-request)
@@ -199,13 +199,13 @@
     (:docstring (format nil "each utterance a / closed flower, capable of / independent life."))
     (:priority 1.5)
     (:run (progn
-	    (format nil "🌸 ~{~A~^ ~}" (make-haiku (plugin-context plug-request)))))))
+	    (format nil "🌸  ~{~A~^ ~}" (make-haiku (plugin-context plug-request)))))))
 
 (defplugin ftw (plug-request)
   (case (plugin-action plug-request)
     (:docstring (format nil "How do you like your victory?"))
     (:priority -1.0)
-    (:run (format nil "🏆 VICTORY!  FLAWLESS!"))))
+    (:run (format nil "🏆  VICTORY!  FLAWLESS!"))))
 
 (defplugin trigger (plug-request)
   (case (plugin-action plug-request)
@@ -258,7 +258,7 @@
   (case (plugin-action plug-request)
     (:docstring (format nil "Consult the Magic 8-Ball if you dare"))
     (:priority 4.0)
-    (:run (format nil "🎱 ~A" (consult-8ball)))))
+    (:run (format nil "🎱  ~A" (consult-8ball)))))
 
 (defplugin calc (plug-request)
   (case (plugin-action plug-request)
@@ -441,7 +441,7 @@ error."
              (if (and station-name time-string windspeed cur-temp dew-temp)
                  (let ((windchill (calculate-wind-chill cur-temp windspeed))
                        (humidex (calculate-humidex cur-temp dew-temp)))
-                   (apply #'format nil "🌡 ~A ~A   Current temperature ~A~@[, wind chill ~A~]~@[, humidex ~A~], dewpoint ~A"
+                   (apply #'format nil "🌡  ~A ~A   Current temperature ~A~@[, wind chill ~A~]~@[, humidex ~A~], dewpoint ~A"
                           station-name time-string
                           (mapcar #'(lambda (x) (metar-temp-value x units)) (list cur-temp windchill humidex dew-temp))))
                  (format nil "Sorry, no weather at ~A." location)))
@@ -466,7 +466,7 @@ error."
     (:run (let* ((fahrenheit (second (plugin-token-text-list plug-request)))
 		 (celsius (temperature-convert fahrenheit :scale :fahrenheit)))
 	    (if celsius
-		(format nil "🌡 ~f°F ≡ ~0,3f°C" fahrenheit celsius)
+		(format nil "🌡  ~f°F ≡ ~0,3f°C" fahrenheit celsius)
 		(format nil "Error in converting unit: ~A" fahrenheit))))))
 
 ;; ctof celsius -> fahrenheit
@@ -478,7 +478,7 @@ error."
     (:run (let* ((celsius (second (plugin-token-text-list plug-request)))
 		 (fahrenheit (temperature-convert celsius)))
 	    (if fahrenheit
-		(format nil "🌡 ~f°C ≡ ~0,3f°F" celsius (temperature-convert celsius))
+		(format nil "🌡  ~f°C ≡ ~0,3f°F" celsius (temperature-convert celsius))
 		(format nil "Error in converting unit: ~A" celsius))))))
 
 (defplugin pope (plug-request)
@@ -513,7 +513,7 @@ error."
                                               ;; collecting roll into runs
                                               summing roll into total-roll
                                               finally (return (values total-roll)))
-        (format nil "🎲 You roll ~A d~A ... the roll is ~:d!" n base total-roll)))))
+        (format nil "🎲  You roll ~A d~A ... the roll is ~:d!" n base total-roll)))))
 
 (defplugin roll (plug-request)
   (case (plugin-action plug-request)
@@ -551,7 +551,7 @@ error."
                                        (plugin-channel-name plug-request)
                                        (format nil "~{~A~^ ~}" message-words))))
                  (if memo
-                     (format nil "✉ Got it, I'll tell ~A when they're around." recipient)
+                     (format nil "✉  Got it, I'll tell ~A when they're around." recipient)
                      "Something went wrong storing that memo."))))))))
 
 (defplugin memos (plug-request)
@@ -561,9 +561,9 @@ error."
     (:run (let ((sender (prefix-nick (parse-prefix (message-prefix (last-message (plugin-conn plug-request)))))))
             (if (has-pending-memos-p sender)
                 (let ((count (pending-memo-count sender)))
-                  (format nil "📬 You have ~D pending memo~:P. They'll be delivered shortly."
+                  (format nil "📬  You have ~D pending memo~:P. They'll be delivered shortly."
                           count))
-                "📬 You have no pending memos.")))))
+                "📬  You have no pending memos.")))))
 
 ;;; ============================================================
 ;;; New utility plugins
@@ -585,7 +585,7 @@ error."
     (:docstring "How long has the bot been running? Usage: !uptime")
     (:priority 1.0)
     (:run (if *boot-time*
-              (format nil "⏱ Up for ~A" (format-duration (- (get-universal-time) *boot-time*)))
+              (format nil "⏱  Up for ~A" (format-duration (- (get-universal-time) *boot-time*)))
               "I don't know when I started. Existential crisis."))))
 
 (defplugin seen (plug-request)
@@ -604,9 +604,9 @@ error."
                             (let* ((last (last-seen user))
                                    (now (local-time:now))
                                    (diff (local-time:timestamp-difference now last)))
-                              (format nil "👁 ~A was last seen ~A ago."
+                              (format nil "👁  ~A was last seen ~A ago."
                                       (current-handle user) (format-duration (floor diff))))
-                            (format nil "👁 I've never seen ~A." target))))
+                            (format nil "👁  I've never seen ~A." target))))
                   (error (e)
                     (declare (ignore e))
                     (format nil "Database unavailable, can't look up ~A." target))))))))
@@ -626,7 +626,7 @@ error."
                 (title (gethash "title" data)))
             (if extract
                 (let ((first-sentence (first (str:split-omit-nulls #\. extract))))
-                  (format nil "📖 ~A: ~A." title first-sentence))
+                  (format nil "📖  ~A: ~A." title first-sentence))
                 nil))))
     (error () nil)))
 
@@ -660,7 +660,7 @@ error."
                    (first-def (when (and definitions (> (length definitions) 0))
                                 (gethash "definition" (aref definitions 0)))))
               (when first-def
-                (format nil "📖 ~A (~A): ~A" word part-of-speech first-def))))))
+                (format nil "📖  ~A (~A): ~A" word part-of-speech first-def))))))
     (error () nil)))
 
 (defplugin define (plug-request)
@@ -759,7 +759,7 @@ then projects the fractional day onto a 24-hour clock."
                                               :format '((:year 4) #\- (:month 2) #\- (:day 2)
                                                         #\Space (:hour 2) #\: (:min 2) #\: (:sec 2))
                                               :timezone tz)))
-                             (format nil "🕐 ~A: ~A" zone-name formatted))
+                             (format nil "🕐  ~A: ~A" zone-name formatted))
                            (format nil "Unknown timezone '~A'. Try e.g. US/Eastern, Europe/London, Mars, Neptune" zone-name))))
                  (error ()
                    (format nil "Unknown timezone '~A'. Try e.g. US/Eastern, Europe/London, Mars, Neptune" zone-name)))))))))
@@ -860,7 +860,7 @@ Returns :ok, :not-found, or :not-owner."
                 "Usage: !addquote <something funny someone said>"
                 (handler-case
                     (let ((id (db-add-quote channel sender text)))
-                      (format nil "❝ Quote #~D saved." id))
+                      (format nil "❝  Quote #~D saved." id))
                   (error (e)
                     (format nil "Failed to save quote: ~A" e))))))))
 
@@ -876,7 +876,7 @@ Returns :ok, :not-found, or :not-owner."
                              (db-get-quote-by-id channel num)
                              (db-get-random-quote channel))))
                   (if q
-                      (format nil "❝ #~D (by ~A): ~A" (first q) (second q) (third q))
+                      (format nil "❝  #~D (by ~A): ~A" (first q) (second q) (third q))
                       (if num
                           (format nil "No quote #~D." num)
                           "No quotes saved yet. Use !addquote to add one.")))
@@ -902,7 +902,7 @@ Returns :ok, :not-found, or :not-owner."
                (handler-case
                    (let ((result (db-edit-quote channel num sender new-text)))
                      (case result
-                       (:ok (format nil "❝ Quote #~D updated." num))
+                       (:ok (format nil "❝  Quote #~D updated." num))
                        (:not-found (format nil "No quote #~D found." num))
                        (:not-owner (format nil "Only the original author can edit quote #~D." num))))
                  (error (e)
@@ -950,9 +950,9 @@ Returns :ok, :not-found, or :not-owner."
                   (lambda ()
                     (sleep seconds)
                     (privmsg conn channel
-                             (format nil "⏰ ~A: Reminder — ~A" sender text)))
+                             (format nil "⏰  ~A: Reminder — ~A" sender text)))
                   :name (format nil "reminder-~A" sender))
-                 (format nil "⏰ Got it, I'll remind you in ~A." (format-duration seconds)))))))))
+                 (format nil "⏰  Got it, I'll remind you in ~A." (format-duration seconds)))))))))
 
 ;;; !eval removed — "this plugin is too dangerous to live" -Fade
 

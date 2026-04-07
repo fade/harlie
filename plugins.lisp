@@ -223,11 +223,7 @@
 	      (funcall (plugin-hook
 			(gethash (string-upcase (remove #\! (second (plugin-token-text-list plug-request)))) *plugins* *doublehelp*))
 		       (make-instance 'plugin-request :action :docstring))
-	      (let* ((docs (sort (plugin-docs) 'sort-docs))
-                     (visible (remove-if (lambda (d) (<= (third d) 0.0)) docs))
-                     (names (mapcar (lambda (d) (format nil "!~(~A~)" (first d))) visible)))
-                (list (format nil "Commands: ~{~A~^, ~}" names)
-                      "Use !help <command> for details."))))))
+	      (format nil "📋  Full command list: ~A" (make-short-url-string (plugin-context plug-request) "help"))))))
 
 (defun html-help ()
   "Return HTML for a page giving help with the bot's plugin commands."

@@ -733,7 +733,7 @@ then projects the fractional day onto a 24-hour clock."
 
 (defplugin tz (plug-request)
   (case (plugin-action plug-request)
-    (:docstring "Show current time in a timezone. Usage: !tz <timezone> (e.g. US/Eastern, Europe/London)")
+    (:docstring "Show current time in a timezone or on a planet. Usage: !tz <timezone|planet> (e.g. US/Eastern, Europe/London, Mars, Neptune)")
     (:priority 3.0)
     (:run (let ((zone-name (second (plugin-token-text-list plug-request))))
             (cond

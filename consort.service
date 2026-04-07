@@ -1,0 +1,16 @@
+[Unit]
+Description=Consort IRC Bot (Harlie)
+After=network.target postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=simple
+User=glenn
+Group=glenn
+WorkingDirectory=/home/glenn/SourceCode/harlie
+ExecStart=/home/glenn/consort/consort
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

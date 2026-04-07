@@ -145,7 +145,7 @@ Most recent first."
   "Format a single memo for delivery as an IRC message."
   (let ((age (format-memo-age (- (get-universal-time)
                                  (pending-memo-created-at memo)))))
-    (format nil "~A: ~A left a message for you (~A ago): ~A"
+    (format nil "✉  ~A: ~A left a message for you (~A ago): ~A"
             (pending-memo-recipient memo)
             (pending-memo-sender memo)
             age

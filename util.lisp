@@ -154,12 +154,13 @@
 
 (defun make-url-prefix (server-name server-port)
   "Compose the portion of an URL encoding the server name and server port."
-  (if (eql 80 server-port)
-      (format nil "http://~A/"
-	      server-name)
-      (format nil "http://~A:~A/"
-	      server-name
-	      server-port)))
+  (cond
+    ((string= server-name "localhost")
+     (if (eql 80 server-port)
+         (format nil "http://~A/" server-name)
+         (format nil "http://~A:~A/" server-name server-port)))
+    (t
+     (format nil "https://~A/" server-name))))
 
 (defun make-pathname-in-homedir (fname)
   "Return a pathname relative to the user's home directory."

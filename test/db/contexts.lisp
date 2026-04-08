@@ -10,7 +10,12 @@
                 #:load-contexts
                 #:make-config
                 #:make-connection-spec
-                #:*bot-config*)
+                #:*bot-config*
+                #:bot-context
+                #:bot-nick
+                #:bot-irc-channel
+                #:bot-web-server
+                #:bot-web-port)
   (:local-nicknames (#:tt #:parachute)
                     (#:pomo #:postmodern)))
 
@@ -125,3 +130,75 @@
            (load-contexts)
            (tt:is = 1 (test-row-count "test-bot-c" "irc.test.invalid" "#chan-c")))
       (delete-test-rows "test-bot-c"))))
+
+;;;; ---- bot-context initialize-instance lookup ----------------------------
+;;
+;; These cover the fall-through added in context.lisp:
+;;   1. exact nick+channel lookup (case-insensitive on both columns)
+;;   2. nick-only fallback when nick+channel finds nothing
+;; Before the fix, only the first branch ran, leaving web-server/web-port
+;; nil for PMs and case-mismatched channel names.
+
+(tt:define-test "bot-context/exact-nick+channel-lookup"
+  :parent "harlie.db.contexts"
+  :description "A fresh bot-context with matching nick+channel populates web-server/web-port."
+  (with-test-db
+    (unwind-protect
+         (progn
+           (make-context-entry "test-bot-ctx" "irc.test.invalid" "#chan-ctx"
+                               "web.test.invalid" 9030 "/")
+           (let ((ctx (make-instance 'bot-context
+                                     :bot-nick "test-bot-ctx"
+                                     :bot-irc-channel "#chan-ctx")))
+             (tt:is string= "web.test.invalid" (bot-web-server ctx))
+             (tt:is = 9030 (bot-web-port ctx))))
+      (delete-test-rows "test-bot-ctx"))))
+
+(tt:define-test "bot-context/channel-case-insensitive"
+  :parent "harlie.db.contexts"
+  :description "irc_channel comparison is case-insensitive: '#ChAn-Ctx' finds row for '#chan-ctx'."
+  (with-test-db
+    (unwind-protect
+         (progn
+           (make-context-entry "test-bot-ctx" "irc.test.invalid" "#chan-ctx"
+                               "web.test.invalid" 9030 "/")
+           ;; Mismatched case in the channel name — used to fail.
+           (let ((ctx (make-instance 'bot-context
+                                     :bot-nick "test-bot-ctx"
+                                     :bot-irc-channel "#ChAn-Ctx")))
+             (tt:is string= "web.test.invalid" (bot-web-server ctx))
+             (tt:is = 9030 (bot-web-port ctx))))
+      (delete-test-rows "test-bot-ctx"))))
+
+(tt:define-test "bot-context/pm-falls-through-to-nick-only"
+  :parent "harlie.db.contexts"
+  :description "When channel-name is the bot's own nick (PM), fall through to nick-only lookup."
+  (with-test-db
+    (unwind-protect
+         (progn
+           (make-context-entry "test-bot-ctx" "irc.test.invalid" "#chan-ctx"
+                               "web.test.invalid" 9030 "/")
+           ;; Simulate a PM: channel-name equals the bot's own nick, which
+           ;; matches no contexts row directly.  The fall-through should
+           ;; populate web-server/web-port from the nick-only lookup.
+           (let ((ctx (make-instance 'bot-context
+                                     :bot-nick "test-bot-ctx"
+                                     :bot-irc-channel "test-bot-ctx")))
+             (tt:is string= "web.test.invalid" (bot-web-server ctx))
+             (tt:is = 9030 (bot-web-port ctx))))
+      (delete-test-rows "test-bot-ctx"))))
+
+(tt:define-test "bot-context/unknown-channel-falls-through"
+  :parent "harlie.db.contexts"
+  :description "An unknown channel name falls through to the nick-only lookup."
+  (with-test-db
+    (unwind-protect
+         (progn
+           (make-context-entry "test-bot-ctx" "irc.test.invalid" "#chan-ctx"
+                               "web.test.invalid" 9030 "/")
+           (let ((ctx (make-instance 'bot-context
+                                     :bot-nick "test-bot-ctx"
+                                     :bot-irc-channel "#never-joined")))
+             (tt:is string= "web.test.invalid" (bot-web-server ctx))
+             (tt:is = 9030 (bot-web-port ctx))))
+      (delete-test-rows "test-bot-ctx"))))

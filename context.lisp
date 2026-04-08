@@ -16,36 +16,48 @@
         (let* ((context-query-head '(:select 'context-name 'irc-server 'irc-channel
                                      'web-server 'web-port 'web-uri-prefix
                                      :from 'contexts))
-               (context-query
-                (cond
-                  ;; Nick + channel: exact per-channel lookup.
-                  ((and (bot-nick context)
-                        (bot-irc-channel context)
-                        (stringp (bot-irc-channel context)))
-                   (append context-query-head
-                           `(:where (:and
-                                     (:= (:raw "lower(context_name)")
-                                         ,(string-downcase (bot-nick context)))
-                                     (:= 'irc-channel
-                                         ,(bot-irc-channel context))))))
-                  ;; Nick only: falls back to first matching row.
-                  ((bot-nick context)
-                   (append context-query-head
-                           `(:where (:= (:raw "lower(context_name)")
-                                        ,(string-downcase (bot-nick context))))))
-                  ;; Web port lookup (for URL context).
-                  ((bot-web-port context)
-                   (append context-query-head
-                           `(:where (:= 'web-port ,(bot-web-port context)))))
-                  (t nil))))
-          (let ((conlist (first (query (sql-compile context-query)))))
-            (when conlist
-              (setf (bot-nick context) (string-downcase (first conlist)))
-              (setf (bot-irc-server context) (second conlist))
-              (setf (bot-irc-channel context) (third conlist))
-              (setf (bot-web-server context) (fourth conlist))
-              (setf (bot-web-port context) (fifth conlist))
-              (setf (bot-uri-prefix context) (sixth conlist))))))
+               ;; Try each query in order and stop at the first non-empty result.
+               ;; The previous cond-based version only ran the single branch
+               ;; selected by which slots were populated, with no fall-through.
+               ;; PMs (where channel-name is the bot's own nick, not a real
+               ;; channel), case-mismatched channel names, and channels missing
+               ;; from the contexts table all left web-server/web-port nil.
+               (nick+channel-query
+                (when (and (bot-nick context)
+                           (bot-irc-channel context)
+                           (stringp (bot-irc-channel context)))
+                  (append context-query-head
+                          `(:where (:and
+                                    (:= (:raw "lower(context_name)")
+                                        ,(string-downcase (bot-nick context)))
+                                    ;; Case-insensitive on irc_channel too:
+                                    ;; IRC channel names are case-insensitive
+                                    ;; on the wire but this column is compared
+                                    ;; as text.
+                                    (:= (:raw "lower(irc_channel)")
+                                        ,(string-downcase (bot-irc-channel context))))))))
+               (nick-only-query
+                (when (bot-nick context)
+                  (append context-query-head
+                          `(:where (:= (:raw "lower(context_name)")
+                                       ,(string-downcase (bot-nick context)))))))
+               (web-port-query
+                (when (bot-web-port context)
+                  (append context-query-head
+                          `(:where (:= 'web-port ,(bot-web-port context))))))
+               (conlist (or (and nick+channel-query
+                                 (first (query (sql-compile nick+channel-query))))
+                            (and nick-only-query
+                                 (first (query (sql-compile nick-only-query))))
+                            (and web-port-query
+                                 (first (query (sql-compile web-port-query)))))))
+          (when conlist
+            (setf (bot-nick context) (string-downcase (first conlist)))
+            (setf (bot-irc-server context) (second conlist))
+            (setf (bot-irc-channel context) (third conlist))
+            (setf (bot-web-server context) (fourth conlist))
+            (setf (bot-web-port context) (fifth conlist))
+            (setf (bot-uri-prefix context) (sixth conlist)))))
     (error (e)
       (log:warn "~&[CONTEXT] DB lookup failed, using partial context: ~A" e))))
 

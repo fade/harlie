@@ -65,6 +65,17 @@ Only undelivered memos are kept; delivered ones are removed immediately.")
     (error (e)
       (log:warn "~&[MEMO] DB delete failed for ~A: ~A" recipient e))))
 
+(defun db-delete-memos-for-channel (recipient channel)
+  "Delete pending memos for RECIPIENT that were left in CHANNEL."
+  (handler-case
+      (with-connection (db-credentials *bot-config*)
+        (query (:delete-from 'pending-memos
+                :where (:and (:= (:lower 'recipient) (:lower recipient))
+                             (:= (:lower 'channel) (:lower channel))))
+               :none))
+    (error (e)
+      (log:warn "~&[MEMO] DB delete failed for ~A/~A: ~A" recipient channel e))))
+
 (defun load-memos-from-db ()
   "Load all pending memos from the database into the in-memory cache.
   Called once at bot startup to restore memos that survived a restart."
@@ -116,6 +127,12 @@ Returns the newly created pending-memo, or NIL if inputs are invalid."
 Most recent first."
   (gethash recipient *pending-memos*))
 
+(defun pending-memos-for-channel (recipient channel)
+  "Return only the pending memos for RECIPIENT that were left in CHANNEL."
+  (remove-if-not (lambda (memo)
+                   (string-equal (pending-memo-channel memo) channel))
+                 (gethash recipient *pending-memos*)))
+
 (defun pending-memo-count (recipient)
   "Return the number of pending memos for RECIPIENT."
   (length (gethash recipient *pending-memos*)))
@@ -123,6 +140,10 @@ Most recent first."
 (defun has-pending-memos-p (recipient)
   "Return T if RECIPIENT has any pending memos."
   (not (null (gethash recipient *pending-memos*))))
+
+(defun has-pending-memos-in-channel-p (recipient channel)
+  "Return T if RECIPIENT has any pending memos that were left in CHANNEL."
+  (not (null (pending-memos-for-channel recipient channel))))
 
 ;;; Age formatting
 
@@ -152,12 +173,18 @@ Most recent first."
             (pending-memo-message memo))))
 
 (defun deliver-memos-for (conn recipient &key (channel nil))
-  "Deliver all pending memos for RECIPIENT via CONN.
-If CHANNEL is given, deliver there; otherwise deliver to each memo's original channel.
+  "Deliver pending memos for RECIPIENT via CONN.
+When CHANNEL is given, only deliver memos that were left in that channel
+and deliver them there.  Memos left in other channels remain pending.
 Returns the number of memos delivered."
-  (let ((memos (pending-memos-for recipient))
-        (count 0))
-    (dolist (memo (reverse memos))  ; deliver oldest first
+  (let* ((all-memos (pending-memos-for recipient))
+         (to-deliver (if channel
+                        (remove-if-not
+                         (lambda (m) (string-equal (pending-memo-channel m) channel))
+                         all-memos)
+                        all-memos))
+         (count 0))
+    (dolist (memo (reverse to-deliver))  ; deliver oldest first
       (let ((target (or channel (pending-memo-channel memo)))
             (text (format-memo-delivery memo)))
         (handler-case
@@ -166,10 +193,19 @@ Returns the number of memos delivered."
               (incf count))
           (error (e)
             (log:warn "~&[MEMO] Error delivering memo to ~A: ~A" recipient e)))))
-    ;; Remove delivered memos from memory and database
+    ;; Remove only the delivered memos
     (when (> count 0)
-      (remhash recipient *pending-memos*)
-      (db-delete-memos-for recipient))
+      (if channel
+          (let ((remaining (remove-if
+                            (lambda (m) (string-equal (pending-memo-channel m) channel))
+                            all-memos)))
+            (if remaining
+                (setf (gethash recipient *pending-memos*) remaining)
+                (remhash recipient *pending-memos*))
+            (db-delete-memos-for-channel recipient channel))
+          (progn
+            (remhash recipient *pending-memos*)
+            (db-delete-memos-for recipient))))
     count))
 
 ;;; Query helpers (for !memos command)

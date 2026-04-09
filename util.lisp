@@ -153,12 +153,21 @@
     (jsown:parse quote)))
 
 (defun make-url-prefix (server-name server-port)
-  "Compose the portion of an URL encoding the server name and server port."
+  "Compose the portion of an URL encoding the server name and server port.
+The port must always appear in the emitted prefix unless it is the scheme's
+default port, because each connection-spec runs its own hunchentoot acceptor
+on its own port and the port is the only thing that distinguishes one
+channel's URL-shortener context from another when several connections share
+a single web-server-name."
   (cond
     ((string= server-name "localhost")
      (if (eql 80 server-port)
          (format nil "http://~A/" server-name)
          (format nil "http://~A:~A/" server-name server-port)))
+    ((eql 443 server-port)
+     (format nil "https://~A/" server-name))
+    (server-port
+     (format nil "https://~A:~A/" server-name server-port))
     (t
      (format nil "https://~A/" server-name))))
 

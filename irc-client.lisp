@@ -321,9 +321,9 @@ allowing for leading and trailing punctuation characters in the match."
   ;; Never process our own messages.
   (when (string-equal sender (connection-nick conn))
     (return-from msg-hook nil))
-  ;; Deliver any pending memos when a user speaks (before DB-dependent code)
+  ;; Deliver any pending memos when a user speaks (channel-scoped)
   (handler-case
-      (when (has-pending-memos-p sender)
+      (when (has-pending-memos-in-channel-p sender channel-name)
         (deliver-memos-for conn sender :channel channel-name))
     (error (e)
       (log:warn "~&[MEMO] Error during memo delivery for ~A: ~A" sender e)))

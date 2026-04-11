@@ -154,22 +154,21 @@
 
 (defun make-url-prefix (server-name server-port)
   "Compose the portion of an URL encoding the server name and server port.
+The scheme (http vs https) follows *WEB-SCHEME*, which START-WEB-SERVERS
+sets at startup based on whether a usable TLS certificate is configured.
 The port must always appear in the emitted prefix unless it is the scheme's
 default port, because each connection-spec runs its own hunchentoot acceptor
 on its own port and the port is the only thing that distinguishes one
 channel's URL-shortener context from another when several connections share
 a single web-server-name."
-  (cond
-    ((string= server-name "localhost")
-     (if (eql 80 server-port)
-         (format nil "http://~A/" server-name)
-         (format nil "http://~A:~A/" server-name server-port)))
-    ((eql 443 server-port)
-     (format nil "https://~A/" server-name))
-    (server-port
-     (format nil "https://~A:~A/" server-name server-port))
-    (t
-     (format nil "https://~A/" server-name))))
+  (let* ((https-p (eq *web-scheme* :https))
+         (scheme (if https-p "https" "http"))
+         (default-port (if https-p 443 80)))
+    (cond
+      ((or (null server-port) (eql default-port server-port))
+       (format nil "~A://~A/" scheme server-name))
+      (t
+       (format nil "~A://~A:~A/" scheme server-name server-port)))))
 
 (defun make-pathname-in-homedir (fname)
   "Return a pathname relative to the user's home directory."

@@ -384,7 +384,20 @@ allowing for leading and trailing punctuation characters in the match."
 		     (when trigger-tokens
 		       (let ((outgoing (chain context (first trigger-tokens) (second trigger-tokens))))
 		         (unless (not (mismatch trigger-tokens outgoing :test #'string-equal))
-		           (irc-reply (format nil "~{~A~^ ~}" outgoing)))))))
+			   (let* ((phrase-text (format nil "~{~A~^ ~}" outgoing))
+				  (phrase-id
+				    (handler-case
+					(db-store-phrase
+					 (chain-write-context-id context)
+					 channel-name
+					 (format nil "~{~A~^ ~}" token-text-list)
+					 phrase-text)
+				      (error (e)
+					(log:warn "~&[PHRASE] Failed to store phrase: ~A" e)
+					nil))))
+			     (if phrase-id
+				 (irc-reply (format nil "[#~D] ~A" phrase-id phrase-text))
+				 (irc-reply phrase-text))))))))
 	          (t nil)))))
     (error (e)
       (log:warn "~&[MSG-HOOK] Error processing message from ~A in ~A: ~A"

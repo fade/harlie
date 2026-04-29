@@ -66,7 +66,12 @@
    (extra-channels    :initarg :extra-channels    :accessor cs-extra-channels
                       :initform nil
                       :documentation "List of additional channels to join on this connection.")
-   (web-port          :initarg :web-port          :accessor cs-web-port)))
+   (web-port          :initarg :web-port          :accessor cs-web-port)
+   (public-port       :initarg :public-port       :accessor cs-public-port
+                      :initform nil
+                      :documentation "Public-facing port for URL generation when behind a reverse
+proxy (e.g. 443 for Caddy/nginx with TLS).  When NIL the web-port is
+used, preserving the current behaviour for direct-access setups.")))
 
 (defun make-connection-spec (&rest args)
   (apply #'make-instance 'connection-spec args))

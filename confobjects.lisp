@@ -77,6 +77,15 @@
 (defclass config ()
   ((db-credentials  :initarg :db-credentials  :accessor db-credentials)
    (web-server-name :initarg :web-server-name :accessor web-server-name)
+   (tls-cert-file   :initarg :tls-cert-file   :accessor tls-cert-file
+                    :initform nil
+                    :documentation "Path to a PEM certificate. When this and TLS-KEY-FILE both
+exist at web-server startup, the URL-shortener HTTP servers are
+brought up as HTTPS acceptors and shortened URLs are emitted with
+an https:// scheme.  When either is missing, plain HTTP is used.")
+   (tls-key-file    :initarg :tls-key-file    :accessor tls-key-file
+                    :initform nil
+                    :documentation "Path to the PEM private key that matches TLS-CERT-FILE.")
    (connections     :initarg :connections     :accessor connections)))
 
 (defun make-config (&rest args)

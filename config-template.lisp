@@ -56,6 +56,13 @@ has a chaining database. shuffled for freshness.")
 ;;
 ;; On every startup, load-contexts syncs the database contexts table from
 ;; this list automatically.  No manual SQL is needed when adding channels.
+;;
+;; TLS for the URL-shortener web server is optional.  Pass :tls-cert-file
+;; and :tls-key-file to make-config with paths to a PEM certificate and its
+;; matching private key.  If both files exist and are readable at startup,
+;; the web servers come up as HTTPS and shortened URLs are emitted with an
+;; https:// scheme; otherwise the bot falls back to plain HTTP and http://
+;; URLs.  Leave the slots unset to run without TLS.
 ;; ---------------------------------------------------------------------------
 
 ;; Minimal example: one bot, one channel.

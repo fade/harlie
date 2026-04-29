@@ -4,6 +4,28 @@
 
 (defparameter *acceptors* nil)
 
+(defparameter *web-scheme* :http
+  "Scheme used when composing shortened-URL prefixes.  START-WEB-SERVERS
+sets this to :HTTPS when *BOT-CONFIG* advertises a readable TLS cert/key
+pair, otherwise :HTTP.  Read by MAKE-URL-PREFIX.")
+
+(defun usable-tls-files (config)
+  "Return (CERT KEY) as pathnames when both files exist and are readable,
+or NIL when TLS should be skipped.  Missing or unreadable files silently
+degrade to plain HTTP rather than aborting startup."
+  (let ((cert (tls-cert-file config))
+        (key  (tls-key-file config)))
+    (when (and cert key)
+      (let ((cert-path (probe-file cert))
+            (key-path  (probe-file key)))
+        (cond
+          ((and cert-path key-path)
+           (list cert-path key-path))
+          (t
+           (log:warn "~&TLS cert/key configured but not found on disk (cert=~A key=~A); serving plain HTTP.~%"
+                     cert key)
+           nil))))))
+
 (defun make-webpage-listing-urls (store)
   "Generate HTML for the Web page listing the Web links in the database."
   (let* ((context (make-instance 'bot-context :bot-web-port (acceptor-port (request-acceptor *request*))))
@@ -180,13 +202,23 @@ One acceptor is created and started per connection-spec in *BOT-CONFIG*."
   (glom-on-folder "/HyperSpec/" "HyperSpec/")
   (glom-on-folder "/gitrepo/" "harlie/.git/")
   (glom-on-prefix "/harlie.git" 'gitrepo-base-dispatch)
-  (dolist (cs (connections *bot-config*))
-    (let ((acceptor (make-instance 'hunchentoot:easy-acceptor
-                                   :port (cs-web-port cs)
-                                   :access-log-destination (make-pathname-in-lisp-subdir "harlie/logs/http-access.log")
-                                   :message-log-destination (make-pathname-in-lisp-subdir "harlie/logs/http-error.log"))))
-      (push acceptor *acceptors*)
-      (start acceptor))))
+  (let ((tls (usable-tls-files *bot-config*)))
+    (setf *web-scheme* (if tls :https :http))
+    (dolist (cs (connections *bot-config*))
+      (let ((acceptor
+              (if tls
+                  (make-instance 'hunchentoot:easy-ssl-acceptor
+                                 :port (cs-web-port cs)
+                                 :ssl-certificate-file (first tls)
+                                 :ssl-privatekey-file  (second tls)
+                                 :access-log-destination (make-pathname-in-lisp-subdir "harlie/logs/http-access.log")
+                                 :message-log-destination (make-pathname-in-lisp-subdir "harlie/logs/http-error.log"))
+                  (make-instance 'hunchentoot:easy-acceptor
+                                 :port (cs-web-port cs)
+                                 :access-log-destination (make-pathname-in-lisp-subdir "harlie/logs/http-access.log")
+                                 :message-log-destination (make-pathname-in-lisp-subdir "harlie/logs/http-error.log")))))
+        (push acceptor *acceptors*)
+        (start acceptor)))))
 
 (defun stop-web-servers ()
   "Shut down the web server subsystem."

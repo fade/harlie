@@ -65,7 +65,8 @@ the table ownership, and excecute the schema."
     (execute-file sqlfile)))
 
 (defun initialize-startup-maybe (&key (go? nil))
-  (let* ((db-schema (merge-pathnames *here-db* "bot-schema.sql")))
+  (let* ((db-template (merge-pathnames *here-db* "bot-schema.sql.template"))
+         (db-schema   (merge-pathnames *here-db* "bot-schema.sql")))
     (handler-case
         (with-connection (db-credentials *bot-config*)
           (select-dao 'harlie-user))
@@ -74,6 +75,7 @@ the table ownership, and excecute the schema."
         (log:info "Creating database to stand up the bot...")
         (uiop:run-program (list "createdb" (first (db-credentials *bot-config*))) :output t)
         (log:info "Creating tables for the various required users...")
+        (uiop:copy-file db-template db-schema)
         (make-base-tables db-schema)))
     ;; Sync contexts table from config on every startup.
     (when go?

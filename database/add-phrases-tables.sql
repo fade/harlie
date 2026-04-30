@@ -31,4 +31,20 @@ CREATE TABLE IF NOT EXISTS public.phrase_votes (
 CREATE INDEX IF NOT EXISTS phrase_votes_phrase_idx
     ON public.phrase_votes (phrase_id);
 
+-- Transfer ownership to the database owner so the bot user can
+-- read/write these tables even when the migration is run as postgres.
+DO $$
+DECLARE
+    db_owner text;
+BEGIN
+    SELECT pg_catalog.pg_get_userbyid(d.datdba) INTO db_owner
+      FROM pg_catalog.pg_database d
+     WHERE d.datname = current_database();
+
+    EXECUTE format('ALTER TABLE public.phrases OWNER TO %I', db_owner);
+    EXECUTE format('ALTER TABLE public.phrase_votes OWNER TO %I', db_owner);
+    EXECUTE format('ALTER SEQUENCE public.phrases_phrase_id_seq OWNER TO %I', db_owner);
+END
+$$;
+
 COMMIT;

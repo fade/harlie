@@ -950,6 +950,77 @@ Returns :ok, :not-found, or :not-owner."
                   :name (format nil "reminder-~A" sender))
                  (format nil "⏰  Got it, I'll remind you in ~A." (format-duration seconds)))))))))
 
+;;; ============================================================
+;;; Phrase voting (issue #1)
+;;; ============================================================
+
+(defplugin vote (plug-request)
+  (case (plugin-action plug-request)
+    (:docstring "Vote for a bot phrase. Usage: !vote <phrase-id>")
+    (:priority 1.5)
+    (:run (let* ((tokens (plugin-token-text-list plug-request))
+                 (id-str (second tokens))
+                 (id (when id-str (parse-integer id-str :junk-allowed t)))
+                 (voter (prefix-nick (parse-prefix
+                                      (message-prefix
+                                       (last-message (plugin-conn plug-request)))))))
+            (cond
+              ((null id) "Usage: !vote <phrase-id>")
+              (t (handler-case
+                     (let ((result (db-vote-phrase id voter)))
+                       (case result
+                         (:ok
+                          (let ((count (db-phrase-vote-count id)))
+                            (format nil "🗳  Vote recorded for phrase #~D (~D vote~:P total)." id count)))
+                         (:already-voted
+                          (format nil "You've already voted for phrase #~D." id))
+                         (:not-found
+                          (format nil "No phrase #~D found." id))))
+                   (error (e)
+                     (format nil "Error voting: ~A" e)))))))))
+
+(defplugin top (plug-request)
+  (case (plugin-action plug-request)
+    (:docstring "Show the top-voted bot phrases. Usage: !top [count] (also see /phrases)")
+    (:priority 1.5)
+    (:run (let* ((tokens (plugin-token-text-list plug-request))
+                 (n-str (second tokens))
+                 (n (if n-str (or (parse-integer n-str :junk-allowed t) 5) 5))
+                 (n (min n 10))
+                 (channel (plugin-channel-name plug-request)))
+            (handler-case
+                (let ((rows (db-top-phrases channel n)))
+                  (if rows
+                      (loop for row in rows
+                            for (pid trigger phrase votes) = row
+                            collect (format nil "#~D [~D vote~:P] ~A"
+                                            pid votes phrase))
+                      "No phrases have been voted on yet."))
+              (error (e)
+                (format nil "Error fetching top phrases: ~A" e)))))))
+
+(defplugin phrase (plug-request)
+  (case (plugin-action plug-request)
+    (:docstring "Look up a specific phrase by ID. Usage: !phrase <id>")
+    (:priority 1.5)
+    (:run (let* ((tokens (plugin-token-text-list plug-request))
+                 (id-str (second tokens))
+                 (id (when id-str (parse-integer id-str :junk-allowed t))))
+            (cond
+              ((null id) "Usage: !phrase <id>")
+              (t (handler-case
+                     (let ((row (db-get-phrase id)))
+                       (if row
+                           (let ((pid (first row))
+                                 (trigger (third row))
+                                 (phrase (fourth row))
+                                 (votes (fifth row)))
+                             (format nil "#~D [~D vote~:P] ~A~@[ ← \"~A\"~]"
+                                     pid votes phrase trigger))
+                           (format nil "No phrase #~D found." id)))
+                   (error (e)
+                     (format nil "Error: ~A" e)))))))))
+
 ;;; !eval removed — "this plugin is too dangerous to live" -Fade
 
 ;; ===[ hyperspace motivator follows. ]===

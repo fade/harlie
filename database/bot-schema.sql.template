@@ -329,6 +329,57 @@ ALTER SEQUENCE public.quotes_quote_id_seq OWNED BY public.quotes.quote_id;
 
 
 --
+-- Name: phrases; Type: TABLE; Schema: public; Owner: <bot_runner_uid>
+--
+
+CREATE TABLE public.phrases (
+    phrase_id integer NOT NULL,
+    context_id integer NOT NULL,
+    channel text NOT NULL,
+    trigger_text text,
+    phrase_text text NOT NULL,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+ALTER TABLE public.phrases OWNER TO <bot_runner_uid>;
+
+--
+-- Name: phrases_phrase_id_seq; Type: SEQUENCE; Schema: public; Owner: <bot_runner_uid>
+--
+
+CREATE SEQUENCE public.phrases_phrase_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.phrases_phrase_id_seq OWNER TO <bot_runner_uid>;
+
+--
+-- Name: phrases_phrase_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: <bot_runner_uid>
+--
+
+ALTER SEQUENCE public.phrases_phrase_id_seq OWNED BY public.phrases.phrase_id;
+
+
+--
+-- Name: phrase_votes; Type: TABLE; Schema: public; Owner: <bot_runner_uid>
+--
+
+CREATE TABLE public.phrase_votes (
+    phrase_id integer NOT NULL,
+    voter text NOT NULL,
+    voted_at timestamp with time zone DEFAULT now()
+);
+
+
+ALTER TABLE public.phrase_votes OWNER TO <bot_runner_uid>;
+
+--
 -- Name: bot_channel bot_channel_id; Type: DEFAULT; Schema: public; Owner: <bot_runner_uid>
 --
 
@@ -378,6 +429,13 @@ ALTER TABLE ONLY public.quotes ALTER COLUMN quote_id SET DEFAULT nextval('public
 
 
 --
+-- Name: phrases phrase_id; Type: DEFAULT; Schema: public; Owner: <bot_runner_uid>
+--
+
+ALTER TABLE ONLY public.phrases ALTER COLUMN phrase_id SET DEFAULT nextval('public.phrases_phrase_id_seq'::regclass);
+
+
+--
 -- Name: bot_channel bot_channel_channel_name_key; Type: CONSTRAINT; Schema: public; Owner: <bot_runner_uid>
 --
 
@@ -407,6 +465,22 @@ ALTER TABLE ONLY public.channel_user
 
 ALTER TABLE ONLY public.quotes
     ADD CONSTRAINT quotes_pkey PRIMARY KEY (quote_id);
+
+
+--
+-- Name: phrases phrases_pkey; Type: CONSTRAINT; Schema: public; Owner: <bot_runner_uid>
+--
+
+ALTER TABLE ONLY public.phrases
+    ADD CONSTRAINT phrases_pkey PRIMARY KEY (phrase_id);
+
+
+--
+-- Name: phrase_votes phrase_votes_pkey; Type: CONSTRAINT; Schema: public; Owner: <bot_runner_uid>
+--
+
+ALTER TABLE ONLY public.phrase_votes
+    ADD CONSTRAINT phrase_votes_pkey PRIMARY KEY (phrase_id, voter);
 
 
 --
@@ -510,6 +584,27 @@ CREATE INDEX words_prefixes_idx ON public.words USING btree (upper(word1), upper
 
 
 --
+-- Name: phrases_context_idx; Type: INDEX; Schema: public; Owner: <bot_runner_uid>
+--
+
+CREATE INDEX phrases_context_idx ON public.phrases USING btree (context_id);
+
+
+--
+-- Name: phrases_channel_idx; Type: INDEX; Schema: public; Owner: <bot_runner_uid>
+--
+
+CREATE INDEX phrases_channel_idx ON public.phrases USING btree (channel);
+
+
+--
+-- Name: phrase_votes_phrase_idx; Type: INDEX; Schema: public; Owner: <bot_runner_uid>
+--
+
+CREATE INDEX phrase_votes_phrase_idx ON public.phrase_votes USING btree (phrase_id);
+
+
+--
 -- Name: channel_user channel_user_channel_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: <bot_runner_uid>
 --
 
@@ -539,6 +634,22 @@ ALTER TABLE ONLY public.urls
 
 ALTER TABLE ONLY public.words
     ADD CONSTRAINT words_context_id_fkey FOREIGN KEY (context_id) REFERENCES public.contexts(context_id);
+
+
+--
+-- Name: phrases phrases_context_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: <bot_runner_uid>
+--
+
+ALTER TABLE ONLY public.phrases
+    ADD CONSTRAINT phrases_context_id_fkey FOREIGN KEY (context_id) REFERENCES public.contexts(context_id);
+
+
+--
+-- Name: phrase_votes phrase_votes_phrase_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: <bot_runner_uid>
+--
+
+ALTER TABLE ONLY public.phrase_votes
+    ADD CONSTRAINT phrase_votes_phrase_id_fkey FOREIGN KEY (phrase_id) REFERENCES public.phrases(phrase_id) ON DELETE CASCADE;
 
 
 --

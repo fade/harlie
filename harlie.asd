@@ -62,6 +62,7 @@
 	       (:file "url-store")
 	       (:file "irc-client")
 	       (:file "memo")
+	       (:file "phrases")
 
 	       (:file "constants")
 	       (:file "chainer")

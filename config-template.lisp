@@ -53,6 +53,8 @@ has a chaining database. shuffled for freshness.")
 ;;   :web-port — port for the URL-shortener HTTP server       (required)
 ;;   :channel-key       — channel password, if any            (optional)
 ;;   :nickserv-password — NickServ IDENTIFY password, if any  (optional)
+;;   :public-port      — public port for URLs behind a reverse proxy (optional)
+;;                        e.g. 443 when Caddy/nginx terminates TLS
 ;;
 ;; On every startup, load-contexts syncs the database contexts table from
 ;; this list automatically.  No manual SQL is needed when adding channels.
@@ -91,11 +93,12 @@ has a chaining database. shuffled for freshness.")
      :nick "YourBotNick" :channel "#yourchannel"
      :nickserv-password "your-nickserv-password"
      :web-port 8888)
-    ;; Libera.Chat — second nick, open channel, no NickServ
+    ;; Libera.Chat — second nick, behind Caddy reverse proxy (public HTTPS)
     (make-connection-spec
      :server "irc.libera.chat" :ssl t
      :nick "AnotherNick" :channel "#anotherchannel"
-     :web-port 8889)
+     :web-port 8889
+     :public-port 443)
     ;; SRH.org — open channel
     (make-connection-spec
      :server "irc.srh.org" :ssl t

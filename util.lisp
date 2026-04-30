@@ -161,7 +161,7 @@ default port, because each connection-spec runs its own hunchentoot acceptor
 on its own port and the port is the only thing that distinguishes one
 channel's URL-shortener context from another when several connections share
 a single web-server-name."
-  (let* ((https-p (eq *web-scheme* :https))
+  (let* ((https-p (or (eq *web-scheme* :https) (eql server-port 443)))
          (scheme (if https-p "https" "http"))
          (default-port (if https-p 443 80)))
     (cond

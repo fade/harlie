@@ -179,7 +179,8 @@ Return the short URL and title, or existing values if already stored."))
 
 (defun make-short-url-string (context hash)
   "Compose the short URL string for a given hash in a given context."
-  (format nil "~A~A" (make-url-prefix (bot-web-server context) (bot-web-port context)) hash))
+  (let ((port (or (bot-public-port context) (bot-web-port context))))
+    (format nil "~A~A" (make-url-prefix (bot-web-server context) port) hash)))
 
 (defmethod lookup-url ((store postmodern-url-store) context url nick)
   (let ((result (with-connection (readwrite-url-db store)

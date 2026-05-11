@@ -321,12 +321,31 @@ allowing for leading and trailing punctuation characters in the match."
   ;; Never process our own messages.
   (when (string-equal sender (connection-nick conn))
     (return-from msg-hook nil))
-  ;; Deliver any pending memos when a user speaks (channel-scoped)
+  ;; Update last-seen so !seen reports accurate times.
+  (handler-case
+      (let ((user (get-user-for-handle sender)))
+        (when user
+          (setf (last-seen user) (local-time:now))
+          (with-connection (db-credentials *bot-config*)
+            (update-dao user))))
+    (error (e)
+      (log:debug "~&[SEEN] Failed to update last-seen for ~A: ~A" sender e)))
+  ;; Deliver any pending memos when a user speaks (channel-scoped).
+  ;; Delay delivery slightly so it feels natural rather than instant.
   (handler-case
       (when (has-pending-memos-in-channel-p sender channel-name)
-        (deliver-memos-for conn sender :channel channel-name))
+        (let ((the-conn conn) (the-sender sender) (the-channel channel-name))
+          (bt:make-thread
+           (lambda ()
+             (sleep 15)
+             (handler-case
+                 (deliver-memos-for the-conn the-sender :channel the-channel)
+               (error (e)
+                 (log:warn "~&[MEMO] Error during memo delivery for ~A: ~A"
+                           the-sender e))))
+           :name (format nil "memo-deliver-~A" sender))))
     (error (e)
-      (log:warn "~&[MEMO] Error during memo delivery for ~A: ~A" sender e)))
+      (log:warn "~&[MEMO] Error checking memos for ~A: ~A" sender e)))
   (handler-case
       (let* ((channel (gethash channel-name (channels conn) nil))
              ;; the following becomes nil in the event of an irc query (/msg).
@@ -729,13 +748,30 @@ access this object when we aren't in the throes of a message event."))
                         (join conn extra))))))
 
       ;; --- on-join: deliver pending memos (separate hook for isolation) ---
+      ;; Delay 30s before delivering to avoid firing on netsplit/reconnect
+      ;; flaps.  Verify the user is still present in the channel before
+      ;; sending, so a quit-then-rejoin-then-quit cycle doesn't produce
+      ;; orphaned memo messages.
       (add-hook connection 'on-join
                 (lambda (conn msg joining-nick joined-channel)
                   (declare (ignore msg))
                   (unless (string-equal joining-nick nickname)
                     (when (has-pending-memos-p joining-nick)
-                      (deliver-memos-for conn joining-nick
-                                         :channel joined-channel)))))
+                      (let ((the-conn conn) (the-nick joining-nick) (the-chan joined-channel))
+                        (bt:make-thread
+                         (lambda ()
+                           (sleep 30)
+                           (handler-case
+                               (let ((chan-obj (gethash the-chan (channels the-conn) nil)))
+                                 (when (and chan-obj
+                                            (clatter-irc:channel-find-user chan-obj the-nick)
+                                            (has-pending-memos-p the-nick))
+                                   (deliver-memos-for the-conn the-nick
+                                                      :channel the-chan)))
+                             (error (e)
+                               (log:warn "~&[MEMO] Error delivering on-join memo for ~A: ~A"
+                                         the-nick e))))
+                         :name (format nil "memo-join-~A" joining-nick)))))))
 
       ;; --- on-numeric: join errors and RPL_NAMREPLY ---
       (add-hook connection 'on-numeric

@@ -99,6 +99,46 @@ or an error message, as appropriate."
 	(let ((page (make-webpage-listing-urls *the-url-store*)))
 	  (values (format nil "~A" page))))))
 
+(defun make-webpage-listing-phrases ()
+  "Generate HTML for the top-voted bot phrases."
+  (let* ((context (make-instance 'bot-context :bot-web-port (acceptor-port (request-acceptor *request*))))
+         (bothandle (bot-nick context))
+         (channel (bot-irc-channel context))
+         (ctx-id (chain-read-context-id context)))
+    (spinneret:with-html-string
+      (:html
+       (:head
+        (:link :rel "stylesheet" :href "https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css")
+        (:title (format nil "Top phrases for ~A on ~A" bothandle channel)))
+       (:body
+        (:h2 (format nil "Top phrases for ~A on ~A" bothandle channel))
+        (:p "Vote for phrases on IRC with " (:code "!vote <id>"))
+        (:br)
+        (let ((rows (handler-case (db-top-phrases-for-web ctx-id 50)
+                      (error (e)
+                        (declare (ignore e))
+                        nil))))
+          (if rows
+              (:table
+               (:thead
+                (:tr (:th "#") (:th "Votes") (:th "Phrase") (:th "Trigger")))
+               (:tbody
+                (dolist (row rows)
+                  (let ((pid (first row))
+                        (trigger (third row))
+                        (phrase (fourth row))
+                        (votes (fifth row)))
+                    (:tr
+                     (:td (format nil "~D" pid))
+                     (:td (format nil "~D" votes))
+                     (:td phrase)
+                     (:td (or trigger "")))))))
+              (:p "No phrases yet."))))))))
+
+(defun phrases-dispatch ()
+  "Dispatcher for the top-phrases page."
+  (make-webpage-listing-phrases))
+
 (defun html-apology ()
   "Return HTML for a page explaining that a browser has struck out."
   (spinneret:with-html-string
@@ -197,6 +237,7 @@ One acceptor is created and started per connection-spec in *BOT-CONFIG*."
   (glom-on-prefix "/ass/" 'ass-url-index)
   (glom-on-static-file "/robots.txt" "harlie/robots.txt")
   (glom-on-regex "^/help/?$" 'help-dispatch)
+  (glom-on-regex "^/phrases/?$" 'phrases-dispatch)
   (glom-on-regex "^/source" 'source-dispatch)
   (glom-on-regex "^/hyper(spec)?/?$" 'hyperspec-base-dispatch)
   (glom-on-folder "/HyperSpec/" "HyperSpec/")

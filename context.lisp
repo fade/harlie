@@ -8,6 +8,7 @@
    (bot-irc-channel :initarg :bot-irc-channel :initform nil :accessor bot-irc-channel)
    (bot-web-server :initarg :bot-web-server :initform nil :accessor bot-web-server)
    (bot-web-port :initarg :bot-web-port :initform nil :accessor bot-web-port)
+   (bot-public-port :initform nil :accessor bot-public-port)
    (bot-uri-prefix :initarg :bot-uri-prefix :initform nil :accessor bot-uri-prefix)))
 
 (defmethod initialize-instance :after ((context bot-context) &key)
@@ -57,7 +58,13 @@
             (setf (bot-irc-channel context) (third conlist))
             (setf (bot-web-server context) (fourth conlist))
             (setf (bot-web-port context) (fifth conlist))
-            (setf (bot-uri-prefix context) (sixth conlist)))))
+            (setf (bot-uri-prefix context) (sixth conlist))
+            ;; Look up public-port from config (reverse-proxy support).
+            (when (and *bot-config* (bot-web-port context))
+              (dolist (cs (connections *bot-config*))
+                (when (eql (cs-web-port cs) (bot-web-port context))
+                  (setf (bot-public-port context) (cs-public-port cs))
+                  (return)))))))
     (error (e)
       (log:warn "~&[CONTEXT] DB lookup failed, using partial context: ~A" e))))
 

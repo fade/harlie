@@ -1039,8 +1039,13 @@ Returns a user-facing status string."
   (case (plugin-action plug-request)
     (:docstring "Show the bulletin board of top phrases and quotes. Usage: !board")
     (:priority 1.5)
-    (:run (format nil "📋  Bulletin board: ~A"
-                  (make-short-url-string (plugin-context plug-request) "board")))))
+    (:run (let* ((context (plugin-context plug-request))
+                 (channel (bot-irc-channel context))
+                 (hash (if (and channel (stringp channel))
+                           (format nil "board?c=~A" (url-encode channel))
+                           "board")))
+            (format nil "📋  Bulletin board: ~A"
+                    (make-short-url-string context hash))))))
 
 (defplugin links (plug-request)
   (case (plugin-action plug-request)

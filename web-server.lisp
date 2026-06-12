@@ -26,6 +26,14 @@ degrade to plain HTTP rather than aborting startup."
                      cert key)
            nil))))))
 
+(defun request-channel-param ()
+  "Return the IRC channel named in the request's c= parameter, or NIL.
+Several channels can share one connection-spec (hence one web port), so
+the channel-scoped pages (board, phrases) carry the channel explicitly."
+  (when (boundp 'hunchentoot:*request*)
+    (let ((c (get-parameter "c")))
+      (when (and c (plusp (length c))) c))))
+
 (defun make-webpage-listing-urls (store)
   "Generate HTML for the Web page listing the Web links in the database."
   (let* ((context (make-instance 'bot-context :bot-web-port (acceptor-port (request-acceptor *request*))))
@@ -96,9 +104,11 @@ or an error message, as appropriate."
 	(let ((page (make-webpage-listing-urls *the-url-store*)))
 	  (values (format nil "~A" page))))))
 
-(defun make-webpage-listing-phrases ()
+(defun make-webpage-listing-phrases (&optional channel)
   "Generate HTML for the top-voted bot phrases."
-  (let* ((context (make-instance 'bot-context :bot-web-port (acceptor-port (request-acceptor *request*))))
+  (let* ((context (make-instance 'bot-context
+                                 :bot-web-port (acceptor-port (request-acceptor *request*))
+                                 :bot-irc-channel channel))
          (bothandle (bot-nick context))
          (channel (bot-irc-channel context))
          (ctx-id (chain-read-context-id context))
@@ -127,12 +137,14 @@ or an error message, as appropriate."
 
 (defun phrases-dispatch ()
   "Dispatcher for the top-phrases page."
-  (make-webpage-listing-phrases))
+  (make-webpage-listing-phrases (request-channel-param)))
 
-(defun make-webpage-bulletin-board ()
+(defun make-webpage-bulletin-board (&optional channel)
   "Generate HTML for the bulletin board: top-voted phrases and recent
 channel quotes shown together with their context."
-  (let* ((context (make-instance 'bot-context :bot-web-port (acceptor-port (request-acceptor *request*))))
+  (let* ((context (make-instance 'bot-context
+                                 :bot-web-port (acceptor-port (request-acceptor *request*))
+                                 :bot-irc-channel channel))
          (bothandle (bot-nick context))
          (channel (bot-irc-channel context))
          (ctx-id (chain-read-context-id context))
@@ -181,7 +193,7 @@ channel quotes shown together with their context."
 
 (defun board-dispatch ()
   "Dispatcher for the bulletin board page."
-  (make-webpage-bulletin-board))
+  (make-webpage-bulletin-board (request-channel-param)))
 
 (defun html-apology ()
   "Return HTML for a page explaining that a browser has struck out."

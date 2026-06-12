@@ -42,11 +42,26 @@
                   (append context-query-head
                           `(:where (:= (:raw "lower(context_name)")
                                        ,(string-downcase (bot-nick context)))))))
+               ;; When several channels share one connection-spec they share
+               ;; a single web port, so the port alone cannot disambiguate
+               ;; them.  When a caller (e.g. a !board URL) supplies both the
+               ;; port and the channel, match on both to pin the exact row.
+               (web-port+channel-query
+                (when (and (bot-web-port context)
+                           (bot-irc-channel context)
+                           (stringp (bot-irc-channel context)))
+                  (append context-query-head
+                          `(:where (:and
+                                    (:= 'web-port ,(bot-web-port context))
+                                    (:= (:raw "lower(irc_channel)")
+                                        ,(string-downcase (bot-irc-channel context))))))))
                (web-port-query
                 (when (bot-web-port context)
                   (append context-query-head
                           `(:where (:= 'web-port ,(bot-web-port context))))))
-               (conlist (or (and nick+channel-query
+               (conlist (or (and web-port+channel-query
+                                 (first (query (sql-compile web-port+channel-query))))
+                            (and nick+channel-query
                                  (first (query (sql-compile nick+channel-query))))
                             (and nick-only-query
                                  (first (query (sql-compile nick-only-query))))

@@ -352,9 +352,14 @@ dl.help dd{ color:var(--ink); margin-left:0; padding-left:1rem; border-left:1px 
 TITLE supplies both the document <title> and the page heading.  SUBTITLE,
 when given, is rendered as a lead paragraph.  BODY is spinneret markup for
 the page content (typically one or more (:section :class \"panel\" ...))."
-  (let ((ctx (gensym "PAGE-CTX")))
-    `(let ((,ctx (make-instance 'bot-context
-                                :bot-web-port (acceptor-port (request-acceptor *request*)))))
+  (let ((ctx (gensym "PAGE-CTX"))
+        (csuffix (gensym "CSUFFIX")))
+    `(let* ((,ctx (make-instance 'bot-context
+                                 :bot-web-port (acceptor-port (request-acceptor *request*))))
+            (,csuffix (let ((c (and (boundp 'hunchentoot:*request*) (get-parameter "c"))))
+                        (if (and c (plusp (length c)))
+                            (format nil "?c=~A" (url-encode c))
+                            ""))))
        (spinneret:with-html-string
          (:doctype)
          (:html :lang "en" :data-theme "dark"
@@ -375,8 +380,8 @@ the page content (typically one or more (:section :class \"panel\" ...))."
                (:a :class "brand" :href (make-short-url-string ,ctx "")
                    (bot-nick ,ctx) (:span :class "cursor" "_"))
                (:nav :class "site-nav"
-                 (:a :href (make-short-url-string ,ctx "board") "board")
-                 (:a :href (make-short-url-string ,ctx "phrases") "phrases")
+                 (:a :href (make-short-url-string ,ctx (format nil "board~A" ,csuffix)) "board")
+                 (:a :href (make-short-url-string ,ctx (format nil "phrases~A" ,csuffix)) "phrases")
                  (:a :href (make-short-url-string ,ctx "") "links")
                  (:a :href (make-short-url-string ,ctx "help") "help"))))
            (:main :class "container"

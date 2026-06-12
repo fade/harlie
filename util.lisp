@@ -211,3 +211,139 @@ a single web-server-name."
     (if utm-index
 	(subseq url 0 utm-index)
 	url)))
+
+;;; ---- Shared web page styling -------------------------------------------
+;;
+;; Every bot-served HTML page shares one cohesive look: a dark "terminal"
+;; theme layered over Pico CSS, with a phosphor-green accent, monospace
+;; headings, a sticky nav linking the pages together, and a footer.
+
+(defparameter +bot-page-css+
+  "
+:root{
+  --accent:#3ddc84; --accent-soft:rgba(61,220,132,.12);
+  --ink:#e6edf3; --muted:#8b98a5; --bg:#0b0e13; --panel:#121821;
+  --border:rgba(255,255,255,.07);
+  --pico-font-family-sans-serif:'IBM Plex Sans',system-ui,sans-serif;
+  --pico-font-family-monospace:'JetBrains Mono',ui-monospace,monospace;
+}
+:root:not([data-theme=light]),[data-theme=dark]{
+  --pico-primary:var(--accent); --pico-primary-hover:#5cead0;
+  --pico-primary-focus:var(--accent-soft);
+  --pico-background-color:var(--bg); --pico-card-background-color:var(--panel);
+  --pico-color:var(--ink); --pico-h1-color:var(--ink);
+  --pico-h2-color:var(--ink); --pico-h3-color:var(--ink);
+  --pico-muted-color:var(--muted);
+}
+body{
+  font-family:var(--pico-font-family-sans-serif); min-height:100vh;
+  background:
+    radial-gradient(900px 500px at 78% -8%,var(--accent-soft),transparent 55%),
+    radial-gradient(700px 400px at 0% 0%,rgba(80,140,255,.06),transparent 50%),
+    var(--bg);
+  background-attachment:fixed;
+}
+.site-head{
+  position:sticky; top:0; z-index:20;
+  background:color-mix(in srgb,var(--bg) 78%,transparent);
+  -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--border);
+}
+.site-head>.container{
+  display:flex; align-items:center; justify-content:space-between;
+  padding-block:.55rem;
+}
+.brand{
+  font-family:var(--pico-font-family-monospace); font-weight:700;
+  font-size:1.05rem; letter-spacing:.02em; color:var(--accent);
+  text-decoration:none; display:inline-flex; align-items:center; gap:.15rem;
+}
+.cursor{ color:var(--accent); animation:blink 1.1s steps(2,start) infinite; }
+@keyframes blink{ 50%{ opacity:.15; } }
+.site-nav{
+  display:flex; gap:1.2rem; font-family:var(--pico-font-family-monospace);
+  font-size:.86rem;
+}
+.site-nav a{
+  color:var(--muted); text-decoration:none; padding-block:.2rem;
+  border-bottom:1px solid transparent; transition:color .15s,border-color .15s;
+}
+.site-nav a:hover{ color:var(--accent); border-bottom-color:var(--accent); }
+.page-head{ margin-top:2.4rem; margin-bottom:1.4rem; }
+.page-head h1{
+  font-family:var(--pico-font-family-monospace); font-weight:700;
+  font-size:clamp(1.6rem,3vw,2.3rem); letter-spacing:-.01em; margin-bottom:.2rem;
+}
+.page-head .subtitle{ color:var(--muted); margin:0; }
+h2,h3{ font-family:var(--pico-font-family-monospace); letter-spacing:-.01em; }
+.panel{
+  background:var(--panel); border:1px solid var(--border); border-radius:14px;
+  padding:1.1rem 1.3rem 1.3rem; margin-block:1.3rem;
+}
+.panel>:first-child{ margin-top:0; }
+.section-title{
+  display:flex; align-items:center; gap:.55rem; margin-bottom:.9rem;
+  padding-bottom:.6rem; border-bottom:1px solid var(--border);
+}
+table{ margin:0; }
+thead th{
+  font-family:var(--pico-font-family-monospace); font-size:.74rem;
+  text-transform:uppercase; letter-spacing:.08em; color:var(--muted);
+}
+tbody tr{ transition:background .12s; }
+tbody tr:hover{ background:var(--accent-soft); }
+.votes{ font-family:var(--pico-font-family-monospace); color:var(--accent); font-weight:600; }
+code,kbd{
+  font-family:var(--pico-font-family-monospace); background:var(--accent-soft);
+  color:var(--ink); border-radius:6px; padding:.05rem .35rem;
+}
+.empty{ color:var(--muted); font-style:italic; }
+ul.links{ list-style:none; padding:0; }
+ul.links li{ padding:.35rem 0; border-bottom:1px solid var(--border); }
+ul.links li:last-child{ border-bottom:0; }
+dl.help dt{ font-family:var(--pico-font-family-monospace); color:var(--accent); margin-top:.85rem; }
+dl.help dd{ color:var(--ink); margin-left:0; padding-left:1rem; border-left:1px solid var(--border); }
+.site-foot{
+  margin-block:3.5rem 2rem; padding-top:1.1rem;
+  border-top:1px solid var(--border); color:var(--muted);
+}
+")
+
+(defmacro with-bot-page ((&key title subtitle) &body body)
+  "Render a complete, styled HTML page sharing the bot's dark terminal theme.
+TITLE supplies both the document <title> and the page heading.  SUBTITLE,
+when given, is rendered as a lead paragraph.  BODY is spinneret markup for
+the page content (typically one or more (:section :class \"panel\" ...))."
+  (let ((ctx (gensym "PAGE-CTX")))
+    `(let ((,ctx (make-instance 'bot-context
+                                :bot-web-port (acceptor-port (request-acceptor *request*)))))
+       (spinneret:with-html-string
+         (:doctype)
+         (:html :lang "en" :data-theme "dark"
+          (:head
+           (:meta :charset "utf-8")
+           (:meta :name "viewport" :content "width=device-width, initial-scale=1")
+           (:link :rel "preconnect" :href "https://fonts.googleapis.com")
+           (:link :rel "preconnect" :href "https://fonts.gstatic.com" :crossorigin "")
+           (:link :rel "stylesheet"
+                  :href "https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap")
+           (:link :rel "stylesheet"
+                  :href "https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css")
+           (:style (:raw +bot-page-css+))
+           (:title ,title))
+          (:body
+           (:header :class "site-head"
+             (:div :class "container"
+               (:a :class "brand" :href (make-short-url-string ,ctx "")
+                   (bot-nick ,ctx) (:span :class "cursor" "_"))
+               (:nav :class "site-nav"
+                 (:a :href (make-short-url-string ,ctx "board") "board")
+                 (:a :href (make-short-url-string ,ctx "phrases") "phrases")
+                 (:a :href (make-short-url-string ,ctx "help") "help"))))
+           (:main :class "container"
+             (:hgroup :class "page-head"
+               (:h1 ,title)
+               ,@(when subtitle `((:p :class "subtitle" ,subtitle))))
+             ,@body)
+           (:footer :class "container site-foot"
+             (:small "served by " (bot-nick ,ctx) (:span :class "cursor" " _")))))))))

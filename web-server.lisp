@@ -30,22 +30,19 @@ degrade to plain HTTP rather than aborting startup."
   "Generate HTML for the Web page listing the Web links in the database."
   (let* ((context (make-instance 'bot-context :bot-web-port (acceptor-port (request-acceptor *request*))))
          (bothandle (bot-nick context))
-         (channel (bot-irc-channel context)))
-    (spinneret:with-html-string
-      (:html
-       (:head
-        (:link :rel "stylesheet" :href "https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css")
-        (:title (format nil "URL index for ~A on ~A" bothandle channel)))
-       (:body
-        (:h2 (format nil "URL index for ~A on ~A" bothandle channel))
-        (:br)
-        (:ul
-         ;; context delimited by web port, so selecting the port here, selects the instance/channel of the bot.
-         (dolist (link (get-urls-and-headlines store (make-instance 'bot-context :bot-web-port (acceptor-port (request-acceptor *request*)))))
-	   (let ((target (car link))
-		 (link-description (cadr link)))
-             (:li
-              (:a :href target link-description ))))))))))
+         (channel (bot-irc-channel context))
+         (links (get-urls-and-headlines store context)))
+    (with-bot-page (:title (format nil "URL index for ~A on ~A" bothandle channel)
+                    :subtitle "Links shared in the channel, freshest first.")
+      (:section :class "panel"
+        (:h3 :class "section-title" "🔗  Links")
+        (if links
+            (:ul :class "links"
+              (dolist (link links)
+                (let ((target (car link))
+                      (link-description (cadr link)))
+                  (:li (:a :href target link-description)))))
+            (:p :class "empty" "No links saved yet."))))))
 
 (defvar +ass-timestamp-format+ '((:YEAR 4) #\- (:MONTH 2) #\- (:DAY 2)))
 
@@ -104,36 +101,29 @@ or an error message, as appropriate."
   (let* ((context (make-instance 'bot-context :bot-web-port (acceptor-port (request-acceptor *request*))))
          (bothandle (bot-nick context))
          (channel (bot-irc-channel context))
-         (ctx-id (chain-read-context-id context)))
-    (spinneret:with-html-string
-      (:html
-       (:head
-        (:link :rel "stylesheet" :href "https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css")
-        (:title (format nil "Top phrases for ~A on ~A" bothandle channel)))
-       (:body
-        (:h2 (format nil "Top phrases for ~A on ~A" bothandle channel))
-        (:p "Vote for phrases on IRC with " (:code "!vote <id>"))
-        (:br)
-        (let ((rows (handler-case (db-top-phrases-for-web ctx-id 50)
-                      (error (e)
-                        (declare (ignore e))
-                        nil))))
-          (if rows
-              (:table
-               (:thead
-                (:tr (:th "#") (:th "Votes") (:th "Phrase") (:th "Trigger")))
-               (:tbody
-                (dolist (row rows)
-                  (let ((pid (first row))
-                        (trigger (third row))
-                        (phrase (fourth row))
-                        (votes (fifth row)))
-                    (:tr
-                     (:td (format nil "~D" pid))
-                     (:td (format nil "~D" votes))
-                     (:td phrase)
-                     (:td (or trigger "")))))))
-              (:p "No phrases yet."))))))))
+         (ctx-id (chain-read-context-id context))
+         (rows (handler-case (db-top-phrases-for-web ctx-id 50)
+                 (error (e) (declare (ignore e)) nil))))
+    (with-bot-page (:title (format nil "Top phrases for ~A on ~A" bothandle channel)
+                    :subtitle "Vote on IRC with !vote, !vote -N, or !vote index.")
+      (:section :class "panel"
+        (:h3 :class "section-title" "🗳  Top-voted phrases")
+        (if rows
+            (:table
+             (:thead
+              (:tr (:th "#") (:th "Votes") (:th "Phrase") (:th "Trigger")))
+             (:tbody
+              (dolist (row rows)
+                (let ((pid (first row))
+                      (trigger (third row))
+                      (phrase (fourth row))
+                      (votes (fifth row)))
+                  (:tr
+                   (:td (format nil "~D" pid))
+                   (:td (:span :class "votes" (format nil "~D" votes)))
+                   (:td phrase)
+                   (:td (or trigger "")))))))
+            (:p :class "empty" "No phrases have been voted on yet."))))))
 
 (defun phrases-dispatch ()
   "Dispatcher for the top-phrases page."
@@ -150,17 +140,10 @@ channel quotes shown together with their context."
                     (error (e) (declare (ignore e)) nil)))
          (quotes (handler-case (db-recent-quotes-for-web channel 25)
                    (error (e) (declare (ignore e)) nil))))
-    (spinneret:with-html-string
-      (:html
-       (:head
-        (:link :rel "stylesheet" :href "https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css")
-        (:title (format nil "Bulletin board for ~A on ~A" bothandle channel)))
-       (:body
-        (:h2 (format nil "Bulletin board for ~A on ~A" bothandle channel))
-        (:p "Vote on phrases in IRC with " (:code "!vote") ", " (:code "!vote -N")
-            ", or " (:code "!vote index") ".  Add quotes with " (:code "!addquote") ".")
-        (:hr)
-        (:h3 "🗳  Top-voted phrases")
+    (with-bot-page (:title (format nil "Bulletin board for ~A on ~A" bothandle channel)
+                    :subtitle "Vote on phrases with !vote, !vote -N, or !vote index. Add quotes with !addquote.")
+      (:section :class "panel"
+        (:h3 :class "section-title" "🗳  Top-voted phrases")
         (if phrases
             (:table
              (:thead
@@ -173,12 +156,12 @@ channel quotes shown together with their context."
                       (votes (fifth row)))
                   (:tr
                    (:td (format nil "~D" pid))
-                   (:td (format nil "~D" votes))
+                   (:td (:span :class "votes" (format nil "~D" votes)))
                    (:td phrase)
                    (:td (or trigger "")))))))
-            (:p "No phrases have been voted on yet."))
-        (:hr)
-        (:h3 "❝  Latest quotes")
+            (:p :class "empty" "No phrases have been voted on yet.")))
+      (:section :class "panel"
+        (:h3 :class "section-title" "❝  Latest quotes")
         (if quotes
             (:table
              (:thead
@@ -194,7 +177,7 @@ channel quotes shown together with their context."
                    (:td added-by)
                    (:td (format nil "~A" (or added-at "")))
                    (:td quote-text))))))
-            (:p "No quotes saved yet.")))))))
+            (:p :class "empty" "No quotes saved yet."))))))
 
 (defun board-dispatch ()
   "Dispatcher for the bulletin board page."
@@ -202,16 +185,11 @@ channel quotes shown together with their context."
 
 (defun html-apology ()
   "Return HTML for a page explaining that a browser has struck out."
-  (spinneret:with-html-string
-    (:html
-     (:head
-      (:link :rel "stylesheet" :href "https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css")
-      (:title "You are in a maze of twisty little redirects, all alike."))
-     (:body
-      (:h1
-       (:p "With apologies")
-       (:p "I don't have that URL...")
-       (:p "Perhaps you mistyped?"))))))
+  (with-bot-page (:title "404 - lost in the redirects"
+                  :subtitle "You are in a maze of twisty little redirects, all alike.")
+    (:section :class "panel"
+      (:p "I don't have that URL...")
+      (:p :class "empty" "Perhaps you mistyped?"))))
 
 (defun help-dispatch ()
   "Dispatcher for the help page served by the bot."

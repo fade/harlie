@@ -103,3 +103,33 @@ Each row is (phrase-id channel trigger-text phrase-text vote-count created-at)."
                :where (:= 'phrase-id phrase-id))
               :single)
         0)))
+
+(defun db-recent-phrases (channel &optional (limit 20))
+  "Return the most recent phrases for CHANNEL, newest first.
+Each row is (phrase-id phrase-text vote-count)."
+  (with-connection (db-credentials *bot-config*)
+    (query (:limit
+            (:order-by
+             (:select 'p.phrase-id 'p.phrase-text
+                      (:raw "COALESCE(v.votes, 0) AS vote_count")
+              :from (:as 'phrases 'p)
+              :left-join (:as (:select 'phrase-id (:as (:count '*) 'votes)
+                               :from 'phrase-votes
+                               :group-by 'phrase-id)
+                              'v)
+              :on (:= 'p.phrase-id 'v.phrase-id)
+              :where (:= 'p.channel channel))
+             (:desc 'p.phrase-id))
+            limit)
+           :rows)))
+
+(defun db-nth-recent-phrase-id (channel offset)
+  "Return the phrase-id OFFSET positions back in CHANNEL (0 = newest), or NIL."
+  (with-connection (db-credentials *bot-config*)
+    (query (:limit
+            (:order-by
+             (:select 'phrase-id :from 'phrases
+              :where (:= 'channel channel))
+             (:desc 'phrase-id))
+            1 offset)
+           :single)))

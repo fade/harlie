@@ -954,30 +954,65 @@ Returns :ok, :not-found, or :not-owner."
 ;;; Phrase voting (issue #1)
 ;;; ============================================================
 
+(defun vote-by-offset (channel offset voter)
+  "Vote on the phrase OFFSET positions back in CHANNEL (0 = newest).
+Returns a user-facing status string."
+  (let ((id (db-nth-recent-phrase-id channel offset)))
+    (cond
+      ((null id)
+       (if (zerop offset)
+           "I haven't said anything votable in here yet."
+           (format nil "I haven't said ~D thing~:P back in here." (1+ offset))))
+      (t (case (db-vote-phrase id voter)
+           (:ok
+            (let ((count (db-phrase-vote-count id)))
+              (format nil "🗳  Vote recorded for phrase #~D (~D vote~:P total)." id count)))
+           (:already-voted
+            (format nil "You've already voted for phrase #~D." id))
+           (:not-found
+            (format nil "No phrase #~D found." id)))))))
+
 (defplugin vote (plug-request)
   (case (plugin-action plug-request)
-    (:docstring "Vote for a bot phrase. Usage: !vote <phrase-id>")
+    (:docstring "Vote on a recent bot phrase. Usage: !vote (last) | !vote -N (Nth back) | !vote index")
     (:priority 1.5)
     (:run (let* ((tokens (plugin-token-text-list plug-request))
-                 (id-str (second tokens))
-                 (id (when id-str (parse-integer id-str :junk-allowed t)))
+                 (arg (second tokens))
+                 (channel (plugin-channel-name plug-request))
+                 (conn (plugin-conn plug-request))
                  (voter (prefix-nick (parse-prefix
                                       (message-prefix
-                                       (last-message (plugin-conn plug-request)))))))
-            (cond
-              ((null id) "Usage: !vote <phrase-id>")
-              (t (handler-case
-                     (let ((result (db-vote-phrase id voter)))
-                       (case result
-                         (:ok
-                          (let ((count (db-phrase-vote-count id)))
-                            (format nil "🗳  Vote recorded for phrase #~D (~D vote~:P total)." id count)))
-                         (:already-voted
-                          (format nil "You've already voted for phrase #~D." id))
-                         (:not-found
-                          (format nil "No phrase #~D found." id))))
-                   (error (e)
-                     (format nil "Error voting: ~A" e)))))))))
+                                       (last-message conn))))))
+            (handler-case
+                (cond
+                  ;; !vote index -> private listing of the last 20 phrases
+                  ((and arg (string-equal arg "index"))
+                   (let ((rows (db-recent-phrases channel 20)))
+                     (cond
+                       ((null rows)
+                        "No phrases recorded for this channel yet.")
+                       (t
+                        (qmess conn voter
+                               (format nil "Last ~D phrase~:P in ~A - vote with !vote -N:"
+                                       (length rows) channel))
+                        (loop for row in rows
+                              for offset from 0
+                              for (nil phrase votes) = row
+                              do (qmess conn voter
+                                        (format nil "~3D: [~D vote~:P] ~A"
+                                                (- offset) votes phrase)))
+                        (format nil "Sent you the last ~D phrase~:P in a private message, ~A."
+                                (length rows) voter)))))
+                  ;; !vote or !vote -N -> resolve a relative offset
+                  (t (let ((offset (if arg
+                                       (let ((n (parse-integer arg :junk-allowed t)))
+                                         (and n (abs n)))
+                                       0)))
+                       (if (null offset)
+                           "Usage: !vote | !vote -N | !vote index"
+                           (vote-by-offset channel offset voter)))))
+              (error (e)
+                (format nil "Error voting: ~A" e)))))))
 
 (defplugin top (plug-request)
   (case (plugin-action plug-request)

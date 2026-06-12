@@ -339,6 +339,7 @@ the page content (typically one or more (:section :class \"panel\" ...))."
                (:nav :class "site-nav"
                  (:a :href (make-short-url-string ,ctx "board") "board")
                  (:a :href (make-short-url-string ,ctx "phrases") "phrases")
+                 (:a :href (make-short-url-string ,ctx "") "links")
                  (:a :href (make-short-url-string ,ctx "help") "help"))))
            (:main :class "container"
              (:hgroup :class "page-head"

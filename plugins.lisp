@@ -1042,6 +1042,13 @@ Returns a user-facing status string."
     (:run (format nil "📋  Bulletin board: ~A"
                   (make-short-url-string (plugin-context plug-request) "board")))))
 
+(defplugin links (plug-request)
+  (case (plugin-action plug-request)
+    (:docstring "Show the index of links recorded in this channel. Usage: !links")
+    (:priority 1.5)
+    (:run (format nil "🔗  Links index: ~A"
+                  (make-short-url-string (plugin-context plug-request) "")))))
+
 (defplugin phrase (plug-request)
   (case (plugin-action plug-request)
     (:docstring "Look up a specific phrase by ID. Usage: !phrase <id>")

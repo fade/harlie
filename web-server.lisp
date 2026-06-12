@@ -139,6 +139,67 @@ or an error message, as appropriate."
   "Dispatcher for the top-phrases page."
   (make-webpage-listing-phrases))
 
+(defun make-webpage-bulletin-board ()
+  "Generate HTML for the bulletin board: top-voted phrases and recent
+channel quotes shown together with their context."
+  (let* ((context (make-instance 'bot-context :bot-web-port (acceptor-port (request-acceptor *request*))))
+         (bothandle (bot-nick context))
+         (channel (bot-irc-channel context))
+         (ctx-id (chain-read-context-id context))
+         (phrases (handler-case (db-top-phrases-for-web ctx-id 25)
+                    (error (e) (declare (ignore e)) nil)))
+         (quotes (handler-case (db-recent-quotes-for-web channel 25)
+                   (error (e) (declare (ignore e)) nil))))
+    (spinneret:with-html-string
+      (:html
+       (:head
+        (:link :rel "stylesheet" :href "https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css")
+        (:title (format nil "Bulletin board for ~A on ~A" bothandle channel)))
+       (:body
+        (:h2 (format nil "Bulletin board for ~A on ~A" bothandle channel))
+        (:p "Vote on phrases in IRC with " (:code "!vote") ", " (:code "!vote -N")
+            ", or " (:code "!vote index") ".  Add quotes with " (:code "!addquote") ".")
+        (:hr)
+        (:h3 "🗳  Top-voted phrases")
+        (if phrases
+            (:table
+             (:thead
+              (:tr (:th "#") (:th "Votes") (:th "Phrase") (:th "Trigger")))
+             (:tbody
+              (dolist (row phrases)
+                (let ((pid (first row))
+                      (trigger (third row))
+                      (phrase (fourth row))
+                      (votes (fifth row)))
+                  (:tr
+                   (:td (format nil "~D" pid))
+                   (:td (format nil "~D" votes))
+                   (:td phrase)
+                   (:td (or trigger "")))))))
+            (:p "No phrases have been voted on yet."))
+        (:hr)
+        (:h3 "❝  Latest quotes")
+        (if quotes
+            (:table
+             (:thead
+              (:tr (:th "#") (:th "Added by") (:th "When") (:th "Quote")))
+             (:tbody
+              (dolist (row quotes)
+                (let ((qid (first row))
+                      (added-by (second row))
+                      (quote-text (third row))
+                      (added-at (fourth row)))
+                  (:tr
+                   (:td (format nil "~D" qid))
+                   (:td added-by)
+                   (:td (format nil "~A" (or added-at "")))
+                   (:td quote-text))))))
+            (:p "No quotes saved yet.")))))))
+
+(defun board-dispatch ()
+  "Dispatcher for the bulletin board page."
+  (make-webpage-bulletin-board))
+
 (defun html-apology ()
   "Return HTML for a page explaining that a browser has struck out."
   (spinneret:with-html-string
@@ -238,6 +299,7 @@ One acceptor is created and started per connection-spec in *BOT-CONFIG*."
   (glom-on-static-file "/robots.txt" "harlie/robots.txt")
   (glom-on-regex "^/help/?$" 'help-dispatch)
   (glom-on-regex "^/phrases/?$" 'phrases-dispatch)
+  (glom-on-regex "^/board/?$" 'board-dispatch)
   (glom-on-regex "^/source" 'source-dispatch)
   (glom-on-regex "^/hyper(spec)?/?$" 'hyperspec-base-dispatch)
   (glom-on-folder "/HyperSpec/" "HyperSpec/")

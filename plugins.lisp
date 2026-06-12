@@ -844,6 +844,19 @@ Returns :ok, :not-found, or :not-owner."
                       :row)))
       row)))
 
+(defun db-recent-quotes-for-web (channel &optional (limit 50))
+  "Return the most recent quotes for CHANNEL, newest first.
+Each row is (quote-id added-by quote-text added-at)."
+  (with-connection (db-credentials *bot-config*)
+    (query (:limit
+            (:order-by
+             (:select 'quote-id 'added-by 'quote-text 'added-at
+              :from 'quotes
+              :where (:= 'channel channel))
+             (:desc 'quote-id))
+            limit)
+           :rows)))
+
 (defplugin addquote (plug-request)
   (case (plugin-action plug-request)
     (:docstring "Save a channel quote. Usage: !addquote <text>")
@@ -1016,7 +1029,7 @@ Returns a user-facing status string."
 
 (defplugin top (plug-request)
   (case (plugin-action plug-request)
-    (:docstring "Show the top-voted bot phrases. Usage: !top [count] (also see /phrases)")
+    (:docstring "Show the top-voted bot phrases. Usage: !top [count] (web view: !board)")
     (:priority 1.5)
     (:run (let* ((tokens (plugin-token-text-list plug-request))
                  (n-str (second tokens))
@@ -1033,6 +1046,13 @@ Returns a user-facing status string."
                       "No phrases have been voted on yet."))
               (error (e)
                 (format nil "Error fetching top phrases: ~A" e)))))))
+
+(defplugin board (plug-request)
+  (case (plugin-action plug-request)
+    (:docstring "Show the bulletin board of top phrases and quotes. Usage: !board")
+    (:priority 1.5)
+    (:run (format nil "📋  Bulletin board: ~A"
+                  (make-short-url-string (plugin-context plug-request) "board")))))
 
 (defplugin phrase (plug-request)
   (case (plugin-action plug-request)

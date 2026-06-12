@@ -248,6 +248,9 @@ allowing for leading and trailing punctuation characters in the match."
 					 (- 10 (length (trigger-list channel)))
 					 #'acceptable-word-p)))
 	     token-list))
+	  ((< (random 1.0) *spontaneous-reply-chance*)
+	   (log:debug "[~&in triggered] spontaneous reply fired~%")
+	   token-list)
 	  (t nil))))
 
 (defun extract-urls (text)
@@ -415,7 +418,7 @@ allowing for leading and trailing punctuation characters in the match."
 				  phrase-text)
 			       (error (e)
 				 (log:warn "~&[PHRASE] Failed to store phrase: ~A" e)))
-			     (irc-reply phrase-text)))))))
+			     (irc-reply (maybe-snarkify phrase-text))))))))
 	          (t nil)))))
     (error (e)
       (log:warn "~&[MSG-HOOK] Error processing message from ~A in ~A: ~A"

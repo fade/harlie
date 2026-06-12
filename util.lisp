@@ -212,6 +212,44 @@ a single web-server-name."
 	(subseq url 0 utm-index)
 	url)))
 
+;;; ---- Personality knobs -------------------------------------------------
+;;
+;; Tunable at runtime (e.g. from the Slynk REPL) to make the bot more or
+;; less chatty and sarcastic without rebuilding.
+
+(defparameter *spontaneous-reply-chance* 0.08
+  "Probability [0.0-1.0] that the bot fires an unprompted Markov reply to a
+message containing no trigger word.  0.0 disables spontaneous chatter.")
+
+(defparameter *snark-chance* 0.15
+  "Probability [0.0-1.0] that the bot tags a Markov reply with a sarcastic
+aside drawn from *SARCASM*.  0.0 disables the snark layer.")
+
+(defparameter *sarcasm*
+  '("But what do I know, I'm just a bot."
+    "Riveting stuff, truly."
+    "I'll alert the media."
+    "Bold of you to assume I care."
+    "Groundbreaking."
+    "Cool story."
+    "Try to contain your excitement."
+    "Sure, let's go with that."
+    "I'm thrilled for you. Genuinely."
+    "Noted, and immediately forgotten."
+    "Fascinating. Next."
+    "You're a regular Oscar Wilde."
+    "Hold the front page."
+    "Be still my beating CPU."
+    "Wow. Just... wow."
+    "Astonishing insight, as always.")
+  "A pool of dry one-liners the bot occasionally appends to its chatter.")
+
+(defun maybe-snarkify (text)
+  "Occasionally append a sarcastic aside to TEXT, governed by *SNARK-CHANCE*."
+  (if (and *sarcasm* (< (random 1.0) *snark-chance*))
+      (format nil "~A  ~A" text (random-elt *sarcasm*))
+      text))
+
 ;;; ---- Shared web page styling -------------------------------------------
 ;;
 ;; Every bot-served HTML page shares one cohesive look: a dark "terminal"

@@ -25,7 +25,7 @@
 		 :plugin-name "DOUBLEHELP"
 		 :plugin-hook #'(lambda (plug-request)
 				  (cond ((eq (plugin-action plug-request) :docstring)
-					 (list (format nil "Sorry, I don't recognize that command.")
+					 (list (format nil "That's not a command, but I admire your confidence.")
 					       (format nil "  Try ~A for a list of commands." (make-short-url-string (plugin-context plug-request) "help"))))
 					(t nil)))))
 
@@ -122,7 +122,7 @@
 		(format nil "📈  ~A opened at $~$ with high of ~A low of ~A, closing at ~A with volume of ~A"
 			(stock-name quote)  (stock-open quote) (stock-high quote) (stock-low quote)
                         (stock-close quote) (stock-volume quote))
-		(format nil "📈  No quotes for symbol: ~A. Perhaps you mistyped?" symbol))))))
+		(format nil "📈  Nothing for ~A. Either it doesn't trade or the market's as confused as you are." symbol))))))
 
 (defplugin toynb (plug-request)
   (case (plugin-action plug-request)
@@ -151,7 +151,7 @@
 	    (if (and countries (listp countries))
 		(loop for (a . b) in countries
 		      :collect (format nil "🌍  [ ~a ][ ~a ]" a b))
-		(format nil "🌍  No match for search term: ~A" country))))))
+		(format nil "🌍  Nothing matches ~A. Geography: clearly not your strong suit." country))))))
 
 (defplugin area (plug-request)
   (case (plugin-action plug-request)
@@ -164,7 +164,7 @@
 	    (if (and area (listp area))
 		(loop for (a . b) in area
 		      :collect (format nil "☎  [ ~A ][ ~A ]" a b))
-		(format nil "☎  No area code found for your search term: ~A" searchterm))))))
+		(format nil "☎  No area code for ~A. Did you dial that with your eyes closed?" searchterm))))))
 
 (defplugin iata (plug-request)
   (case (plugin-action plug-request)
@@ -175,7 +175,7 @@
 	    (if (and airports (listp airports))
 		(loop for (a . b) in airports
 		      :collect (format nil "✈  [ ~A ][ ~A ]" a b))
-		(format nil "✈  No match for your airport: ~A" searchterm))))))
+		(format nil "✈  No airport matches ~A. That's not a place, that's a typo." searchterm))))))
 
 (defplugin ciso (plug-request)
   (case (plugin-action plug-request)

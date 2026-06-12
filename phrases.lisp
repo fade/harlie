@@ -75,8 +75,11 @@ Each row is (phrase-id trigger-text phrase-text vote-count)."
             limit)
            :rows)))
 
-(defun db-top-phrases-for-web (context-id &optional (limit 50))
-  "Return the top voted phrases for a context (used by the web endpoint).
+(defun db-top-phrases-for-web (channel &optional (limit 50))
+  "Return the top voted phrases for CHANNEL (used by the web endpoint).
+Filtering by channel (rather than context_id) keeps the web view
+consistent with voting and !top, and is robust to the bot's runtime nick
+being suffixed (e.g. Marvin2) away from the configured contexts row.
 Each row is (phrase-id channel trigger-text phrase-text vote-count created-at)."
   (with-connection (db-credentials *bot-config*)
     (query (:limit
@@ -90,7 +93,7 @@ Each row is (phrase-id channel trigger-text phrase-text vote-count created-at)."
                                :group-by 'phrase-id)
                               'v)
               :on (:= 'p.phrase-id 'v.phrase-id)
-              :where (:= 'p.context-id context-id))
+              :where (:= 'p.channel channel))
              (:desc (:raw "vote_count")) (:desc 'p.phrase-id))
             limit)
            :rows)))

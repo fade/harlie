@@ -25,7 +25,7 @@
 		 :plugin-name "DOUBLEHELP"
 		 :plugin-hook #'(lambda (plug-request)
 				  (cond ((eq (plugin-action plug-request) :docstring)
-					 (list (format nil "Sorry, I don't recognize that command.")
+					 (list (format nil "That's not a command, but I admire your confidence.")
 					       (format nil "  Try ~A for a list of commands." (make-short-url-string (plugin-context plug-request) "help"))))
 					(t nil)))))
 
@@ -122,7 +122,7 @@
 		(format nil "📈  ~A opened at $~$ with high of ~A low of ~A, closing at ~A with volume of ~A"
 			(stock-name quote)  (stock-open quote) (stock-high quote) (stock-low quote)
                         (stock-close quote) (stock-volume quote))
-		(format nil "📈  No quotes for symbol: ~A. Perhaps you mistyped?" symbol))))))
+		(format nil "📈  Nothing for ~A. Either it doesn't trade or the market's as confused as you are." symbol))))))
 
 (defplugin toynb (plug-request)
   (case (plugin-action plug-request)
@@ -151,7 +151,7 @@
 	    (if (and countries (listp countries))
 		(loop for (a . b) in countries
 		      :collect (format nil "🌍  [ ~a ][ ~a ]" a b))
-		(format nil "🌍  No match for search term: ~A" country))))))
+		(format nil "🌍  Nothing matches ~A. Geography: clearly not your strong suit." country))))))
 
 (defplugin area (plug-request)
   (case (plugin-action plug-request)
@@ -164,7 +164,7 @@
 	    (if (and area (listp area))
 		(loop for (a . b) in area
 		      :collect (format nil "☎  [ ~A ][ ~A ]" a b))
-		(format nil "☎  No area code found for your search term: ~A" searchterm))))))
+		(format nil "☎  No area code for ~A. Did you dial that with your eyes closed?" searchterm))))))
 
 (defplugin iata (plug-request)
   (case (plugin-action plug-request)
@@ -175,7 +175,7 @@
 	    (if (and airports (listp airports))
 		(loop for (a . b) in airports
 		      :collect (format nil "✈  [ ~A ][ ~A ]" a b))
-		(format nil "✈  No match for your airport: ~A" searchterm))))))
+		(format nil "✈  No airport matches ~A. That's not a place, that's a typo." searchterm))))))
 
 (defplugin ciso (plug-request)
   (case (plugin-action plug-request)
@@ -229,26 +229,14 @@
   "Return HTML for a page giving help with the bot's plugin commands."
   (let* ((context (make-instance 'bot-context :bot-web-port (acceptor-port (request-acceptor *request*))))
          (bothandle (bot-nick context)))
-    (spinneret:with-html-string
-      (:html
-       (:head
-        (:link :rel "stylesheet" :href "https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css")
-        (:title (format nil "~A Help Page" bothandle)))
-       (:body
-        (:h1 (format nil "~A Help Page" bothandle))
-        (:dl
-         (let ((oldpriority 0.0))
-           (dolist (doc (sort (plugin-docs) 'sort-docs))
-             (multiple-value-bind (n f) (floor (third doc))
-               (declare (ignore n))
-               (log:debug "~A ~A~%" oldpriority (third doc))
-               (if (> (third doc) 0.0)
-                   (progn
-                     (when (and (< oldpriority (third doc)) (= f 0.0))
-                       (:br))
-                     (:dt (:b (format nil "!~A:" (first doc))))
-                     (:dd (format nil "~A" (second doc)))
-                     (setf oldpriority (third doc)))))))))))))
+    (with-bot-page (:title (format nil "~A command reference" bothandle)
+                    :subtitle "Every command the bot answers to. Prefix each with ! in channel.")
+      (:section :class "panel"
+        (:dl :class "help"
+          (dolist (doc (sort (plugin-docs) 'sort-docs))
+            (when (> (third doc) 0.0)
+              (:dt (format nil "!~A" (first doc)))
+              (:dd (format nil "~A" (second doc))))))))))
 
 (defplugin 8ball (plug-request)
   (case (plugin-action plug-request)
@@ -844,6 +832,19 @@ Returns :ok, :not-found, or :not-owner."
                       :row)))
       row)))
 
+(defun db-recent-quotes-for-web (channel &optional (limit 50))
+  "Return the most recent quotes for CHANNEL, newest first.
+Each row is (quote-id added-by quote-text added-at)."
+  (with-connection (db-credentials *bot-config*)
+    (query (:limit
+            (:order-by
+             (:select 'quote-id 'added-by 'quote-text 'added-at
+              :from 'quotes
+              :where (:= 'channel channel))
+             (:desc 'quote-id))
+            limit)
+           :rows)))
+
 (defplugin addquote (plug-request)
   (case (plugin-action plug-request)
     (:docstring "Save a channel quote. Usage: !addquote <text>")
@@ -954,34 +955,69 @@ Returns :ok, :not-found, or :not-owner."
 ;;; Phrase voting (issue #1)
 ;;; ============================================================
 
+(defun vote-by-offset (channel offset voter)
+  "Vote on the phrase OFFSET positions back in CHANNEL (0 = newest).
+Returns a user-facing status string."
+  (let ((id (db-nth-recent-phrase-id channel offset)))
+    (cond
+      ((null id)
+       (if (zerop offset)
+           "I haven't said anything votable in here yet."
+           (format nil "I haven't said ~D thing~:P back in here." (1+ offset))))
+      (t (case (db-vote-phrase id voter)
+           (:ok
+            (let ((count (db-phrase-vote-count id)))
+              (format nil "🗳  Vote recorded for phrase #~D (~D vote~:P total)." id count)))
+           (:already-voted
+            (format nil "You've already voted for phrase #~D." id))
+           (:not-found
+            (format nil "No phrase #~D found." id)))))))
+
 (defplugin vote (plug-request)
   (case (plugin-action plug-request)
-    (:docstring "Vote for a bot phrase. Usage: !vote <phrase-id>")
+    (:docstring "Vote on a recent bot phrase. Usage: !vote (last) | !vote -N (Nth back) | !vote index")
     (:priority 1.5)
     (:run (let* ((tokens (plugin-token-text-list plug-request))
-                 (id-str (second tokens))
-                 (id (when id-str (parse-integer id-str :junk-allowed t)))
+                 (arg (second tokens))
+                 (channel (plugin-channel-name plug-request))
+                 (conn (plugin-conn plug-request))
                  (voter (prefix-nick (parse-prefix
                                       (message-prefix
-                                       (last-message (plugin-conn plug-request)))))))
-            (cond
-              ((null id) "Usage: !vote <phrase-id>")
-              (t (handler-case
-                     (let ((result (db-vote-phrase id voter)))
-                       (case result
-                         (:ok
-                          (let ((count (db-phrase-vote-count id)))
-                            (format nil "🗳  Vote recorded for phrase #~D (~D vote~:P total)." id count)))
-                         (:already-voted
-                          (format nil "You've already voted for phrase #~D." id))
-                         (:not-found
-                          (format nil "No phrase #~D found." id))))
-                   (error (e)
-                     (format nil "Error voting: ~A" e)))))))))
+                                       (last-message conn))))))
+            (handler-case
+                (cond
+                  ;; !vote index -> private listing of the last 20 phrases
+                  ((and arg (string-equal arg "index"))
+                   (let ((rows (db-recent-phrases channel 20)))
+                     (cond
+                       ((null rows)
+                        "No phrases recorded for this channel yet.")
+                       (t
+                        (qmess conn voter
+                               (format nil "Last ~D phrase~:P in ~A - vote with !vote -N:"
+                                       (length rows) channel))
+                        (loop for row in rows
+                              for offset from 0
+                              for (nil phrase votes) = row
+                              do (qmess conn voter
+                                        (format nil "~3D: [~D vote~:P] ~A"
+                                                (- offset) votes phrase)))
+                        (format nil "Sent you the last ~D phrase~:P in a private message, ~A."
+                                (length rows) voter)))))
+                  ;; !vote or !vote -N -> resolve a relative offset
+                  (t (let ((offset (if arg
+                                       (let ((n (parse-integer arg :junk-allowed t)))
+                                         (and n (abs n)))
+                                       0)))
+                       (if (null offset)
+                           "Usage: !vote | !vote -N | !vote index"
+                           (vote-by-offset channel offset voter)))))
+              (error (e)
+                (format nil "Error voting: ~A" e)))))))
 
 (defplugin top (plug-request)
   (case (plugin-action plug-request)
-    (:docstring "Show the top-voted bot phrases. Usage: !top [count] (also see /phrases)")
+    (:docstring "Show the top-voted bot phrases. Usage: !top [count] (web view: !board)")
     (:priority 1.5)
     (:run (let* ((tokens (plugin-token-text-list plug-request))
                  (n-str (second tokens))
@@ -998,6 +1034,25 @@ Returns :ok, :not-found, or :not-owner."
                       "No phrases have been voted on yet."))
               (error (e)
                 (format nil "Error fetching top phrases: ~A" e)))))))
+
+(defplugin board (plug-request)
+  (case (plugin-action plug-request)
+    (:docstring "Show the bulletin board of top phrases and quotes. Usage: !board")
+    (:priority 1.5)
+    (:run (let* ((context (plugin-context plug-request))
+                 (channel (bot-irc-channel context))
+                 (hash (if (and channel (stringp channel))
+                           (format nil "board?c=~A" (url-encode channel))
+                           "board")))
+            (format nil "📋  Bulletin board: ~A"
+                    (make-short-url-string context hash))))))
+
+(defplugin links (plug-request)
+  (case (plugin-action plug-request)
+    (:docstring "Show the index of links recorded in this channel. Usage: !links")
+    (:priority 1.5)
+    (:run (format nil "🔗  Links index: ~A"
+                  (make-short-url-string (plugin-context plug-request) "")))))
 
 (defplugin phrase (plug-request)
   (case (plugin-action plug-request)

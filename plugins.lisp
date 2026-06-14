@@ -1076,6 +1076,167 @@ Returns a user-facing status string."
                    (error (e)
                      (format nil "Error: ~A" e)))))))))
 
+;;; ============================================================
+;;; Timed polls (!poll)
+;;; ============================================================
+;;
+;; Polls are defined in a private query window, published to a channel,
+;; and voted on by channel members (one vote per nick).  Each poll has a
+;; timer; the sweeper in polls.lisp closes it and announces the results
+;; when it expires.
+
+(defun poll-sender-nick (conn)
+  "Return the nick of whoever sent the message currently being handled."
+  (prefix-nick (parse-prefix (message-prefix (last-message conn)))))
+
+(defun poll-cmd-new (tokens creator)
+  "Handle '!poll new #channel <duration> \"question\" choice...'.
+TOKENS is the full token list; CREATOR is the requesting nick."
+  (let* ((channel-arg  (third tokens))
+         (duration-str (fourth tokens))
+         (rest-string  (format nil "~{~A~^ ~}" (nthcdr 4 tokens)))
+         (parts        (split-quoted rest-string))
+         (question     (first parts))
+         (choices      (rest parts)))
+    (cond
+      ((or (null channel-arg) (null duration-str))
+       "Usage: !poll new #channel <duration> \"question\" choice1 choice2 [choice3] [choice4]")
+      ((null (parse-duration duration-str))
+       (format nil "Invalid duration '~A'. Use e.g. 30m, 2h, 1d." duration-str))
+      ((null question)
+       "Give your poll a question in quotes, e.g. \"Best editor?\"")
+      ((< (length choices) 2)
+       "A poll needs at least 2 choices.")
+      ((> (length choices) 4)
+       "A poll can have at most 4 choices.")
+      (t (let* ((channel (if (or (str:starts-with-p "#" channel-arg)
+                                 (str:starts-with-p "&" channel-arg))
+                             channel-arg
+                             (format nil "#~A" channel-arg)))
+                (seconds (parse-duration duration-str))
+                (id (db-create-poll channel question creator seconds choices)))
+           (format nil "Created poll #~D for ~A (closes in ~A). Review it, then publish with: !poll publish ~D"
+                   id channel (format-duration seconds) id))))))
+
+(defun poll-cmd-publish (id-str creator conn)
+  "Publish poll ID-STR to its channel.  Only the creator may publish."
+  (let ((id (and id-str (parse-integer id-str :junk-allowed t))))
+    (cond
+      ((null id) "Usage: !poll publish <id>")
+      (t (let ((poll (db-get-poll id)))
+           (cond
+             ((null poll) (format nil "No poll #~D found." id))
+             ((not (string-equal (fourth poll) creator))
+              (format nil "Poll #~D isn't yours to publish." id))
+             ((sixth poll)
+              (format nil "Poll #~D is already published." id))
+             ((eighth poll)
+              (format nil "Poll #~D has already closed." id))
+             (t (let ((channel (second poll))
+                      (lines   (format-poll-announcement id)))
+                  (db-publish-poll id)
+                  (dolist (line lines)
+                    (qmess conn channel (format nil "poll:: ~A" line)))
+                  (format nil "Published poll #~D to ~A." id channel)))))))))
+
+(defun poll-cmd-vote (id-str n-str voter)
+  "Record VOTER's choice of option N-STR in poll ID-STR."
+  (let ((id (and id-str (parse-integer id-str :junk-allowed t)))
+        (n  (and n-str  (parse-integer n-str  :junk-allowed t))))
+    (cond
+      ((or (null id) (null n)) "Usage: !poll vote <id> <number>")
+      (t (case (db-vote-poll id voter n)
+           (:ok
+            (let ((text (second (assoc n (db-poll-options id)))))
+              (format nil "🗳  Vote recorded for \"~A\" (poll #~D)." text id)))
+           (:already-voted (format nil "You've already voted in poll #~D." id))
+           (:not-found     (format nil "No poll #~D found." id))
+           (:not-open      (format nil "Poll #~D isn't open for voting." id))
+           (:invalid-option (format nil "Poll #~D has no option ~D." id n)))))))
+
+(defun poll-cmd-results (id-str)
+  "Return the current tally for poll ID-STR as a list of lines."
+  (let ((id (and id-str (parse-integer id-str :junk-allowed t))))
+    (cond
+      ((null id) "Usage: !poll results <id>")
+      (t (let ((poll (db-get-poll id)))
+           (if (null poll)
+               (format nil "No poll #~D found." id)
+               (format-poll-results id :closed (or (seventh poll) (eighth poll)))))))))
+
+(defun poll-cmd-close (id-str closer conn)
+  "Close poll ID-STR early and post its results.  Only the creator may close."
+  (let ((id (and id-str (parse-integer id-str :junk-allowed t))))
+    (cond
+      ((null id) "Usage: !poll close <id>")
+      (t (let ((poll (db-get-poll id)))
+           (cond
+             ((null poll) (format nil "No poll #~D found." id))
+             ((not (string-equal (fourth poll) closer))
+              (format nil "Poll #~D isn't yours to close." id))
+             ((eighth poll) (format nil "Poll #~D is already closed." id))
+             (t (let ((channel (second poll)))
+                  (db-mark-announced id)
+                  (dolist (line (format-poll-results id :closed t))
+                    (qmess conn channel (format nil "poll:: ~A" line)))
+                  (format nil "Closed poll #~D and posted results to ~A." id channel)))))))))
+
+(defun poll-cmd-list (pm-p channel-name creator)
+  "List polls: the requester's own when in a query, open ones when in a channel."
+  (if pm-p
+      (let ((rows (db-polls-by-creator creator)))
+        (if (null rows)
+            "You haven't created any polls yet."
+            (cons "Your recent polls:"
+                  (loop for (id channel question published closed) in rows
+                        collect (format nil "  #~D [~A] ~A - ~A"
+                                        id channel
+                                        (cond (closed "closed")
+                                              (published "open")
+                                              (t "draft"))
+                                        question)))))
+      (let ((rows (db-open-polls channel-name)))
+        (if (null rows)
+            "No open polls in this channel."
+            (cons "Open polls (vote with !poll vote <id> <n>):"
+                  (loop for (id question) in rows
+                        collect (format nil "  #~D ~A" id question)))))))
+
+(defplugin poll (plug-request)
+  (case (plugin-action plug-request)
+    (:docstring "Run a timed multiple-choice poll. Define it in a query window, publish to a channel, members vote. Usage (query window): !poll new #channel <duration> \"question\" choice1 choice2 [c3] [c4] | !poll publish <id> | !poll close <id>. In channel: !poll vote <id> <n> | !poll results <id> | !poll list")
+    (:priority 1.5)
+    (:run
+     (handler-case
+         (let* ((tokens       (plugin-token-text-list plug-request))
+                (sub          (and (second tokens) (string-downcase (second tokens))))
+                (conn         (plugin-conn plug-request))
+                (channel-name (plugin-channel-name plug-request))
+                (pm-p         (string-equal channel-name (connection-nick conn)))
+                (sender       (poll-sender-nick conn)))
+           (cond
+             ((null sub)
+              "Usage: !poll new #channel <duration> \"question\" choice1 choice2 ... | publish <id> | vote <id> <n> | results <id> | close <id> | list")
+             ((string= sub "new")
+              (if pm-p
+                  (poll-cmd-new tokens sender)
+                  "Define polls in a query window, please: /msg me !poll new #channel 30m \"question\" choice1 choice2"))
+             ((string= sub "publish")
+              (if pm-p
+                  (poll-cmd-publish (third tokens) sender conn)
+                  "Publish polls from a query window: /msg me !poll publish <id>"))
+             ((string= sub "vote")
+              (poll-cmd-vote (third tokens) (fourth tokens) sender))
+             ((string= sub "results")
+              (poll-cmd-results (third tokens)))
+             ((string= sub "close")
+              (poll-cmd-close (third tokens) sender conn))
+             ((string= sub "list")
+              (poll-cmd-list pm-p channel-name sender))
+             (t (format nil "Unknown subcommand '~A'. Try: new, publish, vote, results, close, list" sub))))
+       (error (e)
+         (format nil "Error: ~A" e))))))
+
 ;;; !eval removed — "this plugin is too dangerous to live" -Fade
 
 ;; ===[ hyperspace motivator follows. ]===

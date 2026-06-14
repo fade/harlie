@@ -221,7 +221,7 @@ a single web-server-name."
   "Probability [0.0-1.0] that the bot fires an unprompted Markov reply to a
 message containing no trigger word.  0.0 disables spontaneous chatter.")
 
-(defparameter *snark-chance* 0.15
+(defparameter *snark-chance* 0.10
   "Probability [0.0-1.0] that the bot tags a Markov reply with a sarcastic
 aside drawn from *SARCASM*.  0.0 disables the snark layer.")
 

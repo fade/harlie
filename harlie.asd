@@ -63,6 +63,7 @@
 	       (:file "irc-client")
 	       (:file "memo")
 	       (:file "phrases")
+	       (:file "polls")
 
 	       (:file "constants")
 	       (:file "chainer")

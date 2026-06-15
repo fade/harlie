@@ -331,6 +331,7 @@ thead th{
 tbody tr{ transition:background .12s; }
 tbody tr:hover{ background:var(--accent-soft); }
 .votes{ font-family:var(--pico-font-family-monospace); color:var(--accent); font-weight:600; }
+.poll-bar{ font-family:var(--pico-font-family-monospace); color:var(--accent); letter-spacing:-.04em; }
 code,kbd{
   font-family:var(--pico-font-family-monospace); background:var(--accent-soft);
   color:var(--ink); border-radius:6px; padding:.05rem .35rem;
@@ -382,6 +383,7 @@ the page content (typically one or more (:section :class \"panel\" ...))."
                (:nav :class "site-nav"
                  (:a :href (make-short-url-string ,ctx (format nil "board~A" ,csuffix)) "board")
                  (:a :href (make-short-url-string ,ctx (format nil "phrases~A" ,csuffix)) "phrases")
+                 (:a :href (make-short-url-string ,ctx (format nil "polls~A" ,csuffix)) "polls")
                  (:a :href (make-short-url-string ,ctx "") "links")
                  (:a :href (make-short-url-string ,ctx "help") "help"))))
            (:main :class "container"

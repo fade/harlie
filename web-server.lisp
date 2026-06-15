@@ -193,6 +193,58 @@ channel quotes shown together with their context."
   "Dispatcher for the bulletin board page."
   (make-webpage-bulletin-board (request-channel-param)))
 
+(defun make-webpage-listing-polls (&optional channel)
+  "Generate HTML listing recent published polls for CHANNEL with their live
+results: a panel per poll showing the question, status, and per-option vote
+counts with a proportional bar."
+  (let* ((context (make-instance 'bot-context
+                                 :bot-web-port (acceptor-port (request-acceptor *request*))
+                                 :bot-irc-channel channel))
+         (bothandle (bot-nick context))
+         (channel (bot-irc-channel context))
+         (polls (handler-case (db-polls-for-web channel 25)
+                  (error (e) (declare (ignore e)) nil))))
+    (with-bot-page (:title (format nil "Polls for ~A on ~A" bothandle channel)
+                    :subtitle "Vote on IRC with !poll vote <id> <n>. Create one with !poll new in a query window.")
+      (if polls
+          (dolist (poll polls)
+            (destructuring-bind (pid question creator created-at expires-at closed expired) poll
+              (let* ((results (handler-case (db-poll-results pid)
+                                (error (e) (declare (ignore e)) nil)))
+                     (total (reduce #'+ results :key #'third :initial-value 0))
+                     (maxv  (reduce #'max results :key #'third :initial-value 0))
+                     (open-p (not (or closed expired)))
+                     (created (format-poll-timestamp created-at)))
+                (:section :class "panel"
+                  (:h3 :class "section-title"
+                       (format nil "📊  #~D: ~A" pid question))
+                  (:p :class "subtitle"
+                      (if open-p
+                          (format nil "open · closes ~A · ~D vote~:P · by ~A · created ~A"
+                                  (format-poll-deadline expires-at) total creator created)
+                          (format nil "closed · ~D vote~:P · winner: ~A · by ~A · created ~A"
+                                  total (poll-winner results) creator created)))
+                  (if results
+                      (:table
+                       (:thead
+                        (:tr (:th "#") (:th "Option") (:th "Votes") (:th "")))
+                       (:tbody
+                        (dolist (r results)
+                          (destructuring-bind (onum otext ovotes) r
+                            (:tr
+                             (:td (format nil "~D" onum))
+                             (:td otext)
+                             (:td (:span :class "votes" (format nil "~D" ovotes)))
+                             (:td (:span :class "poll-bar" (poll-bar ovotes maxv 20))))))))
+                      (:p :class "empty" "No options."))))))
+          (:section :class "panel"
+            (:h3 :class "section-title" "📊  Polls")
+            (:p :class "empty" "No polls have been published yet."))))))
+
+(defun polls-dispatch ()
+  "Dispatcher for the polls page."
+  (make-webpage-listing-polls (request-channel-param)))
+
 (defun html-apology ()
   "Return HTML for a page explaining that a browser has struck out."
   (with-bot-page (:title "404 - lost in the redirects"
@@ -288,6 +340,7 @@ One acceptor is created and started per connection-spec in *BOT-CONFIG*."
   (glom-on-regex "^/help/?$" 'help-dispatch)
   (glom-on-regex "^/phrases/?$" 'phrases-dispatch)
   (glom-on-regex "^/board/?$" 'board-dispatch)
+  (glom-on-regex "^/polls/?$" 'polls-dispatch)
   (glom-on-regex "^/source" 'source-dispatch)
   (glom-on-regex "^/hyper(spec)?/?$" 'hyperspec-base-dispatch)
   (glom-on-folder "/HyperSpec/" "HyperSpec/")

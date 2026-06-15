@@ -182,6 +182,20 @@ polls created by CREATOR."
             limit)
            :rows)))
 
+(defun db-polls-for-web (channel &optional (limit 25))
+  "Return recent published polls for CHANNEL for the web view, newest first.
+Each row is (poll-id question creator created-at expires-at closed expired)."
+  (with-connection (db-credentials *bot-config*)
+    (query (:limit
+            (:order-by
+             (:select 'poll-id 'question 'creator 'created-at 'expires-at 'closed
+                      (:raw "(expires_at <= now()) AS expired")
+              :from 'polls
+              :where (:and (:= 'channel channel) 'published))
+             (:desc 'poll-id))
+            limit)
+           :rows)))
+
 ;;; ---- Formatting ---------------------------------------------------------
 
 (defun poll-bar (votes maxv &optional (width 10))
@@ -208,6 +222,16 @@ polls created by CREATOR."
     (if (plusp secs)
         (format nil "in ~A" (format-duration secs))
         "soon")))
+
+(defun format-poll-timestamp (timestamp)
+  "Format TIMESTAMP (a local-time timestamp) as a compact
+\"YYYY-MM-DD HH:MM\" string, or \"unknown\" when it is missing."
+  (if timestamp
+      (local-time:format-timestring
+       nil timestamp
+       :format '((:year 4) #\- (:month 2) #\- (:day 2) #\Space
+                 (:hour 2) #\: (:min 2)))
+      "unknown"))
 
 (defparameter *poll-options-line-max* 400
   "Maximum characters of an options-line's content before it is split across

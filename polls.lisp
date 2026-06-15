@@ -209,9 +209,38 @@ polls created by CREATOR."
         (format nil "in ~A" (format-duration secs))
         "soon")))
 
+(defparameter *poll-options-line-max* 400
+  "Maximum characters of an options-line's content before it is split across
+multiple PRIVMSGs.  Kept well under IRC's ~512-byte line limit to leave room
+for the channel target and the \"poll:: \" prefix the publisher prepends.")
+
+(defun pack-poll-options (options &key (max-width *poll-options-line-max*))
+  "Format OPTIONS (a list of (num text)) as \"N) text\" entries packed,
+greedily, into as few indented lines as possible without exceeding MAX-WIDTH
+characters per line.  Normally everything fits on one line; only genuinely
+long option labels spill onto further lines.  Returns a list of strings."
+  (let ((entries (loop for (num text) in options
+                       collect (format nil "~D) ~A" num text)))
+        (lines '())
+        (current nil))
+    (dolist (entry entries)
+      (let ((candidate (if current (format nil "~A   ~A" current entry) entry)))
+        (if (and current (> (length candidate) max-width))
+            (progn (push current lines)
+                   (setf current entry))
+            (setf current candidate))))
+    (when current (push current lines))
+    (mapcar (lambda (line) (format nil "  ~A" line)) (nreverse lines))))
+
 (defun format-poll-announcement (poll-id)
-  "Build the multi-line channel announcement published for POLL-ID.
-Returns a list of strings, or NIL if the poll is missing."
+  "Build the channel announcement published for POLL-ID as a compact layout:
+a header, the options (normally a single line), and a vote / closes line.
+Returns a list of strings, or NIL if the poll is missing.
+
+IRC has no multi-line message, so each element is sent as its own PRIVMSG;
+keeping the options together on one line lets a multi-option poll be read at
+a glance instead of scattered across several messages.  PACK-POLL-OPTIONS
+splits the options onto additional lines should they exceed a safe length."
   (let ((poll (db-get-poll poll-id))
         (options (db-poll-options poll-id)))
     (when poll
@@ -220,10 +249,9 @@ Returns a list of strings, or NIL if the poll is missing."
         (declare (ignore channel creator published closed announced))
         (append
          (list (format nil "📊  Poll #~D: ~A" pid question))
-         (loop for (num text) in options
-               collect (format nil "  ~D) ~A" num text))
-         (list (format nil "Vote with: !poll vote ~D <number>  (closes ~A)"
-                       pid (format-poll-deadline expires-at))))))))
+         (pack-poll-options options)
+         (list (format nil "  Vote: !poll vote ~D <n>  ·  closes ~A"
+                        pid (format-poll-deadline expires-at))))))))
 
 (defun format-poll-results (poll-id &key closed)
   "Build a multi-line results report for POLL-ID.  When CLOSED is true the

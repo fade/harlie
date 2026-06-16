@@ -653,6 +653,132 @@ ALTER TABLE ONLY public.phrase_votes
 
 
 --
+-- Name: polls; Type: TABLE; Schema: public; Owner: <bot_runner_uid>
+--
+
+CREATE TABLE public.polls (
+    poll_id integer NOT NULL,
+    channel text NOT NULL,
+    question text NOT NULL,
+    creator text NOT NULL,
+    created_at timestamp with time zone DEFAULT now(),
+    expires_at timestamp with time zone NOT NULL,
+    published boolean DEFAULT false NOT NULL,
+    closed boolean DEFAULT false NOT NULL,
+    announced boolean DEFAULT false NOT NULL
+);
+
+
+ALTER TABLE public.polls OWNER TO <bot_runner_uid>;
+
+--
+-- Name: polls_poll_id_seq; Type: SEQUENCE; Schema: public; Owner: <bot_runner_uid>
+--
+
+CREATE SEQUENCE public.polls_poll_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.polls_poll_id_seq OWNER TO <bot_runner_uid>;
+
+--
+-- Name: polls_poll_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: <bot_runner_uid>
+--
+
+ALTER SEQUENCE public.polls_poll_id_seq OWNED BY public.polls.poll_id;
+
+--
+-- Name: poll_options; Type: TABLE; Schema: public; Owner: <bot_runner_uid>
+--
+
+CREATE TABLE public.poll_options (
+    poll_id integer NOT NULL,
+    option_num integer NOT NULL,
+    option_text text NOT NULL
+);
+
+
+ALTER TABLE public.poll_options OWNER TO <bot_runner_uid>;
+
+--
+-- Name: poll_votes; Type: TABLE; Schema: public; Owner: <bot_runner_uid>
+--
+
+CREATE TABLE public.poll_votes (
+    poll_id integer NOT NULL,
+    voter text NOT NULL,
+    option_num integer NOT NULL,
+    voted_at timestamp with time zone DEFAULT now()
+);
+
+
+ALTER TABLE public.poll_votes OWNER TO <bot_runner_uid>;
+
+--
+-- Name: polls poll_id; Type: DEFAULT; Schema: public; Owner: <bot_runner_uid>
+--
+
+ALTER TABLE ONLY public.polls ALTER COLUMN poll_id SET DEFAULT nextval('public.polls_poll_id_seq'::regclass);
+
+--
+-- Name: polls polls_pkey; Type: CONSTRAINT; Schema: public; Owner: <bot_runner_uid>
+--
+
+ALTER TABLE ONLY public.polls
+    ADD CONSTRAINT polls_pkey PRIMARY KEY (poll_id);
+
+--
+-- Name: poll_options poll_options_pkey; Type: CONSTRAINT; Schema: public; Owner: <bot_runner_uid>
+--
+
+ALTER TABLE ONLY public.poll_options
+    ADD CONSTRAINT poll_options_pkey PRIMARY KEY (poll_id, option_num);
+
+--
+-- Name: poll_votes poll_votes_pkey; Type: CONSTRAINT; Schema: public; Owner: <bot_runner_uid>
+--
+
+ALTER TABLE ONLY public.poll_votes
+    ADD CONSTRAINT poll_votes_pkey PRIMARY KEY (poll_id, voter);
+
+--
+-- Name: polls_channel_idx; Type: INDEX; Schema: public; Owner: <bot_runner_uid>
+--
+
+CREATE INDEX polls_channel_idx ON public.polls USING btree (channel);
+
+--
+-- Name: polls_sweep_idx; Type: INDEX; Schema: public; Owner: <bot_runner_uid>
+--
+
+CREATE INDEX polls_sweep_idx ON public.polls USING btree (announced, closed, expires_at);
+
+--
+-- Name: poll_votes_poll_idx; Type: INDEX; Schema: public; Owner: <bot_runner_uid>
+--
+
+CREATE INDEX poll_votes_poll_idx ON public.poll_votes USING btree (poll_id);
+
+--
+-- Name: poll_options poll_options_poll_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: <bot_runner_uid>
+--
+
+ALTER TABLE ONLY public.poll_options
+    ADD CONSTRAINT poll_options_poll_id_fkey FOREIGN KEY (poll_id) REFERENCES public.polls(poll_id) ON DELETE CASCADE;
+
+--
+-- Name: poll_votes poll_votes_poll_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: <bot_runner_uid>
+--
+
+ALTER TABLE ONLY public.poll_votes
+    ADD CONSTRAINT poll_votes_poll_id_fkey FOREIGN KEY (poll_id) REFERENCES public.polls(poll_id) ON DELETE CASCADE;
+
+--
 -- PostgreSQL database dump complete
 --
 

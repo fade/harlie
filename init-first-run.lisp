@@ -64,6 +64,28 @@ the table ownership, and excecute the schema."
   (with-connection (db-credentials *bot-config*)
     (execute-file sqlfile)))
 
+(defparameter *startup-migrations*
+  (list "add-polls-tables.sql")
+  "Idempotent SQL migrations under the database directory that are applied
+on every startup.  This lets schema changes ship with the code: a rebuild
+and restart brings an existing database up to date with no manual psql
+step.  Each listed migration MUST be safe to run repeatedly (it should use
+CREATE TABLE IF NOT EXISTS and similar guards).")
+
+(defun apply-startup-migrations ()
+  "Apply each migration in *STARTUP-MIGRATIONS* to the live database.
+Errors are logged rather than signalled so a single bad migration cannot
+stop the bot from starting."
+  (dolist (name *startup-migrations*)
+    (let ((file (merge-pathnames *here-db* name)))
+      (handler-case
+          (progn
+            (with-connection (db-credentials *bot-config*)
+              (execute-file file))
+            (log:info "~&[MIGRATION] Applied ~A" name))
+        (error (e)
+          (log:warn "~&[MIGRATION] Failed to apply ~A: ~A" name e))))))
+
 (defun initialize-startup-maybe (&key (go? nil))
   (let* ((db-template (merge-pathnames *here-db* "bot-schema.sql.template"))
          (db-schema   (merge-pathnames *here-db* "bot-schema.sql")))
@@ -77,6 +99,9 @@ the table ownership, and excecute the schema."
         (log:info "Creating tables for the various required users...")
         (uiop:copy-file db-template db-schema)
         (make-base-tables db-schema)))
+    ;; Apply idempotent migrations on every startup, so a rebuild and
+    ;; restart brings the database up to date with no manual psql step.
+    (apply-startup-migrations)
     ;; Sync contexts table from config on every startup.
     (when go?
       (load-contexts))))

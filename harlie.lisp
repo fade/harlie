@@ -23,12 +23,14 @@
   (sleep 3)
   (start-threaded-irc-client-instances :go? t)
   (start-cron)
-  (add-canonical-crons)) ;; don't start slynk here. it doesn't work.
+  (add-canonical-crons)
+  (start-poll-sweeper)) ;; don't start slynk here. it doesn't work.
 
 
 (defun kill-bot ()
   "Disconnect from the IRC server, clean up persistent data, shut down the Web servers."
   (stop-threaded-irc-client-instances)
+  (stop-poll-sweeper)
   (setf *users* nil)
   (setf *random-state* nil)  
   (stop-web-servers)

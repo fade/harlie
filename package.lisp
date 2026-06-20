@@ -107,6 +107,9 @@
 	   #:pending-memo-channel
 	   #:pending-memo-message
 	   #:pending-memo-created-at
-	   #:pending-memo-delivered-p))
+	   #:pending-memo-delivered-p
+	   ;; Static bot-ignore (REPL operator commands)
+	   #:force-ignore-bot
+	   #:unforce-ignore-bot))
 
 (local-time:set-local-time-cl-postgres-readers)

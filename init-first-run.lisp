@@ -65,7 +65,8 @@ the table ownership, and excecute the schema."
     (execute-file sqlfile)))
 
 (defparameter *startup-migrations*
-  (list "add-polls-tables.sql")
+  (list "add-polls-tables.sql"
+        "add-force-ignored-column.sql")
   "Idempotent SQL migrations under the database directory that are applied
 on every startup.  This lets schema changes ship with the code: a rebuild
 and restart brings an existing database up to date with no manual psql
@@ -91,7 +92,9 @@ stop the bot from starting."
          (db-schema   (merge-pathnames *here-db* "bot-schema.sql")))
     (handler-case
         (with-connection (db-credentials *bot-config*)
-          (select-dao 'harlie-user))
+          ;; Probe with a raw query rather than a DAO select so this check does
+          ;; not depend on the current DAO column set (which migrations extend).
+          (query "SELECT 1 FROM public.harlie_user LIMIT 1"))
       (DATABASE-ERROR (e)
         (log:debug "Database probably hasn't been created.. ~A" e)
         (log:info "Creating database to stand up the bot...")

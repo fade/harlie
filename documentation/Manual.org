@@ -155,14 +155,65 @@ No manual SQL is required.
 The contexts table will look like this after restart:
 
 #+begin_example
-  botdb=# SELECT context_id, context_name, irc_server, irc_channel, web_port
-          FROM contexts;
-    =>
-   context_id | context_name |    irc_server    | irc_channel | web_port
-  ------------+--------------+------------------+-------------+----------
-            1 | Jankist      | irc.libera.chat  | #deepsky    |     8888
-            2 | NewNick      | irc.libera.chat  | #newchannel |     9000
+botdb=# SELECT context_id, context_name, irc_server, irc_channel, web_port
+        FROM contexts;
+ context_id | context_name |    irc_server    | irc_channel | web_port
+------------+--------------+------------------+-------------+----------
+          1 | Jankist      | irc.libera.chat  | #deepsky    |     8888
+          2 | NewNick      | irc.libera.chat  | #newchannel |     9000
 #+end_example
+
+* Ignoring Misbehaving Bots
+
+Harlie coordinates with other bots so they don't talk over each other.
+On joining a channel a well-behaved bot announces itself by emitting the
+sentinel phrase in ~*ignore-phrase*~ (by default ~NOTIFY:: Help, I'm a
+bot!~).  When Harlie hears that phrase it stops responding to the
+speaker, and remembers the decision per channel so it survives restarts.
+
+Some bots never emit the sentinel — they're broken, or simply don't
+speak the convention.  For those, an operator can mute them by hand from
+the REPL.
+
+** Muting a bot
+
+#+begin_src lisp
+(harlie:force-ignore-bot "spammybot")
+#+end_src
+
+This marks the nick as a bot to be ignored in *every* channel it appears
+in — those it is already in, and any it joins later — and the mark
+persists across restarts.  It drives the same machinery the sentinel
+does, so a force-ignored bot is indistinguishable from one that
+announced itself: Harlie applies the ignore when the nick joins, when it
+is already present as Harlie joins, and again on the next startup.
+
+Nick matching is exact.  If the bot returns under a different nick, mute
+that nick too.
+
+** Unmuting a bot
+
+Once the bot is repaired:
+
+#+begin_src lisp
+(harlie:unforce-ignore-bot "spammybot")
+#+end_src
+
+This clears the persistent mark, clears any stored per-channel ignores
+for that nick so a later rejoin stays audible, and unmutes it in the
+live channels Harlie is currently in.
+
+** Notes
+
+- These are REPL-only commands.  There is no IRC command for them,
+  because Harlie has no operator-authentication model yet — an in-channel
+  command could be turned against ordinary users.
+- The mute is keyed on the nick, stored as the ~force_ignored~ flag on
+  the user record in the database.  Existing databases gain that column
+  automatically on the next startup; no manual SQL is required.
+- A user who has muted *themselves* with ~!ignoreme~ can lift it with
+  ~!ignoreme off~.  A bot muted with ~force-ignore-bot~ cannot unmute
+  itself that way — only ~unforce-ignore-bot~ lifts it.
 
 * Migrating a Legacy Installation
 

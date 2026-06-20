@@ -197,6 +197,51 @@ sender wasn't being ignored; true otherwise."))
         (progn
           (log:debug "~&STOP-IGNORING call on an unignored user:: CHAN: ~A~%THEUSERSTATE: ~A~%THIS-USER: ~A~%THIS-CHANNEL: ~A~%CHANNEL/USER-MAP: ~A~%" chan theuserstate this-user this-channel channel/user-map)))))
 
+(defun sync-ignore-cache (nick ignored-p)
+  "Set the cached ignore disposition for NICK to IGNORED-P in every live channel
+   that holds a cached CHANNEL-USER entry for it, keeping the in-memory
+   IGNORE-STICKY state consistent with the database."
+  (loop for conn being the hash-values in *irc-connections*
+        do (loop for chanobj being the hash-values in (channels conn)
+                 do (let ((c/u (gethash nick (ignore-sticky chanobj))))
+                      (when c/u
+                        (setf (ignored c/u) ignored-p))))))
+
+(defun force-ignore-bot (nick)
+  "Operator command (REPL only).  Mark NICK as a misbehaving bot to be ignored
+   in every channel it appears in, now and on every future join, persisting
+   across restarts.  This drives the same per-channel ignore machinery a
+   well-behaved bot triggers by emitting the NOTIFY join sentinel; a misbehaving
+   bot won't announce itself, so the operator marks it here instead.  Lift it
+   with UNFORCE-IGNORE-BOT once the bot is repaired."
+  (with-connection (db-credentials *bot-config*)
+    (let ((user (get-user-for-handle nick)))
+      (setf (force-ignored user) t)
+      (update-dao user)
+      ;; Apply immediately wherever we currently see this nick; channels it
+      ;; joins later are handled by the join / namreply hooks.
+      (loop for conn being the hash-values in *irc-connections*
+            do (loop for cname being the hash-keys in (channels conn)
+                       using (hash-value chanobj)
+                     do (when (clatter-irc:channel-find-user chanobj nick)
+                          (start-ignoring conn nick cname))))
+      (log:info "~&[FORCE-IGNORE] Now force-ignoring bot ~A.~%" nick)
+      user)))
+
+(defun unforce-ignore-bot (nick)
+  "Lift a force-ignore set by FORCE-IGNORE-BOT: clear the persistent per-user
+   flag, clear any persisted per-channel ignore rows for NICK so a later rejoin
+   won't resurrect the ignore, and sync the live per-channel caches."
+  (with-connection (db-credentials *bot-config*)
+    (let ((user (get-user-for-handle nick)))
+      (setf (force-ignored user) nil)
+      (update-dao user)
+      (execute (:update 'channel-user :set 'ignored nil
+                :where (:= 'user-id (harlie-user-id user))))
+      (sync-ignore-cache nick nil)
+      (log:info "~&[FORCE-IGNORE] No longer force-ignoring bot ~A.~%" nick)
+      user)))
+
 (defun ignoring-whom ()
   "Convenience function to print out who's on the global ignore list."
   (maphash #'(lambda (k v)
@@ -550,7 +595,8 @@ a specific user in a specific channel."))
       (progn
         (log:debug "~2&[NEW USER OBJECT FOR USER JOIN] -> [ ~A ][ ~A ]" uobject (current-handle uobject))
 
-        (if (ignored channel/user-map)
+        (if (or (ignored channel/user-map)
+                (force-ignored uobject))
             (progn
               (log:debug "~2& IGNORING USER: ~A~%" (current-handle uobject))
               (start-ignoring conn joining-nick channel-name))
@@ -638,8 +684,10 @@ access this object when we aren't in the throes of a message event."))
                                     ;; set the channel/user-map state in the BOT-IRC-CHANNEL object
                                     (setf                                   
                                      (gethash this-user-name (ignore-sticky chan-obj-hash)) channel/user-map)
-                                    ;; if the name is ignored in the database, ignore it in the world
-                                    (when (ignored channel/user-map)
+                                    ;; If the name is ignored in the database, or is a
+                                    ;; force-ignored bot, ignore it in the world.
+                                    (when (or (ignored channel/user-map)
+                                              (force-ignored this-user))
                                       (start-ignoring conn this-user-name channel)))))))))))))))
 
 (defun make-irc-client-instance-thunk (nickname channel channel-key ircserver connection

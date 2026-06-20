@@ -116,7 +116,13 @@
    (harlie-user-memo :col-type text
                      :initarg :harlie-user-memo
                      :initform ""
-                     :accessor harlie-user-memo))
+                     :accessor harlie-user-memo)
+
+   (force-ignored :col-type boolean
+                  :col-default nil
+                  :initform nil
+                  :initarg :force-ignored
+                  :accessor force-ignored))
 
   (:documentation "This table holds the user metadata for users being served by the bot.")
   (:metaclass postmodern:dao-class)

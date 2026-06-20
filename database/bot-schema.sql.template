@@ -119,7 +119,8 @@ CREATE TABLE public.harlie_user (
     authenticated_ boolean NOT NULL,
     first_seen timestamp with time zone NOT NULL,
     last_seen timestamp with time zone NOT NULL,
-    harlie_user_memo text NOT NULL
+    harlie_user_memo text NOT NULL,
+    force_ignored boolean DEFAULT false NOT NULL
 );
 
 

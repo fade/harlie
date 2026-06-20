@@ -222,36 +222,46 @@ allowing for leading and trailing punctuation characters in the match."
   "Determine whether to trigger an utterance based on something we heard.
    If so, return the (possibly rewritten) token list against which to chain
    the output.  If not, return nil."
-  (let ((recognizer (make-name-detector (bot-nick context)))
-	(trigger-word (find-if #'(lambda (s) (member s token-list :test #'string-equal)) (trigger-list channel))))
-    (cond ((> 10 (length (trigger-list channel)))
-	   (progn
-	     (log:debug "[~&in triggered] ~A~%" (trigger-list channel))
-	     (setf (trigger-list channel) (append (trigger-list channel) token-list))
-	     (log:debug "[~&after append token list in triggered] ~A~%" (trigger-list channel))
-	     (when (< 10 (length (trigger-list channel)))
-	       (setf (trigger-list channel) (subseq (trigger-list channel) 0 10)))
-	     nil)
-	   (remove-if-not recognizer token-list)
-	   (mapcar #'(lambda (s)
-		       (if (funcall recognizer s)
-			   (regex-replace (string-upcase (bot-nick context)) (string-upcase s) sender)
-			   s))
-		   token-list))
-	  (trigger-word
-	   (progn
-	     (setf (trigger-list channel)
-		   (remove trigger-word (trigger-list channel) :test #'string=))
-	     (setf (trigger-list channel)
-		   (append (trigger-list channel)
-			   (random-words context
-					 (- 10 (length (trigger-list channel)))
-					 #'acceptable-word-p)))
-	     token-list))
-	  ((< (random 1.0) *spontaneous-reply-chance*)
-	   (log:debug "[~&in triggered] spontaneous reply fired~%")
-	   token-list)
-	  (t nil))))
+  (let* ((recognizer (make-name-detector (bot-nick context)))
+	 (addressed (some recognizer token-list))
+	 (trigger-word (find-if #'(lambda (s)
+				    (member s token-list :test #'string-equal))
+				(trigger-list channel))))
+    ;; Keep the channel trigger list topped up to 10 words so the
+    ;; trigger-word path below has something to match against.  A sparse
+    ;; chaining database can leave it short, so refill from the incoming
+    ;; tokens first and truncate back to 10.
+    (when (< (length (trigger-list channel)) 10)
+      (log:debug "[~&in triggered] topping up trigger list: ~A~%" (trigger-list channel))
+      (setf (trigger-list channel) (append (trigger-list channel) token-list))
+      (when (< 10 (length (trigger-list channel)))
+	(setf (trigger-list channel) (subseq (trigger-list channel) 0 10))))
+    (cond
+      ;; The bot was addressed by name: always reply, rewriting the name
+      ;; to the speaker so the Markov chain answers in the second person.
+      (addressed
+       (log:debug "[~&in triggered] addressed by name~%")
+       (mapcar #'(lambda (s)
+		   (if (funcall recognizer s)
+		       (regex-replace (string-upcase (bot-nick context))
+				      (string-upcase s) sender)
+		       s))
+	       token-list))
+      ;; A trigger word was heard: reply and refresh that slot.
+      (trigger-word
+       (setf (trigger-list channel)
+	     (remove trigger-word (trigger-list channel) :test #'string=))
+       (setf (trigger-list channel)
+	     (append (trigger-list channel)
+		     (random-words context
+				   (- 10 (length (trigger-list channel)))
+				   #'acceptable-word-p)))
+       token-list)
+      ;; Otherwise, occasionally pipe up unprompted.
+      ((< (random 1.0) *spontaneous-reply-chance*)
+       (log:debug "[~&in triggered] spontaneous reply fired~%")
+       token-list)
+      (t nil))))
 
 (defun extract-urls (text)
   (all-matches-as-strings "((http|https)://[^\\s]+)|(www[.][^\\s.][^\\s]*[.][^\\s.][^\\s]*)" text))
@@ -284,7 +294,8 @@ allowing for leading and trailing punctuation characters in the match."
     (return-from ignoring nil))
 
   (let ((ignore-phrase *ignore-phrase*))
-    (cond ((string= ignore-phrase text)
+    (cond ((string-equal (string-trim '(#\Space #\Tab #\Return #\Newline) text)
+                         (string-trim '(#\Space #\Tab #\Return #\Newline) ignore-phrase))
            (log:debug "Caught BOT Ignore Phrase, ignoring cousin from across the river: ~A on channel: ~A"
                       sender channel)
 	   (when (start-ignoring connection sender channel-name)
@@ -313,8 +324,11 @@ allowing for leading and trailing punctuation characters in the match."
                             (return-from ignoring (ignored channel-user-ignored?))
                             (return-from ignoring nil))))
                     (t (return-from ignoring nil))))))
-    ;; As there was an ignore toggle command, it's been handled and so should be ignored.
-    nil))
+    ;; Reaching here means one of the ignore commands above (the bot
+    ;; announce phrase, !ignoreme, or !ignoreme off) matched and has been
+    ;; handled, so report t to stop msg-hook from also routing it to the
+    ;; plugin dispatcher (which would answer "unknown command").
+    t))
 
 (defun msg-hook (conn msg sender channel-name text action)
   "Handle an incoming message.

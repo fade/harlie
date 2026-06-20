@@ -217,9 +217,11 @@ a single web-server-name."
 ;; Tunable at runtime (e.g. from the Slynk REPL) to make the bot more or
 ;; less chatty and sarcastic without rebuilding.
 
-(defparameter *spontaneous-reply-chance* 0.08
-  "Probability [0.0-1.0] that the bot fires an unprompted Markov reply to a
-message containing no trigger word.  0.0 disables spontaneous chatter.")
+;; *spontaneous-reply-chance* is defined in config.lisp so it can be tuned
+;; per site without editing this file.  It controls the probability
+;; [0.0-1.0] that the bot fires an unprompted Markov reply to a message
+;; containing no trigger word.  It is still rebindable at runtime from the
+;; REPL.
 
 (defparameter *snark-chance* 0.10
   "Probability [0.0-1.0] that the bot tags a Markov reply with a sarcastic

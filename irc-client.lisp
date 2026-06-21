@@ -282,9 +282,10 @@ allowing for leading and trailing punctuation characters in the match."
       (when (< 10 (length (trigger-list channel)))
 	(setf (trigger-list channel) (subseq (trigger-list channel) 0 10))))
     (cond
-      ;; The bot was addressed by name: always reply, rewriting the name
-      ;; to the speaker so the Markov chain answers in the second person.
-      (addressed
+      ;; The bot was addressed by name: reply only when *reply-when-addressed*
+      ;; is non-nil, rewriting the name to the speaker so the Markov chain
+      ;; answers in the second person.
+      ((and addressed *reply-when-addressed*)
        (log:debug "[~&in triggered] addressed by name~%")
        (mapcar #'(lambda (s)
 		   (if (funcall recognizer s)

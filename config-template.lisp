@@ -12,6 +12,11 @@
 (defparameter *ignore-phrase* "NOTIFY:: Help, I'm a bot!"
   "Bot emits this phrase on channel join to announce its botness.")
 
+;; When non-nil, the bot always replies when addressed by name.
+;; Default nil: name mentions are not a special trigger (original behaviour).
+;; Rebindable at runtime from the Slynk REPL.
+(defparameter *reply-when-addressed* nil)
+
 ;; How chatty the bot is.  Probability [0.0-1.0] that it fires an
 ;; unprompted Markov reply to a message that contains no trigger word and
 ;; does not address the bot by name.  0.0 disables spontaneous chatter.

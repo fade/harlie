@@ -217,12 +217,18 @@ a single web-server-name."
 ;; Tunable at runtime (e.g. from the Slynk REPL) to make the bot more or
 ;; less chatty and sarcastic without rebuilding.
 
-;; The canonical place to tune this per site is config.lisp (and the
+;; The canonical place to tune these per site is config.lisp (and the
 ;; shipped config-template.lisp), both of which load before this file and
 ;; may set the value with defparameter.  We use defvar here as a safe
 ;; fallback so the variable is always bound even on a deployment whose
 ;; config.lisp predates this knob.  Still rebindable at runtime from the
 ;; REPL.
+(defvar *reply-when-addressed* nil
+  "When non-nil, the bot always replies when addressed by name (a token
+matching its nick appears in the message).  When nil (default), name
+mentions are not treated as a special trigger; the bot may still reply
+via a trigger word or the spontaneous chance.")
+
 (defvar *spontaneous-reply-chance* 0.08
   "Probability [0.0-1.0] that the bot fires an unprompted Markov reply to a
 message containing no trigger word.  0.0 disables spontaneous chatter.")
